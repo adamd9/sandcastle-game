@@ -1,0 +1,18 @@
+name: Game Improvement Agent
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  trigger-agent:
+    if: github.event.label.name == 'game-improvement'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign Copilot coding agent to issue
+        run: gh issue edit ${{ github.event.issue.number }} --assignee copilot --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
