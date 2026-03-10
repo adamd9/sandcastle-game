@@ -111,7 +111,7 @@ describe('POST /move', () => {
     const state = await request(app).get('/state');
     const cell = state.body.cells.find(c => c.x === 3 && c.y === 3);
     expect(cell).toBeDefined();
-    expect(cell.health).toBe(100);
+    expect(cell.health).toBe(60);
   });
 });
 

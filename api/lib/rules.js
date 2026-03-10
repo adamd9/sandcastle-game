@@ -11,16 +11,17 @@ export const ZONES = {
 export const ACTIONS_PER_TICK = 12;
 
 export const BLOCK_TYPES = {
-  dry_sand:    { initial_health: 40 },
-  wet_sand:    { initial_health: 60 },
-  packed_sand: { initial_health: 100 },
+  dry_sand:    { initial_health: 25 },
+  wet_sand:    { initial_health: 40 },
+  packed_sand: { initial_health: 60 },
 };
 
 export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE'];
 
-export const REINFORCE_AMOUNT = 20;
-export const MAX_HEALTH = 100;
+export const REINFORCE_AMOUNT = 15;
+export const MAX_HEALTH = 60;
 
 // Weather damage formulae
-export const rainDamage  = (rain_mm)       => Math.floor(rain_mm * 2);
-export const windDamage  = (wind_speed_kph) => Math.floor(wind_speed_kph / 5);
+export const BASE_DAMAGE = 5;  // minimum damage every tick regardless of weather
+export const rainDamage  = (rain_mm)        => BASE_DAMAGE + Math.floor(rain_mm * 10);
+export const windDamage  = (wind_speed_kph) => Math.floor(wind_speed_kph / 3);
