@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove, validateCommit, commitTurn } from '../lib/gameLogic.js';
+import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
@@ -73,66 +73,49 @@ export function createMcpRouter() {
     );
 
     server.tool(
-      'submit_move',
-      'Submit a single move action. Returns how many actions you have used this tick and how many remain. Call up to 12 times per tick.',
+      'submit_turn',
+      'Submit all your moves for this tick in a single call. Accepts up to 12 moves as an array. Auto-commits your turn — no separate end_turn call needed.',
       {
-        action: z.enum(['PLACE', 'REMOVE', 'REINFORCE'])
-          .describe('PLACE adds a new block; REMOVE deletes one of your blocks; REINFORCE adds 20 health (max 100) to one of your blocks.'),
-        x: z.number().int().min(0).max(19)
-          .describe('Grid x coordinate (0–19). You must stay within your zone.'),
-        y: z.number().int().min(0).max(19)
-          .describe('Grid y coordinate (0–19).'),
-        block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand']).optional()
-          .describe('Block type — required for PLACE. packed_sand has the highest health (100).'),
+        moves: z.array(z.object({
+          action: z.enum(['PLACE', 'REMOVE', 'REINFORCE'])
+            .describe('PLACE adds a new block; REMOVE deletes one of your blocks; REINFORCE adds 20 health (max 100) to one of your blocks.'),
+          x: z.number().int().min(0).max(19)
+            .describe('Grid x coordinate (0–19). You must stay within your zone.'),
+          y: z.number().int().min(0).max(19)
+            .describe('Grid y coordinate (0–19).'),
+          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand']).optional()
+            .describe('Block type — required for PLACE. packed_sand has the highest health (100).'),
+        })).min(1).max(ACTIONS_PER_TICK)
+          .describe('Array of moves to apply this tick, in order. Max 12.'),
       },
-      async ({ action, x, y, block_type }) => {
-        const state = await getState();
-        const moveAction = { action, x, y, type: block_type };
-        const result = validateMove(state, player, moveAction);
+      async ({ moves }) => {
+        let state = await getState();
 
-        if (!result.valid) {
+        if (state.players[player].turnCommitted) {
           return {
-            content: [{ type: 'text', text: `Move rejected: ${result.reason}` }],
+            content: [{ type: 'text', text: 'Turn already committed this tick.' }],
             isError: true,
           };
         }
 
-        const newState = applyMove(structuredClone(state), player, moveAction);
-        await saveState(newState);
-
-        const used = newState.players[player].actionsThisTick;
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              ok: true,
-              action,
-              x,
-              y,
-              actionsThisTick: used,
-              actionsRemaining: ACTIONS_PER_TICK - used,
-            }),
-          }],
-        };
-      },
-    );
-
-    server.tool(
-      'end_turn',
-      'Commit your turn for the current tick. After committing, no further moves can be made until the next tick. The opponent and game history can see whether you committed.',
-      {},
-      async () => {
-        const state = await getState();
-        const result = validateCommit(state, player);
-
-        if (!result.valid) {
-          return {
-            content: [{ type: 'text', text: `Cannot commit: ${result.reason}` }],
-            isError: true,
-          };
+        // Validate all moves up-front
+        for (let i = 0; i < moves.length; i++) {
+          const { action, x, y, block_type } = moves[i];
+          const result = validateMove(state, player, { action, x, y, type: block_type });
+          if (!result.valid) {
+            return {
+              content: [{ type: 'text', text: `Move ${i + 1} rejected: ${result.reason}` }],
+              isError: true,
+            };
+          }
         }
 
-        const newState = commitTurn(structuredClone(state), player);
+        // Apply all moves then auto-commit
+        let newState = structuredClone(state);
+        for (const { action, x, y, block_type } of moves) {
+          newState = applyMove(newState, player, { action, x, y, type: block_type });
+        }
+        newState = commitTurn(newState, player);
         await saveState(newState);
 
         return {
@@ -140,9 +123,9 @@ export function createMcpRouter() {
             type: 'text',
             text: JSON.stringify({
               ok: true,
-              player,
-              turnCommitted: true,
+              applied: moves.length,
               actionsUsed: newState.players[player].actionsThisTick,
+              turnCommitted: true,
             }),
           }],
         };
