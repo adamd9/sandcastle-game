@@ -43,6 +43,9 @@ export function validateMove(state, player, action) {
   }
 
   const playerState = state.players[player];
+  if (playerState.turnCommitted) {
+    return { valid: false, reason: 'Turn already committed. Wait for the next tick.' };
+  }
   if (playerState.actionsThisTick >= ACTIONS_PER_TICK) {
     return { valid: false, reason: `Action budget exhausted (${ACTIONS_PER_TICK} actions per tick).` };
   }
@@ -127,8 +130,46 @@ export function applyMove(state, player, action) {
 }
 
 // ---------------------------------------------------------------------------
-// applyWeather — applies weather damage to all cells, removes destroyed ones
+// validateCommit / commitTurn — player signals their turn is done
 // ---------------------------------------------------------------------------
+
+export function validateCommit(state, player) {
+  const playerState = state.players[player];
+  if (playerState.turnCommitted) {
+    return { valid: false, reason: 'Turn already committed this tick.' };
+  }
+  return { valid: true };
+}
+
+export function commitTurn(state, player) {
+  state.players[player].turnCommitted = true;
+  state.lastUpdated = new Date().toISOString();
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// recordRound — snapshots the current tick into history before advancing
+// ---------------------------------------------------------------------------
+
+export function recordRound(state) {
+  if (!state.history) state.history = [];
+  const round = {
+    tick: state.tick,
+    weather: { ...state.weather },
+    player1: {
+      actions: state.players.player1.actionsThisTick,
+      committed: state.players.player1.turnCommitted ?? false,
+      blocks: state.cells.filter(c => c.owner === 'player1').length,
+    },
+    player2: {
+      actions: state.players.player2.actionsThisTick,
+      committed: state.players.player2.turnCommitted ?? false,
+      blocks: state.cells.filter(c => c.owner === 'player2').length,
+    },
+  };
+  state.history.push(round);
+  return state;
+}
 
 const WIND_DIRECTION_VECTORS = {
   N:  { axis: 'y', edge: 0,               comparator: (_x, y) => y === 0 },
@@ -165,6 +206,7 @@ export function applyWeather(state) {
   // Reset action counters
   for (const player of Object.keys(state.players)) {
     state.players[player].actionsThisTick = 0;
+    state.players[player].turnCommitted = false;
   }
 
   state.tick += 1;

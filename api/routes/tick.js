@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
-import { applyWeather } from '../lib/gameLogic.js';
+import { applyWeather, recordRound } from '../lib/gameLogic.js';
 import { fetchWeather } from '../lib/weather.js';
 
 const router = Router();
@@ -35,7 +35,8 @@ router.post('/', authenticate, async (_req, res) => {
     const state = await getState();
     state.weather = weather;
 
-    const newState = applyWeather(structuredClone(state));
+    const withHistory = recordRound(structuredClone(state));
+    const newState = applyWeather(withHistory);
     await saveState(newState);
 
     res.json({

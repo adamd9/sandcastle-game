@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove } from '../lib/gameLogic.js';
+import { validateMove, applyMove, validateCommit, commitTurn } from '../lib/gameLogic.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
@@ -27,6 +27,9 @@ const RULES_DOC = {
   weather_effects: {
     rain: `Each cell loses floor(rain_mm * 2) health per tick`,
     wind: `Cells on the windward edge lose an additional floor(wind_speed_kph / 5) health per tick`,
+  },
+  turn_commitment: {
+    description: 'Use the end_turn tool to commit your turn. Once committed, no further moves are allowed until the next tick. The game records whether each player committed in the round history. Your opponent can see your commitment status via get_state.',
   },
 };
 
@@ -108,6 +111,38 @@ export function createMcpRouter() {
               y,
               actionsThisTick: used,
               actionsRemaining: ACTIONS_PER_TICK - used,
+            }),
+          }],
+        };
+      },
+    );
+
+    server.tool(
+      'end_turn',
+      'Commit your turn for the current tick. After committing, no further moves can be made until the next tick. The opponent and game history can see whether you committed.',
+      {},
+      async () => {
+        const state = await getState();
+        const result = validateCommit(state, player);
+
+        if (!result.valid) {
+          return {
+            content: [{ type: 'text', text: `Cannot commit: ${result.reason}` }],
+            isError: true,
+          };
+        }
+
+        const newState = commitTurn(structuredClone(state), player);
+        await saveState(newState);
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              ok: true,
+              player,
+              turnCommitted: true,
+              actionsUsed: newState.players[player].actionsThisTick,
             }),
           }],
         };

@@ -102,8 +102,10 @@
 
     /* ── God Mode ─────────────────────────────────────────────────── */
     #god-toggle {
-      margin: 10px auto 0;
-      display: block;
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 100;
       padding: 6px 18px;
       background: #2b1f0a;
       border: 1px solid #5a3e1b;
@@ -122,22 +124,24 @@
     }
     #god-panel {
       display: none;
-      margin: 10px auto;
-      max-width: 620px;
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      width: 220px;
       background: #1a1000;
       border: 1px solid #5a3e1b;
       border-radius: 6px;
-      padding: 14px 18px;
+      padding: 14px 14px;
       font-family: 'Courier New', monospace;
       color: #e8d5a3;
       font-size: 12px;
+      z-index: 100;
     }
-    #god-panel.visible { display: block; }
+    #god-panel.visible { display: flex; flex-direction: column; gap: 10px; }
     .god-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .god-label {
@@ -145,8 +149,8 @@
       letter-spacing: 1px;
       text-transform: uppercase;
       color: #a08050;
-      width: 80px;
-      flex-shrink: 0;
+      width: 100%;
+      margin-bottom: 2px;
     }
     .god-btn {
       padding: 4px 12px;
@@ -169,26 +173,60 @@
       cursor: default;
     }
     #god-tick-btn {
-      margin-top: 4px;
-      padding: 6px 20px;
+      padding: 6px 14px;
+      width: 100%;
       background: #3a1f00;
       border: 1px solid #c0602a;
       color: #f5a842;
       font-family: 'Courier New', monospace;
-      font-size: 13px;
+      font-size: 12px;
       border-radius: 6px;
       cursor: pointer;
       letter-spacing: 1px;
     }
     #god-tick-btn:hover { background: #5a2f00; }
+    #god-end-turn-btn {
+      padding: 6px 14px;
+      width: 100%;
+      background: #0a2b1f;
+      border: 1px solid #2ac060;
+      color: #7fc97f;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #god-end-turn-btn:hover { background: #0f3a28; }
+    #god-end-turn-btn.committed {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .stat-value.committed { color: #7fc97f; }
+    .stat-value.uncommitted { color: #8a7350; }
     #god-status {
-      margin-top: 8px;
-      font-size: 11px;
+      font-size: 10px;
       color: #a08050;
       min-height: 16px;
+      line-height: 1.4;
+      word-break: break-word;
     }
     #god-status.ok  { color: #7fc97f; }
     #god-status.err { color: #e05050; }
+    .god-erase-btn { border-color: #e05050 !important; color: #f87171 !important; }
+    .god-erase-btn.selected { background: #e05050 !important; color: #fff !important; border-color: #e05050 !important; }
+    #god-budget-warn {
+      display: none;
+      padding: 6px 10px;
+      background: #3a1500;
+      border: 1px solid #e05050;
+      border-radius: 4px;
+      color: #f87171;
+      font-size: 10px;
+      text-align: center;
+      line-height: 1.4;
+    }
+    #god-budget-warn.visible { display: block; }
   </style>
 </head>
 <body>
@@ -198,9 +236,14 @@
 <div id="status-bar">
   <div class="stat"><span class="stat-label">Tick</span><span class="stat-value" id="stat-tick">—</span></div>
   <div class="stat"><span class="stat-label">P1 Blocks</span><span class="stat-value" id="stat-p1">—</span></div>
+  <div class="stat"><span class="stat-label">P1 Actions</span><span class="stat-value" id="stat-p1-actions">—</span></div>
+  <div class="stat"><span class="stat-label">P1 Turn</span><span class="stat-value" id="stat-p1-committed">—</span></div>
   <div class="stat"><span class="stat-label">P2 Blocks</span><span class="stat-value" id="stat-p2">—</span></div>
+  <div class="stat"><span class="stat-label">P2 Actions</span><span class="stat-value" id="stat-p2-actions">—</span></div>
+  <div class="stat"><span class="stat-label">P2 Turn</span><span class="stat-value" id="stat-p2-committed">—</span></div>
   <div class="stat"><span class="stat-label">Rain</span><span class="stat-value" id="stat-rain">—</span></div>
   <div class="stat"><span class="stat-label">Wind</span><span class="stat-value" id="stat-wind">—</span></div>
+  <div class="stat"><span class="stat-label">Rounds</span><span class="stat-value" id="stat-rounds">—</span></div>
 </div>
 
 <div id="canvas-wrap">
@@ -226,26 +269,26 @@
 <div id="god-panel">
   <div class="god-row">
     <span class="god-label">Player</span>
-    <button class="god-btn selected" data-god-player="player1">Player 1</button>
-    <button class="god-btn"          data-god-player="player2">Player 2</button>
+    <button class="god-btn selected" data-god-player="player1">P1</button>
+    <button class="god-btn"          data-god-player="player2">P2</button>
   </div>
   <div class="god-row">
     <span class="god-label">Action</span>
     <button class="god-btn selected" data-god-action="PLACE">PLACE</button>
     <button class="god-btn"          data-god-action="REMOVE">REMOVE</button>
-    <button class="god-btn"          data-god-action="REINFORCE">REINFORCE</button>
+    <button class="god-btn"          data-god-action="REINFORCE">REINF.</button>
+    <button class="god-btn god-erase-btn" data-god-action="ERASE">🧹 ERASE</button>
   </div>
   <div class="god-row" id="god-type-row">
     <span class="god-label">Block</span>
-    <button class="god-btn selected" data-god-type="packed_sand">packed_sand</button>
-    <button class="god-btn"          data-god-type="wet_sand">wet_sand</button>
-    <button class="god-btn"          data-god-type="dry_sand">dry_sand</button>
+    <button class="god-btn selected" data-god-type="packed_sand">packed</button>
+    <button class="god-btn"          data-god-type="wet_sand">wet</button>
+    <button class="god-btn"          data-god-type="dry_sand">dry</button>
   </div>
-  <div class="god-row">
-    <span class="god-label">Tick</span>
-    <button id="god-tick-btn">⚡ Trigger Tick</button>
-  </div>
-  <div id="god-status">Click a cell on the grid to make a move.</div>
+  <button id="god-end-turn-btn">✔ End Turn</button>
+  <button id="god-tick-btn">⚡ Trigger Tick</button>
+  <div id="god-budget-warn">⚠ Budget exhausted — trigger a tick to reset.</div>
+  <div id="god-status">Click a cell to act.</div>
 </div>
 
 <script>
@@ -349,6 +392,20 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(cell.health, cell.x * CELL_SIZE + CELL_SIZE / 2, cell.y * CELL_SIZE + CELL_SIZE / 2);
       }
+
+      // Session-placed indicator: small diamond in top-left corner
+      if (godMode && godSessionBlocks.has(`${cell.x},${cell.y}`)) {
+        const cx = cell.x * CELL_SIZE + 6;
+        const cy = cell.y * CELL_SIZE + 6;
+        ctx.fillStyle = '#f5c842';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 3);
+        ctx.lineTo(cx + 3, cy);
+        ctx.lineTo(cx, cy + 3);
+        ctx.lineTo(cx - 3, cy);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
   }
 
@@ -356,6 +413,7 @@
   // State polling
   // ---------------------------------------------------------------------------
   let lastTick = -1;
+  let lastCells = [];
 
   async function poll() {
     try {
@@ -363,6 +421,7 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const state = await res.json();
 
+      lastCells = state.cells;
       drawGrid(state.cells);
 
       // Status bar
@@ -372,6 +431,30 @@
       const p2 = state.cells.filter(c => c.owner === 'player2').length;
       document.getElementById('stat-p1').textContent = p1;
       document.getElementById('stat-p2').textContent = p2;
+
+      const p1a = state.players.player1.actionsThisTick;
+      const p2a = state.players.player2.actionsThisTick;
+      document.getElementById('stat-p1-actions').textContent = `${p1a}/12`;
+      document.getElementById('stat-p2-actions').textContent = `${p2a}/12`;
+
+      const p1c = state.players.player1.turnCommitted;
+      const p2c = state.players.player2.turnCommitted;
+      const p1cEl = document.getElementById('stat-p1-committed');
+      const p2cEl = document.getElementById('stat-p2-committed');
+      p1cEl.textContent = p1c ? '✔' : '…';
+      p1cEl.className = `stat-value ${p1c ? 'committed' : 'uncommitted'}`;
+      p2cEl.textContent = p2c ? '✔' : '…';
+      p2cEl.className = `stat-value ${p2c ? 'committed' : 'uncommitted'}`;
+
+      document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
+
+      // Update god mode end-turn button state
+      const endTurnBtn = document.getElementById('god-end-turn-btn');
+      if (endTurnBtn) {
+        const currentCommitted = state.players[godPlayer]?.turnCommitted;
+        endTurnBtn.classList.toggle('committed', !!currentCommitted);
+        endTurnBtn.textContent = currentCommitted ? '✔ Turn Committed' : '✔ End Turn';
+      }
 
       const w = state.weather;
       document.getElementById('stat-rain').textContent = `${w.rain_mm} mm`;
@@ -396,18 +479,25 @@
   let godAction = 'PLACE';
   let godBlockType = 'packed_sand';
   let godHoverCell = null; // {x, y} or null
+  let godBudgetExhausted = false;
+  const godSessionBlocks = new Set(); // tracks "x,y" keys placed this session
 
-  const godToggle  = document.getElementById('god-toggle');
-  const godPanel   = document.getElementById('god-panel');
-  const godStatus  = document.getElementById('god-status');
-  const godTypeRow = document.getElementById('god-type-row');
+  const godToggle   = document.getElementById('god-toggle');
+  const godPanel    = document.getElementById('god-panel');
+  const godStatus   = document.getElementById('god-status');
+  const godTypeRow  = document.getElementById('god-type-row');
+  const godBudgetEl = document.getElementById('god-budget-warn');
 
   // Toggle panel visibility
   godToggle.addEventListener('click', () => {
     godMode = !godMode;
     godToggle.classList.toggle('active', godMode);
     godPanel.classList.toggle('visible', godMode);
-    if (!godMode) godHoverCell = null;
+    if (!godMode) {
+      godHoverCell = null;
+      godSessionBlocks.clear();
+      drawGrid(lastCells);
+    }
   });
 
   // Generic button-group selector
@@ -421,7 +511,11 @@
     });
   }
 
-  bindGodButtons('data-god-player', v => { godPlayer = v; });
+  bindGodButtons('data-god-player', v => {
+    godPlayer = v;
+    godBudgetExhausted = false;
+    godBudgetEl.classList.remove('visible');
+  });
   bindGodButtons('data-god-action', v => {
     godAction = v;
     // Dim block-type buttons when action is not PLACE
@@ -443,8 +537,13 @@
       x: Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE),
       y: Math.floor((e.clientY - rect.top)  * scaleY / CELL_SIZE),
     };
+    drawGrid(lastCells);
+    drawGodOverlay();
   });
-  canvas.addEventListener('mouseleave', () => { godHoverCell = null; });
+  canvas.addEventListener('mouseleave', () => {
+    godHoverCell = null;
+    drawGrid(lastCells);
+  });
 
   // Hook into the render loop: after drawing, overlay the hover cell
   function drawGodOverlay() {
@@ -469,6 +568,57 @@
     const x = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
     const y = Math.floor((e.clientY - rect.top)  * scaleY / CELL_SIZE);
 
+    // Client-side zone check for game actions (not ERASE)
+    if (godAction !== 'ERASE') {
+      const inZone = godPlayer === 'player1' ? x <= 9 : x >= 10;
+      if (!inZone) {
+        godStatus.textContent = `✗ (${x},${y}) is outside ${godPlayer}'s zone`;
+        godStatus.className = 'err';
+        return;
+      }
+    }
+
+    // ERASE: only allowed on blocks placed this god mode session
+    if (godAction === 'ERASE') {
+      const key = `${x},${y}`;
+      if (!godSessionBlocks.has(key)) {
+        godStatus.textContent = `✗ (${x},${y}) wasn't placed this session — use REMOVE instead`;
+        godStatus.className = 'err';
+        return;
+      }
+      godStatus.textContent = `Erasing (${x},${y})…`;
+      godStatus.className = '';
+      try {
+        const res = await fetch(`${API_BASE}/god/erase`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x, y }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          godSessionBlocks.delete(key);
+          godStatus.textContent = `✓ Erased block at (${x},${y})`;
+          godStatus.className = 'ok';
+        } else {
+          godStatus.textContent = `✗ ${data.error}`;
+          godStatus.className = 'err';
+        }
+      } catch (err) {
+        godStatus.textContent = `✗ Network error: ${err.message}`;
+        godStatus.className = 'err';
+      }
+      await poll();
+      drawGodOverlay();
+      return;
+    }
+
+    // Game actions — block if budget exhausted
+    if (godBudgetExhausted) {
+      godStatus.textContent = '✗ Budget exhausted — trigger a tick first!';
+      godStatus.className = 'err';
+      return;
+    }
+
     const body = { player: godPlayer, action: godAction, x, y };
     if (godAction === 'PLACE') body.type = godBlockType;
 
@@ -486,6 +636,47 @@
         const typeStr = godAction === 'PLACE' ? ` ${godBlockType}` : '';
         godStatus.textContent = `✓ ${godAction}${typeStr} at (${x},${y}) for ${godPlayer} — actions used: ${data.actionsThisTick}/12`;
         godStatus.className = 'ok';
+        if (godAction === 'PLACE') godSessionBlocks.add(`${x},${y}`);
+        if (godAction === 'REMOVE') godSessionBlocks.delete(`${x},${y}`);
+        if (data.actionsThisTick >= 12) {
+          godBudgetExhausted = true;
+          godBudgetEl.classList.add('visible');
+        }
+      } else {
+        godStatus.textContent = `✗ ${data.error}`;
+        godStatus.className = 'err';
+        if (data.error && data.error.toLowerCase().includes('budget')) {
+          godBudgetExhausted = true;
+          godBudgetEl.classList.add('visible');
+        }
+        if (data.error && data.error.toLowerCase().includes('committed')) {
+          godBudgetEl.textContent = '⚠ Turn already committed — trigger a tick to start a new round.';
+          godBudgetEl.classList.add('visible');
+        }
+      }
+    } catch (err) {
+      godStatus.textContent = `✗ Network error: ${err.message}`;
+      godStatus.className = 'err';
+    }
+
+    await poll();
+    drawGodOverlay();
+  });
+
+  // End turn button
+  document.getElementById('god-end-turn-btn').addEventListener('click', async () => {
+    godStatus.textContent = `Committing turn for ${godPlayer}…`;
+    godStatus.className = '';
+    try {
+      const res = await fetch(`${API_BASE}/god/end-turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player: godPlayer }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        godStatus.textContent = `✓ ${godPlayer} turn committed`;
+        godStatus.className = 'ok';
       } else {
         godStatus.textContent = `✗ ${data.error}`;
         godStatus.className = 'err';
@@ -494,7 +685,6 @@
       godStatus.textContent = `✗ Network error: ${err.message}`;
       godStatus.className = 'err';
     }
-
     await poll();
     drawGodOverlay();
   });
@@ -507,6 +697,9 @@
       const res = await fetch(`${API_BASE}/god/tick`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
+        godBudgetExhausted = false;
+        godBudgetEl.classList.remove('visible');
+        godBudgetEl.textContent = '⚠ Budget exhausted — trigger a tick to reset.';
         godStatus.textContent = `✓ Tick ${data.tick} — rain: ${data.weather.rain_mm}mm, wind: ${data.weather.wind_speed_kph}kph ${data.weather.wind_direction}, cells: ${data.cellsRemaining}`;
         godStatus.className = 'ok';
       } else {
@@ -522,7 +715,12 @@
   });
 
   // Re-draw overlay after each poll for the auto-polling interval
-  const godOverlayInterval = setInterval(drawGodOverlay, 200);
+  const godOverlayInterval = setInterval(() => {
+    if (godMode && godHoverCell) {
+      drawGrid(lastCells);
+      drawGodOverlay();
+    }
+  }, 200);
 
 </script>
 </body>

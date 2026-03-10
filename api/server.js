@@ -5,6 +5,7 @@ import stateRouter from './routes/state.js';
 import moveRouter from './routes/move.js';
 import tickRouter from './routes/tick.js';
 import rulesRouter from './routes/rules.js';
+import endTurnRouter from './routes/end-turn.js';
 import godRouter from './routes/god.js';
 import { createMcpRouter } from './routes/mcp.js';
 
@@ -36,6 +37,7 @@ app.use('/rules', rulesRouter);
 app.use('/state', stateRouter);
 app.use('/move', moveRouter);
 app.use('/tick', tickRouter);
+app.use('/end-turn', endTurnRouter);
 app.use('/god', godRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

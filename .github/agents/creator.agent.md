@@ -14,7 +14,7 @@ When triggered by an issue labelled `game-improvement`:
 1. Read the issue carefully to understand the requested change
 2. Read the relevant source files — start with:
    - `api/lib/rules.js` — all game constants (grid size, zones, block types, damage formulas)
-   - `api/lib/gameLogic.js` — validateMove(), applyMove(), applyWeather()
+   - `api/lib/gameLogic.js` — validateMove(), applyMove(), applyWeather(), validateCommit(), commitTurn(), recordRound()
    - `api/public/index.html` — frontend canvas renderer
 3. Make the minimal change that faithfully addresses the request
 4. Open a pull request with:
@@ -22,6 +22,14 @@ When triggered by an issue labelled `game-improvement`:
    - Body: what changed and why, gameplay impact
    - Label: `agent-pr`
    - Only changed files — no unrelated refactoring
+
+## Game Mechanics
+
+- Players have 12 actions per tick (PLACE, REMOVE, REINFORCE)
+- Players commit their turn via `POST /end-turn` — once committed, no further moves until the next tick
+- The tick (weather cycle) records each round's history: actions taken, committed status, block counts, weather
+- State includes `players.*.turnCommitted` (boolean) and `history[]` (array of round records)
+- Round history is visible to both players via `GET /state` and the `get_state` MCP tool
 
 ## Constraints
 
