@@ -228,9 +228,22 @@
     }
     #god-budget-warn.visible { display: block; }
 
+    /* ── Game layout: main canvas left, history panel right ──────────── */
+    #game-layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    #game-main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
     /* ── Turn History Panel ───────────────────────────────────────────── */
     #history-panel {
-      width: 600px;
+      width: 320px;
       background: #2b1f0a;
       border: 1px solid #5a3e1b;
       border-radius: 6px;
@@ -277,7 +290,7 @@
     }
     .history-tab:hover { background: #332512; color: #e8d5a3; }
     .history-tab.active { color: #f5c842; border-bottom: 2px solid #f5c842; font-weight: bold; }
-    #history-list { padding: 8px 0; max-height: 420px; overflow-y: auto; }
+    #history-list { padding: 8px 0; max-height: 640px; overflow-y: auto; }
     .history-round {
       padding: 8px 16px 10px;
       border-bottom: 1px solid #3a2a0e;
@@ -321,6 +334,8 @@
   <div class="stat"><span class="stat-label">Rounds</span><span class="stat-value" id="stat-rounds">—</span></div>
 </div>
 
+<div id="game-layout">
+<div id="game-main">
 <div id="canvas-wrap">
   <canvas id="grid" width="600" height="600"></canvas>
   <div id="zone-labels">
@@ -338,6 +353,23 @@
 </div>
 
 <div id="error-msg"></div>
+</div>
+
+<div id="history-panel">
+  <div id="history-header">
+    <span id="history-title">📜 Turn History</span>
+    <span id="history-chevron" class="open">▲</span>
+  </div>
+  <div id="history-body">
+    <div id="history-tabs">
+      <button class="history-tab active" data-history-player="player1">Player 1 History</button>
+      <button class="history-tab"        data-history-player="player2">Player 2 History</button>
+    </div>
+    <div id="history-list"><div id="history-empty">No history yet.</div></div>
+  </div>
+</div>
+
+</div>
 
 <button id="god-toggle">⚡ God Mode</button>
 
@@ -364,20 +396,6 @@
   <button id="god-tick-btn">⚡ Trigger Tick</button>
   <div id="god-budget-warn">⚠ Budget exhausted — trigger a tick to reset.</div>
   <div id="god-status">Click a cell to act.</div>
-</div>
-
-<div id="history-panel">
-  <div id="history-header">
-    <span id="history-title">📜 Turn History</span>
-    <span id="history-chevron" class="open">▲</span>
-  </div>
-  <div id="history-body">
-    <div id="history-tabs">
-      <button class="history-tab active" data-history-player="player1">Player 1 History</button>
-      <button class="history-tab"        data-history-player="player2">Player 2 History</button>
-    </div>
-    <div id="history-list"><div id="history-empty">No history yet.</div></div>
-  </div>
 </div>
 
 <script>
