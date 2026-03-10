@@ -131,8 +131,8 @@ export function applyMove(state, player, action) {
 // ---------------------------------------------------------------------------
 
 const WIND_DIRECTION_VECTORS = {
-  N:  { axis: 'y', edge: 0,               comparator: (y) => y === 0 },
-  S:  { axis: 'y', edge: GRID_HEIGHT - 1, comparator: (y) => y === GRID_HEIGHT - 1 },
+  N:  { axis: 'y', edge: 0,               comparator: (_x, y) => y === 0 },
+  S:  { axis: 'y', edge: GRID_HEIGHT - 1, comparator: (_x, y) => y === GRID_HEIGHT - 1 },
   E:  { axis: 'x', edge: GRID_WIDTH - 1,  comparator: (x) => x === GRID_WIDTH - 1 },
   W:  { axis: 'x', edge: 0,               comparator: (x) => x === 0 },
   NE: { axis: 'both', comparator: (x, y) => y === 0 || x === GRID_WIDTH - 1 },
