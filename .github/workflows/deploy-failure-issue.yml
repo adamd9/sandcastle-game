@@ -1,0 +1,97 @@
+name: Report Deployment Failure
+
+on:
+  workflow_run:
+    workflows: ["Deploy API"]
+    types: [completed]
+
+permissions:
+  issues: write
+  actions: read
+
+jobs:
+  report-failure:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch failed job logs
+        id: logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          REPO="${{ github.repository }}"
+
+          # Get failed jobs
+          JOBS=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" \
+            --jq '[.jobs[] | select(.conclusion == "failure") | {name: .name, id: .id, steps: [.steps[] | select(.conclusion == "failure") | .name]}]')
+
+          echo "Failed jobs: $JOBS"
+
+          # Fetch logs for each failed job and truncate to last 100 lines
+          LOG_SECTIONS=""
+          while IFS= read -r JOB_ID; do
+            JOB_NAME=$(echo "$JOBS" | jq -r --argjson id "$JOB_ID" '.[] | select(.id == $id) | .name')
+            JOB_LOG=$(gh api "repos/$REPO/actions/jobs/$JOB_ID/logs" 2>/dev/null | tail -100 || echo "(logs unavailable)")
+            LOG_SECTIONS="$LOG_SECTIONS
+
+          ### Job: $JOB_NAME
+          \`\`\`
+          $JOB_LOG
+          \`\`\`"
+          done < <(echo "$JOBS" | jq -r '.[].id')
+
+          # Write to file to avoid arg-length limits
+          cat > /tmp/log_sections.txt << 'LOGEOF'
+          $LOG_SECTIONS
+          LOGEOF
+          printf '%s' "$LOG_SECTIONS" > /tmp/log_sections.txt
+
+          echo "log_sections_file=/tmp/log_sections.txt" >> "$GITHUB_OUTPUT"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Create failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          RUN_URL="${{ github.event.workflow_run.html_url }}"
+          HEAD_SHA="${{ github.event.workflow_run.head_sha }}"
+          HEAD_BRANCH="${{ github.event.workflow_run.head_branch }}"
+          TRIGGERED_BY="${{ github.event.workflow_run.triggering_actor.login }}"
+          RUN_NUMBER="${{ github.event.workflow_run.run_number }}"
+
+          LOG_CONTENT=$(cat /tmp/log_sections.txt)
+
+          ISSUE_BODY="## 🚨 Deployment Failed
+
+          **Run:** [Deploy API #${RUN_NUMBER}](${RUN_URL})
+          **Branch:** \`${HEAD_BRANCH}\`
+          **Commit:** [\`${HEAD_SHA:0:7}\`](https://github.com/${{ github.repository }}/commit/${HEAD_SHA})
+          **Triggered by:** @${TRIGGERED_BY}
+
+          ## Failed Job Logs (last 100 lines each)
+
+          ${LOG_CONTENT}
+
+          ---
+          *This issue was automatically created by the deployment failure reporter.*"
+
+          # Check if a failure issue for this run already exists (avoid duplicates on re-runs)
+          EXISTING=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "deploy-failure" \
+            --state open \
+            --search "Deploy API #${RUN_NUMBER}" \
+            --json number \
+            --jq '.[0].number')
+
+          if [ -n "$EXISTING" ]; then
+            echo "Issue #$EXISTING already exists for this run, skipping."
+          else
+            gh issue create \
+              --repo ${{ github.repository }} \
+              --title "🚨 Deploy Failed: Deploy API #${RUN_NUMBER} (${HEAD_BRANCH})" \
+              --body "$ISSUE_BODY" \
+              --label "deploy-failure"
+          fi
