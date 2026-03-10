@@ -78,9 +78,52 @@ router.post('/end-turn', async (req, res) => {
 });
 
 /**
- * POST /god/tick
- * No auth — local dev only.
+ * POST /god/turn
+ * Body: { player: "player1"|"player2", moves: [{action, x, y, type?}] }
+ * Applies all moves atomically and auto-commits. No auth — local dev only.
  */
+router.post('/turn', async (req, res) => {
+  const { player, moves } = req.body ?? {};
+
+  if (!player || !['player1', 'player2'].includes(player)) {
+    return res.status(400).json({ error: 'player must be "player1" or "player2".' });
+  }
+  if (!Array.isArray(moves) || moves.length === 0) {
+    return res.status(400).json({ error: 'moves must be a non-empty array.' });
+  }
+
+  try {
+    const state = await getState();
+
+    // Validate all moves up-front
+    for (let i = 0; i < moves.length; i++) {
+      const { action, x, y, type } = moves[i];
+      const result = validateMove(state, player, { action, x, y, type });
+      if (!result.valid) {
+        return res.status(422).json({ error: `Move ${i + 1}: ${result.reason}` });
+      }
+    }
+
+    // Apply all then commit
+    let newState = structuredClone(state);
+    for (const { action, x, y, type } of moves) {
+      newState = applyMove(newState, player, { action, x, y, type });
+    }
+    newState = commitTurn(newState, player);
+    await saveState(newState);
+
+    res.json({
+      ok: true,
+      applied: moves.length,
+      actionsUsed: newState.players[player].actionsThisTick,
+      turnCommitted: true,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 router.post('/tick', async (_req, res) => {
   try {
     let weather;

@@ -478,9 +478,9 @@
   let godPlayer = 'player1';
   let godAction = 'PLACE';
   let godBlockType = 'packed_sand';
-  let godHoverCell = null; // {x, y} or null
+  let godHoverCell = null;
   let godBudgetExhausted = false;
-  const godSessionBlocks = new Set(); // tracks "x,y" keys placed this session
+  let godQueue = []; // pending moves, submitted on End Turn
 
   const godToggle   = document.getElementById('god-toggle');
   const godPanel    = document.getElementById('god-panel');
@@ -495,7 +495,7 @@
     godPanel.classList.toggle('visible', godMode);
     if (!godMode) {
       godHoverCell = null;
-      godSessionBlocks.clear();
+      godQueue = [];
       drawGrid(lastCells);
     }
   });
@@ -539,10 +539,12 @@
     };
     drawGrid(lastCells);
     drawGodOverlay();
+    drawGodQueue();
   });
   canvas.addEventListener('mouseleave', () => {
     godHoverCell = null;
     drawGrid(lastCells);
+    drawGodQueue();
   });
 
   // Hook into the render loop: after drawing, overlay the hover cell
@@ -559,8 +561,24 @@
     ctx.restore();
   }
 
-  // Canvas click — submit god move
-  canvas.addEventListener('click', async e => {
+  // Draw queued moves as semi-transparent outlines on the canvas
+  function drawGodQueue() {
+    if (!godMode || godQueue.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    godQueue.forEach(({ action, x, y }) => {
+      ctx.strokeStyle = action === 'REMOVE' ? '#e05050' : '#f5c842';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.fillStyle = action === 'REMOVE' ? 'rgba(224,80,80,0.15)' : 'rgba(245,200,66,0.15)';
+      ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      ctx.strokeRect(x * CELL_SIZE + 1, y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+    });
+    ctx.restore();
+  }
+
+
+  canvas.addEventListener('click', e => {
     if (!godMode) return;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -578,105 +596,67 @@
       }
     }
 
-    // ERASE: only allowed on blocks placed this god mode session
+    // ERASE: remove from local queue if queued, else call /god/erase
     if (godAction === 'ERASE') {
-      const key = `${x},${y}`;
-      if (!godSessionBlocks.has(key)) {
-        godStatus.textContent = `✗ (${x},${y}) wasn't placed this session — use REMOVE instead`;
-        godStatus.className = 'err';
+      const qIdx = godQueue.findIndex(m => m.x === x && m.y === y);
+      if (qIdx !== -1) {
+        godQueue.splice(qIdx, 1);
+        godStatus.textContent = `✓ Removed queued move at (${x},${y}) — ${godQueue.length} moves queued`;
+        godStatus.className = 'ok';
+        drawGrid(lastCells); drawGodOverlay(); drawGodQueue();
         return;
       }
-      godStatus.textContent = `Erasing (${x},${y})…`;
-      godStatus.className = '';
-      try {
-        const res = await fetch(`${API_BASE}/god/erase`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ x, y }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          godSessionBlocks.delete(key);
-          godStatus.textContent = `✓ Erased block at (${x},${y})`;
-          godStatus.className = 'ok';
-        } else {
-          godStatus.textContent = `✗ ${data.error}`;
-          godStatus.className = 'err';
-        }
-      } catch (err) {
-        godStatus.textContent = `✗ Network error: ${err.message}`;
-        godStatus.className = 'err';
-      }
-      await poll();
-      drawGodOverlay();
-      return;
-    }
-
-    // Game actions — block if budget exhausted
-    if (godBudgetExhausted) {
-      godStatus.textContent = '✗ Budget exhausted — trigger a tick first!';
-      godStatus.className = 'err';
-      return;
-    }
-
-    const body = { player: godPlayer, action: godAction, x, y };
-    if (godAction === 'PLACE') body.type = godBlockType;
-
-    godStatus.textContent = `Sending ${godAction} at (${x},${y}) for ${godPlayer}…`;
-    godStatus.className = '';
-
-    try {
-      const res = await fetch(`${API_BASE}/god/move`, {
+      // Not in queue — erase a committed block immediately
+      fetch(`${API_BASE}/god/erase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ x, y }),
+      }).then(r => r.json()).then(data => {
+        if (data.ok) { godStatus.textContent = `✓ Erased block at (${x},${y})`; godStatus.className = 'ok'; }
+        else { godStatus.textContent = `✗ ${data.error}`; godStatus.className = 'err'; }
+        poll();
       });
-      const data = await res.json();
-      if (res.ok) {
-        const typeStr = godAction === 'PLACE' ? ` ${godBlockType}` : '';
-        godStatus.textContent = `✓ ${godAction}${typeStr} at (${x},${y}) for ${godPlayer} — actions used: ${data.actionsThisTick}/12`;
-        godStatus.className = 'ok';
-        if (godAction === 'PLACE') godSessionBlocks.add(`${x},${y}`);
-        if (godAction === 'REMOVE') godSessionBlocks.delete(`${x},${y}`);
-        if (data.actionsThisTick >= 12) {
-          godBudgetExhausted = true;
-          godBudgetEl.classList.add('visible');
-        }
-      } else {
-        godStatus.textContent = `✗ ${data.error}`;
-        godStatus.className = 'err';
-        if (data.error && data.error.toLowerCase().includes('budget')) {
-          godBudgetExhausted = true;
-          godBudgetEl.classList.add('visible');
-        }
-        if (data.error && data.error.toLowerCase().includes('committed')) {
-          godBudgetEl.textContent = '⚠ Turn already committed — trigger a tick to start a new round.';
-          godBudgetEl.classList.add('visible');
-        }
-      }
-    } catch (err) {
-      godStatus.textContent = `✗ Network error: ${err.message}`;
-      godStatus.className = 'err';
+      return;
     }
 
-    await poll();
-    drawGodOverlay();
+    if (godQueue.length >= 12) {
+      godStatus.textContent = '✗ Queue full (12 moves max) — press End Turn to submit';
+      godStatus.className = 'err';
+      return;
+    }
+
+    const move = { action: godAction, x, y };
+    if (godAction === 'PLACE') move.type = godBlockType;
+    godQueue.push(move);
+
+    const typeStr = godAction === 'PLACE' ? ` ${godBlockType}` : '';
+    godStatus.textContent = `+ Queued: ${godAction}${typeStr} at (${x},${y}) — ${godQueue.length}/12 moves`;
+    godStatus.className = 'ok';
+    drawGrid(lastCells); drawGodOverlay(); drawGodQueue();
   });
 
-  // End turn button
+  // End turn button — submit queued moves as a batch
   document.getElementById('god-end-turn-btn').addEventListener('click', async () => {
-    godStatus.textContent = `Committing turn for ${godPlayer}…`;
+    if (godQueue.length === 0) {
+      godStatus.textContent = '✗ No moves queued — click cells to queue moves first';
+      godStatus.className = 'err';
+      return;
+    }
+    godStatus.textContent = `Submitting ${godQueue.length} moves for ${godPlayer}…`;
     godStatus.className = '';
     try {
-      const res = await fetch(`${API_BASE}/god/end-turn`, {
+      const res = await fetch(`${API_BASE}/god/turn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player: godPlayer }),
+        body: JSON.stringify({ player: godPlayer, moves: godQueue }),
       });
       const data = await res.json();
       if (res.ok) {
-        godStatus.textContent = `✓ ${godPlayer} turn committed`;
+        godStatus.textContent = `✓ ${godPlayer} turn committed — ${data.applied} moves applied`;
         godStatus.className = 'ok';
+        godQueue = [];
+        godBudgetExhausted = false;
+        godBudgetEl.classList.remove('visible');
       } else {
         godStatus.textContent = `✗ ${data.error}`;
         godStatus.className = 'err';
