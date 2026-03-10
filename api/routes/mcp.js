@@ -2,13 +2,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Router } from 'express';
 import { z } from 'zod';
-import { getState, saveState } from './db.js';
-import { validateMove, applyMove } from './gameLogic.js';
+import { getState, saveState } from '../lib/db.js';
+import { validateMove, applyMove } from '../lib/gameLogic.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
   rainDamage, windDamage,
-} from './rules.js';
+} from '../lib/rules.js';
 
 function resolvePlayer(key) {
   if (key && key === process.env.PLAYER1_API_KEY) return 'player1';
