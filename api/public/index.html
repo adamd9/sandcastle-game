@@ -228,9 +228,23 @@
     }
     #god-budget-warn.visible { display: block; }
 
+    /* ── Main layout: game area left, history panel right ────────────── */
+    #main-layout {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    #game-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
     /* ── Turn History Panel ───────────────────────────────────────────── */
     #history-panel {
-      width: 600px;
+      width: 300px;
       background: #2b1f0a;
       border: 1px solid #5a3e1b;
       border-radius: 6px;
@@ -277,7 +291,7 @@
     }
     .history-tab:hover { background: #332512; color: #e8d5a3; }
     .history-tab.active { color: #f5c842; border-bottom: 2px solid #f5c842; font-weight: bold; }
-    #history-list { padding: 8px 0; max-height: 420px; overflow-y: auto; }
+    #history-list { padding: 8px 0; max-height: 620px; overflow-y: auto; }
     .history-round {
       padding: 8px 16px 10px;
       border-bottom: 1px solid #3a2a0e;
@@ -321,23 +335,41 @@
   <div class="stat"><span class="stat-label">Rounds</span><span class="stat-value" id="stat-rounds">—</span></div>
 </div>
 
-<div id="canvas-wrap">
-  <canvas id="grid" width="600" height="600"></canvas>
-  <div id="zone-labels">
-    <div class="zone-label" id="zone-p1">PLAYER 1</div>
-    <div class="zone-label" id="zone-p2">PLAYER 2</div>
+<div id="main-layout">
+  <div id="game-area">
+    <div id="canvas-wrap">
+      <canvas id="grid" width="600" height="600"></canvas>
+      <div id="zone-labels">
+        <div class="zone-label" id="zone-p1">PLAYER 1</div>
+        <div class="zone-label" id="zone-p2">PLAYER 2</div>
+      </div>
+    </div>
+
+    <div id="weather-bar">Fetching weather…</div>
+
+    <div id="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#c8a96e"></div>dry sand</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#7fb3c8"></div>wet sand</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#d4af37"></div>packed sand</div>
+    </div>
+
+    <div id="error-msg"></div>
+  </div>
+
+  <div id="history-panel">
+    <div id="history-header">
+      <span id="history-title">📜 Turn History</span>
+      <span id="history-chevron" class="open">▲</span>
+    </div>
+    <div id="history-body">
+      <div id="history-tabs">
+        <button class="history-tab active" data-history-player="player1">Player 1 History</button>
+        <button class="history-tab"        data-history-player="player2">Player 2 History</button>
+      </div>
+      <div id="history-list"><div id="history-empty">No history yet.</div></div>
+    </div>
   </div>
 </div>
-
-<div id="weather-bar" id="weather-bar">Fetching weather…</div>
-
-<div id="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:#c8a96e"></div>dry sand</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#7fb3c8"></div>wet sand</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#d4af37"></div>packed sand</div>
-</div>
-
-<div id="error-msg"></div>
 
 <button id="god-toggle">⚡ God Mode</button>
 
@@ -364,20 +396,6 @@
   <button id="god-tick-btn">⚡ Trigger Tick</button>
   <div id="god-budget-warn">⚠ Budget exhausted — trigger a tick to reset.</div>
   <div id="god-status">Click a cell to act.</div>
-</div>
-
-<div id="history-panel">
-  <div id="history-header">
-    <span id="history-title">📜 Turn History</span>
-    <span id="history-chevron" class="open">▲</span>
-  </div>
-  <div id="history-body">
-    <div id="history-tabs">
-      <button class="history-tab active" data-history-player="player1">Player 1 History</button>
-      <button class="history-tab"        data-history-player="player2">Player 2 History</button>
-    </div>
-    <div id="history-list"><div id="history-empty">No history yet.</div></div>
-  </div>
 </div>
 
 <script>
