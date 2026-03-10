@@ -1,11 +1,16 @@
 import express from 'express';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import stateRouter from './routes/state.js';
 import moveRouter from './routes/move.js';
 import tickRouter from './routes/tick.js';
 import rulesRouter from './routes/rules.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const app = express();
 app.use(express.json());
+app.use(express.static(join(__dirname, 'public')));
 
 // CORS — allow GitHub Pages and local dev
 app.use((req, res, next) => {

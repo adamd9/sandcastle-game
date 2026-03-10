@@ -1,0 +1,16 @@
+name: Game Tick
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Every hour on the hour
+  workflow_dispatch:       # Allow manual trigger for testing
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger game tick
+        run: |
+          curl -f -X POST "${{ secrets.API_BASE_URL }}/tick" \
+            -H "X-Api-Key: ${{ secrets.TICK_ADMIN_KEY }}"
