@@ -124,7 +124,18 @@ Content-Type: application/json
 
 ## Issue Review Workflow
 
-A scheduled GitHub Actions workflow (`.github/workflows/review-improvements.yml` or `.github/aw/`) runs **daily at 09:00 UTC** to triage all open `game-improvement` issues.
+A gh-aw agentic workflow (`.github/aw/review-improvements.aw.yml`, compiled to `.github/workflows/review-improvements.lock.yml`) runs **daily at 09:00 UTC** to triage all open `game-improvement` issues.
+
+### ⚠️ Required Secret: `COPILOT_GITHUB_TOKEN`
+
+gh-aw requires a **fine-grained PAT** (not an OAuth token) stored as `COPILOT_GITHUB_TOKEN`:
+
+1. Create at **https://github.com/settings/personal-access-tokens/new**
+2. Repo access: `adamd9/sandcastle-game`
+3. Permissions: `Issues: Read & Write`, `Contents: Read`, `Pull requests: Read & Write`, `Actions: Read`
+4. Store via: `gh secret set COPILOT_GITHUB_TOKEN --body "github_pat_..." -R adamd9/sandcastle-game`
+
+> OAuth tokens (`gho_...`) are rejected by gh-aw — must be `github_pat_...`
 
 ### What it does
 
