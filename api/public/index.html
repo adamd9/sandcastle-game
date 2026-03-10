@@ -227,6 +227,81 @@
       line-height: 1.4;
     }
     #god-budget-warn.visible { display: block; }
+
+    /* ── Turn History Panel ───────────────────────────────────────────── */
+    #history-panel {
+      width: 600px;
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-family: 'Courier New', monospace;
+    }
+    #history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #5a3e1b;
+    }
+    #history-header:hover { background: #332512; }
+    #history-title {
+      font-weight: bold;
+      color: #f5c842;
+      letter-spacing: 0.1em;
+      font-size: 0.82rem;
+    }
+    #history-chevron { color: #8a7350; font-size: 0.75rem; transition: transform 0.15s; }
+    #history-chevron.open { transform: rotate(180deg); }
+    #history-body { display: block; }
+    #history-body.collapsed { display: none; }
+    #history-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid #3a2a0e;
+    }
+    .history-tab {
+      flex: 1;
+      padding: 7px 0;
+      text-align: center;
+      cursor: pointer;
+      color: #8a7350;
+      background: transparent;
+      border: none;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      transition: color 0.1s, background 0.1s;
+    }
+    .history-tab:hover { background: #332512; color: #e8d5a3; }
+    .history-tab.active { color: #f5c842; border-bottom: 2px solid #f5c842; font-weight: bold; }
+    #history-list { padding: 8px 0; max-height: 420px; overflow-y: auto; }
+    .history-round {
+      padding: 8px 16px 10px;
+      border-bottom: 1px solid #3a2a0e;
+    }
+    .history-round:last-child { border-bottom: none; }
+    .history-round-header {
+      font-weight: bold;
+      color: #e8d5a3;
+      margin-bottom: 5px;
+      font-size: 0.8rem;
+    }
+    .history-section-label {
+      color: #8a7350;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 5px 0 2px;
+    }
+    .history-move { color: #b5cfe8; padding-left: 8px; line-height: 1.6; }
+    .history-none { color: #5a4a2a; font-style: italic; padding-left: 8px; line-height: 1.6; }
+    .history-damaged { color: #f5a442; padding-left: 8px; line-height: 1.6; }
+    .history-destroyed { color: #f87171; padding-left: 8px; line-height: 1.6; }
+    .history-stats { color: #8a7350; margin-top: 5px; font-size: 0.72rem; padding-left: 8px; }
+    #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
   </style>
 </head>
 <body>
@@ -289,6 +364,20 @@
   <button id="god-tick-btn">⚡ Trigger Tick</button>
   <div id="god-budget-warn">⚠ Budget exhausted — trigger a tick to reset.</div>
   <div id="god-status">Click a cell to act.</div>
+</div>
+
+<div id="history-panel">
+  <div id="history-header">
+    <span id="history-title">📜 Turn History</span>
+    <span id="history-chevron" class="open">▲</span>
+  </div>
+  <div id="history-body">
+    <div id="history-tabs">
+      <button class="history-tab active" data-history-player="player1">Player 1 History</button>
+      <button class="history-tab"        data-history-player="player2">Player 2 History</button>
+    </div>
+    <div id="history-list"><div id="history-empty">No history yet.</div></div>
+  </div>
 </div>
 
 <script>
@@ -447,6 +536,7 @@
       p2cEl.className = `stat-value ${p2c ? 'committed' : 'uncommitted'}`;
 
       document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
+      renderHistory(state.history);
 
       // Update god mode end-turn button state
       const endTurnBtn = document.getElementById('god-end-turn-btn');
@@ -701,6 +791,79 @@
       drawGodOverlay();
     }
   }, 200);
+
+  // ---------------------------------------------------------------------------
+  // Turn History Panel
+  // ---------------------------------------------------------------------------
+  let historyPlayer = 'player1';
+
+  // Collapsible toggle
+  document.getElementById('history-header').addEventListener('click', () => {
+    const body = document.getElementById('history-body');
+    const chevron = document.getElementById('history-chevron');
+    const collapsed = body.classList.toggle('collapsed');
+    chevron.classList.toggle('open', !collapsed);
+  });
+
+  // Player tabs
+  document.querySelectorAll('.history-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.history-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      historyPlayer = btn.getAttribute('data-history-player');
+      renderHistory(lastHistory);
+    });
+  });
+
+  let lastHistory = [];
+
+  function renderHistory(history) {
+    lastHistory = history ?? [];
+    const list = document.getElementById('history-list');
+    if (lastHistory.length === 0) {
+      list.innerHTML = '<div id="history-empty">No history yet.</div>';
+      return;
+    }
+
+    const rounds = lastHistory.slice(-10).reverse();
+    const html = rounds.map(round => {
+      const w = round.weather ?? {};
+      const header = `Tick #${round.tick} — ☁️ Rain: ${w.rain_mm ?? '?'} mm | 💨 Wind: ${w.wind_speed_kph ?? '?'} kph (${w.wind_direction ?? '?'})`;
+
+      const playerMoves = (round.moves?.[historyPlayer] ?? []);
+      const movesHtml = playerMoves.length === 0
+        ? '<div class="history-none">(no moves this tick)</div>'
+        : playerMoves.map(m => {
+            if (m.action === 'PLACE') return `<div class="history-move">▶ PLACE ${m.block_type} at (${m.x},${m.y})</div>`;
+            if (m.action === 'REINFORCE') return `<div class="history-move">▶ REINFORCE at (${m.x},${m.y})</div>`;
+            if (m.action === 'REMOVE') return `<div class="history-move">▶ REMOVE at (${m.x},${m.y})</div>`;
+            return `<div class="history-move">▶ ${m.action} at (${m.x},${m.y})</div>`;
+          }).join('');
+
+      const playerEvents = (round.weatherEvents ?? []).filter(e => e.owner === historyPlayer);
+      const weatherHtml = playerEvents.length === 0
+        ? '<div class="history-none">(no damage this tick)</div>'
+        : playerEvents.map(e => {
+            if (e.type === 'destroyed') {
+              return `<div class="history-destroyed">💀 ${e.block_type} (${e.x},${e.y}) destroyed</div>`;
+            }
+            return `<div class="history-damaged">⚠ ${e.block_type} (${e.x},${e.y}) lost ${e.total_damage} hp (${e.health_after} remaining)</div>`;
+          }).join('');
+
+      const pData = round[historyPlayer] ?? {};
+      const blocks = pData.blocks ?? '?';
+      const actions = pData.actions ?? '?';
+
+      return `<div class="history-round">
+        <div class="history-round-header">${header}</div>
+        <div class="history-section-label">Moves</div>${movesHtml}
+        <div class="history-section-label">Weather Damage</div>${weatherHtml}
+        <div class="history-stats">Blocks this tick: ${blocks} | Actions used: ${actions}</div>
+      </div>`;
+    }).join('');
+
+    list.innerHTML = html;
+  }
 
 </script>
 </body>
