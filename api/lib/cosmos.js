@@ -1,0 +1,48 @@
+// Cosmos DB persistence layer.
+// Used in production (NODE_ENV=production).
+// Implements the same getState() / saveState() interface as store.js.
+
+import { CosmosClient } from '@azure/cosmos';
+
+const client = new CosmosClient({
+  endpoint: process.env.COSMOS_ENDPOINT,
+  key: process.env.COSMOS_KEY,
+});
+
+const container = client
+  .database('sandcastle')
+  .container('game');
+
+const ITEM_ID = 'game';
+const PARTITION_KEY = 'game';
+
+const INITIAL_STATE = {
+  id: ITEM_ID,
+  tick: 0,
+  weather: { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N' },
+  cells: [],
+  players: {
+    player1: { actionsThisTick: 0 },
+    player2: { actionsThisTick: 0 },
+  },
+  lastUpdated: new Date().toISOString(),
+};
+
+export async function getState() {
+  try {
+    const { resource } = await container.item(ITEM_ID, PARTITION_KEY).read();
+    return resource ?? structuredClone(INITIAL_STATE);
+  } catch (err) {
+    if (err.code === 404) {
+      // First run — seed initial state
+      const { resource } = await container.items.upsert(structuredClone(INITIAL_STATE));
+      return resource;
+    }
+    throw err;
+  }
+}
+
+export async function saveState(newState) {
+  newState.lastUpdated = new Date().toISOString();
+  await container.items.upsert(newState);
+}
