@@ -3,34 +3,50 @@ name: Game Improvement Agent
 on:
   issues:
     types: [labeled]
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
 
 permissions:
   issues: write
 
 jobs:
   trigger-agent:
-    if: github.event.label.name == 'approved-for-work'
     runs-on: ubuntu-latest
     steps:
-      - name: Check not already in-progress
-        id: check
+      - name: Find and assign approved issues
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
-          LABELS=$(gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
-          if echo "$LABELS" | grep -q "in-progress"; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+          # On label event: only process if it's the approved-for-work label
+          if [ "${{ github.event_name }}" = "issues" ] && [ "${{ github.event.label.name }}" != "approved-for-work" ]; then
+            echo "Not an approved-for-work label event, skipping."
+            exit 0
           fi
-        env:
-          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
 
-      - name: Assign Copilot coding agent and mark in-progress
-        if: steps.check.outputs.skip == 'false'
-        run: |
-          gh issue edit ${{ github.event.issue.number }} \
-            --add-assignee copilot-swe-agent \
-            --add-label "in-progress" \
-            --remove-label "approved-for-work" \
-            --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          # On schedule/dispatch: find all open approved-for-work issues not yet in-progress
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ISSUES=$(gh issue list \
+              --repo ${{ github.repository }} \
+              --label "approved-for-work" \
+              --state open \
+              --json number \
+              --jq '.[].number')
+          else
+            ISSUES="${{ github.event.issue.number }}"
+          fi
+
+          for ISSUE in $ISSUES; do
+            LABELS=$(gh issue view "$ISSUE" --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
+            if echo "$LABELS" | grep -q "in-progress"; then
+              echo "Issue #$ISSUE already in-progress, skipping."
+              continue
+            fi
+            echo "Assigning issue #$ISSUE to copilot-swe-agent..."
+            gh issue edit "$ISSUE" \
+              --add-assignee copilot-swe-agent \
+              --add-label "in-progress" \
+              --remove-label "approved-for-work" \
+              --repo ${{ github.repository }}
+          done
+
