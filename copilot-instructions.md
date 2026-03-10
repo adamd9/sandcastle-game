@@ -146,7 +146,39 @@ A scheduled GitHub Actions workflow (`.github/workflows/review-improvements.yml`
 
 ## MCP Server
 
-The MCP server is defined in `.github/agents/`. Tools exposed:
+### ⚠️ MCP Configuration — Critical Gotcha
+
+**Do NOT use `.github/copilot/mcp.json`** to configure MCP for the Copilot coding agent.
+That file is for the VS Code IDE / personal Copilot only. The coding agent ignores it.
+
+**MCP for the coding agent must be configured manually via the GitHub repo Settings UI:**
+
+> Repo → **Settings** → **Copilot** → **Coding agent** → **MCP configuration**
+
+Paste the JSON directly into that field, e.g.:
+```json
+{
+  "mcpServers": {
+    "sandcastle-game": {
+      "type": "http",
+      "url": "https://sandcastle-wars-api.azurewebsites.net/mcp",
+      "headers": {
+        "X-Api-Key": "<hardcode player api key here>"
+      }
+    }
+  }
+}
+```
+
+There is no file-based alternative — this must be maintained through the UI. Secrets with `COPILOT_MCP_` prefix in Settings → Copilot → Environment can be used instead of hardcoded keys if preferred.
+
+**Also:** in the agent frontmatter, tool namespaces must use wildcard syntax:
+```yaml
+tools: ["sandcastle-game/*", "github/*"]
+```
+Using `["sandcastle-game"]` silently fails — the tools won't be available.
+
+### Tools exposed:
 
 - `get_rules` — current game rules
 - `get_state` — player-perspective state with `current_state` and `recent_history`
