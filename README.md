@@ -26,9 +26,9 @@ Each player places blocks to build their castle. Blocks have different starting 
 
 | Block Type    | Starting Health | Notes                        |
 |---------------|-----------------|------------------------------|
-| `packed_sand` | 100 HP          | Toughest — best weather resistance |
-| `wet_sand`    | 60 HP           | Mid-range                    |
-| `dry_sand`    | 40 HP           | Cheapest but fragile         |
+| `packed_sand` | 60 HP           | Toughest — best weather resistance |
+| `wet_sand`    | 40 HP           | Mid-range                    |
+| `dry_sand`    | 25 HP           | Cheapest but fragile         |
 
 When a block's health hits zero, it's destroyed and removed from the grid permanently.
 
@@ -38,7 +38,7 @@ Each player gets **12 actions per tick**. The available actions are:
 
 - **PLACE** — put a new block at a grid cell (in your zone)
 - **REMOVE** — demolish one of your own blocks
-- **REINFORCE** — add 20 HP to an existing block (up to the 100 HP cap)
+- **REINFORCE** — add 15 HP to an existing block (up to the 60 HP cap)
 
 Players submit all their moves as a batch, then commit their turn. Once committed, no more moves until the next tick.
 
@@ -46,10 +46,11 @@ Players submit all their moves as a batch, then commit their turn. Once committe
 
 Every tick, live weather data is fetched and applied to every block on the grid:
 
-- **Rain:** every block loses `floor(rain_mm × 2)` health — no exceptions
-- **Wind:** blocks on the windward edge (the side facing the wind direction) lose an additional `floor(wind_speed_kph ÷ 5)` health
+- **Base damage:** every block loses **5 HP per tick** regardless of weather — blocks always decay
+- **Rain:** each block loses an additional `floor(rain_mm × 10)` health when it rains
+- **Wind:** blocks on the windward edge lose an additional `floor(wind_speed_kph ÷ 3)` health per tick
 
-So a rainy, windy tick can deal significant damage, especially to exposed edge blocks. A calm tick might barely dent anything.
+So even on a calm day, blocks are slowly eroding. A rainy or windy tick significantly accelerates this — `dry_sand` can be destroyed in as few as 5 calm ticks. Outer walls are deliberately exposed; interior blocks are shielded from wind damage.
 
 ### History
 
