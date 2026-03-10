@@ -43,9 +43,12 @@ describe('POST /mcp', () => {
     expect(res.status).toBe(200);
     const text = res.body.result?.content?.[0]?.text;
     expect(text).toBeDefined();
-    const state = JSON.parse(text);
-    expect(state).toHaveProperty('tick');
-    expect(state).toHaveProperty('cells');
+    const parsed = JSON.parse(text);
+    expect(parsed).toHaveProperty('current_state');
+    expect(parsed.current_state).toHaveProperty('tick');
+    expect(parsed.current_state).toHaveProperty('my_player', 'player1');
+    expect(parsed.current_state).toHaveProperty('my_blocks');
+    expect(parsed).toHaveProperty('recent_history');
   });
 
   it('submit_turn places multiple blocks and auto-commits', async () => {

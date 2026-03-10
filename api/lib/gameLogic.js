@@ -103,6 +103,9 @@ export function applyMove(state, player, action) {
 
   state.players[player].actionsThisTick += 1;
 
+  if (!state.currentTurnMoves) state.currentTurnMoves = { player1: [], player2: [] };
+  state.currentTurnMoves[player].push({ action: type, x, y, block_type: blockType });
+
   switch (type) {
     case 'PLACE': {
       state.cells.push({
@@ -156,6 +159,7 @@ export function recordRound(state) {
   const round = {
     tick: state.tick,
     weather: { ...state.weather },
+    moves: structuredClone(state.currentTurnMoves || { player1: [], player2: [] }),
     player1: {
       actions: state.players.player1.actionsThisTick,
       committed: state.players.player1.turnCommitted ?? false,
@@ -166,8 +170,10 @@ export function recordRound(state) {
       committed: state.players.player2.turnCommitted ?? false,
       blocks: state.cells.filter(c => c.owner === 'player2').length,
     },
+    weatherEvents: [],
   };
   state.history.push(round);
+  if (state.history.length > 20) state.history = state.history.slice(-20);
   return state;
 }
 
@@ -193,21 +199,44 @@ export function applyWeather(state) {
   const rain  = rainDamage(rain_mm);
   const wind  = windDamage(wind_speed_kph);
 
-  state.cells = state.cells
-    .map(cell => {
-      let damage = rain;
-      if (wind > 0 && isWindwardEdge(cell.x, cell.y, wind_direction)) {
-        damage += wind;
-      }
-      return { ...cell, health: cell.health - damage };
-    })
-    .filter(cell => cell.health > 0);
+  // Pass 1: calculate per-cell damage and build events
+  const events = [];
+  const damagedCells = state.cells.map(cell => {
+    const rainDmg = rain;
+    const windDmg = (wind > 0 && isWindwardEdge(cell.x, cell.y, wind_direction)) ? wind : 0;
+    const totalDamage = rainDmg + windDmg;
+    const healthBefore = cell.health;
+    const healthAfter = cell.health - totalDamage;
 
-  // Reset action counters
+    if (totalDamage > 0) {
+      events.push({
+        type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+        x: cell.x,
+        y: cell.y,
+        owner: cell.owner,
+        block_type: cell.type,
+        rain_damage: rainDmg,
+        wind_damage: windDmg,
+        total_damage: totalDamage,
+        health_before: healthBefore,
+        health_after: healthAfter,
+      });
+    }
+
+    return { ...cell, health: healthAfter };
+  });
+
+  // Pass 2: filter out dead cells
+  state.cells = damagedCells.filter(cell => cell.health > 0);
+
+  state.weatherEvents = events;
+
+  // Reset action counters and move tracking
   for (const player of Object.keys(state.players)) {
     state.players[player].actionsThisTick = 0;
     state.players[player].turnCommitted = false;
   }
+  state.currentTurnMoves = { player1: [], player2: [] };
 
   state.tick += 1;
   state.lastUpdated = new Date().toISOString();

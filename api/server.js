@@ -8,6 +8,7 @@ import tickRouter from './routes/tick.js';
 import rulesRouter from './routes/rules.js';
 import endTurnRouter from './routes/end-turn.js';
 import godRouter from './routes/god.js';
+import suggestRouter from './routes/suggest.js';
 import { createMcpRouter } from './routes/mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,7 @@ app.use('/turn', turnRouter);
 app.use('/tick', tickRouter);
 app.use('/end-turn', endTurnRouter);
 app.use('/god', godRouter);
+app.use('/suggest', suggestRouter);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

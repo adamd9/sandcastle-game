@@ -37,6 +37,13 @@ router.post('/', authenticate, async (_req, res) => {
 
     const withHistory = recordRound(structuredClone(state));
     const newState = applyWeather(withHistory);
+
+    // Merge weather events into the history entry recorded this tick
+    if (newState.history && newState.history.length > 0) {
+      newState.history[newState.history.length - 1].weatherEvents = newState.weatherEvents || [];
+    }
+    delete newState.weatherEvents;
+
     await saveState(newState);
 
     res.json({
