@@ -99,6 +99,96 @@
       font-size: 0.8rem;
       min-height: 1.2em;
     }
+
+    /* ── God Mode ─────────────────────────────────────────────────── */
+    #god-toggle {
+      margin: 10px auto 0;
+      display: block;
+      padding: 6px 18px;
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      color: #e8d5a3;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #god-toggle.active {
+      background: #f5c842;
+      color: #1a1000;
+      border-color: #f5c842;
+      font-weight: bold;
+    }
+    #god-panel {
+      display: none;
+      margin: 10px auto;
+      max-width: 620px;
+      background: #1a1000;
+      border: 1px solid #5a3e1b;
+      border-radius: 6px;
+      padding: 14px 18px;
+      font-family: 'Courier New', monospace;
+      color: #e8d5a3;
+      font-size: 12px;
+    }
+    #god-panel.visible { display: block; }
+    .god-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .god-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #a08050;
+      width: 80px;
+      flex-shrink: 0;
+    }
+    .god-btn {
+      padding: 4px 12px;
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      color: #e8d5a3;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .god-btn.selected {
+      background: #f5c842;
+      color: #1a1000;
+      border-color: #f5c842;
+      font-weight: bold;
+    }
+    .god-btn.dimmed {
+      opacity: 0.35;
+      cursor: default;
+    }
+    #god-tick-btn {
+      margin-top: 4px;
+      padding: 6px 20px;
+      background: #3a1f00;
+      border: 1px solid #c0602a;
+      color: #f5a842;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #god-tick-btn:hover { background: #5a2f00; }
+    #god-status {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #a08050;
+      min-height: 16px;
+    }
+    #god-status.ok  { color: #7fc97f; }
+    #god-status.err { color: #e05050; }
   </style>
 </head>
 <body>
@@ -130,6 +220,33 @@
 </div>
 
 <div id="error-msg"></div>
+
+<button id="god-toggle">⚡ God Mode</button>
+
+<div id="god-panel">
+  <div class="god-row">
+    <span class="god-label">Player</span>
+    <button class="god-btn selected" data-god-player="player1">Player 1</button>
+    <button class="god-btn"          data-god-player="player2">Player 2</button>
+  </div>
+  <div class="god-row">
+    <span class="god-label">Action</span>
+    <button class="god-btn selected" data-god-action="PLACE">PLACE</button>
+    <button class="god-btn"          data-god-action="REMOVE">REMOVE</button>
+    <button class="god-btn"          data-god-action="REINFORCE">REINFORCE</button>
+  </div>
+  <div class="god-row" id="god-type-row">
+    <span class="god-label">Block</span>
+    <button class="god-btn selected" data-god-type="packed_sand">packed_sand</button>
+    <button class="god-btn"          data-god-type="wet_sand">wet_sand</button>
+    <button class="god-btn"          data-god-type="dry_sand">dry_sand</button>
+  </div>
+  <div class="god-row">
+    <span class="god-label">Tick</span>
+    <button id="god-tick-btn">⚡ Trigger Tick</button>
+  </div>
+  <div id="god-status">Click a cell on the grid to make a move.</div>
+</div>
 
 <script>
   // ---------------------------------------------------------------------------
@@ -272,6 +389,141 @@
 
   poll();
   setInterval(poll, POLL_MS);
+
+  // ── God Mode ──────────────────────────────────────────────────────
+  let godMode = false;
+  let godPlayer = 'player1';
+  let godAction = 'PLACE';
+  let godBlockType = 'packed_sand';
+  let godHoverCell = null; // {x, y} or null
+
+  const godToggle  = document.getElementById('god-toggle');
+  const godPanel   = document.getElementById('god-panel');
+  const godStatus  = document.getElementById('god-status');
+  const godTypeRow = document.getElementById('god-type-row');
+
+  // Toggle panel visibility
+  godToggle.addEventListener('click', () => {
+    godMode = !godMode;
+    godToggle.classList.toggle('active', godMode);
+    godPanel.classList.toggle('visible', godMode);
+    if (!godMode) godHoverCell = null;
+  });
+
+  // Generic button-group selector
+  function bindGodButtons(attr, onSelect) {
+    document.querySelectorAll(`[${attr}]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll(`[${attr}]`).forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        onSelect(btn.getAttribute(attr));
+      });
+    });
+  }
+
+  bindGodButtons('data-god-player', v => { godPlayer = v; });
+  bindGodButtons('data-god-action', v => {
+    godAction = v;
+    // Dim block-type buttons when action is not PLACE
+    const needsType = v === 'PLACE';
+    document.querySelectorAll('[data-god-type]').forEach(b =>
+      b.classList.toggle('dimmed', !needsType)
+    );
+    godTypeRow.style.opacity = needsType ? '1' : '0.4';
+  });
+  bindGodButtons('data-god-type', v => { godBlockType = v; });
+
+  // Canvas hover — draw highlight cell when in god mode
+  canvas.addEventListener('mousemove', e => {
+    if (!godMode) { godHoverCell = null; return; }
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    godHoverCell = {
+      x: Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE),
+      y: Math.floor((e.clientY - rect.top)  * scaleY / CELL_SIZE),
+    };
+  });
+  canvas.addEventListener('mouseleave', () => { godHoverCell = null; });
+
+  // Hook into the render loop: after drawing, overlay the hover cell
+  function drawGodOverlay() {
+    if (!godMode || !godHoverCell) return;
+    const ctx = canvas.getContext('2d');
+    const { x, y } = godHoverCell;
+    ctx.save();
+    ctx.fillStyle = 'rgba(245, 200, 66, 0.25)';
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = 2;
+    ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    ctx.strokeRect(x * CELL_SIZE + 1, y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+    ctx.restore();
+  }
+
+  // Canvas click — submit god move
+  canvas.addEventListener('click', async e => {
+    if (!godMode) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
+    const y = Math.floor((e.clientY - rect.top)  * scaleY / CELL_SIZE);
+
+    const body = { player: godPlayer, action: godAction, x, y };
+    if (godAction === 'PLACE') body.type = godBlockType;
+
+    godStatus.textContent = `Sending ${godAction} at (${x},${y}) for ${godPlayer}…`;
+    godStatus.className = '';
+
+    try {
+      const res = await fetch(`${API_BASE}/god/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const typeStr = godAction === 'PLACE' ? ` ${godBlockType}` : '';
+        godStatus.textContent = `✓ ${godAction}${typeStr} at (${x},${y}) for ${godPlayer} — actions used: ${data.actionsThisTick}/12`;
+        godStatus.className = 'ok';
+      } else {
+        godStatus.textContent = `✗ ${data.error}`;
+        godStatus.className = 'err';
+      }
+    } catch (err) {
+      godStatus.textContent = `✗ Network error: ${err.message}`;
+      godStatus.className = 'err';
+    }
+
+    await poll();
+    drawGodOverlay();
+  });
+
+  // Trigger tick button
+  document.getElementById('god-tick-btn').addEventListener('click', async () => {
+    godStatus.textContent = 'Triggering tick…';
+    godStatus.className = '';
+    try {
+      const res = await fetch(`${API_BASE}/god/tick`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        godStatus.textContent = `✓ Tick ${data.tick} — rain: ${data.weather.rain_mm}mm, wind: ${data.weather.wind_speed_kph}kph ${data.weather.wind_direction}, cells: ${data.cellsRemaining}`;
+        godStatus.className = 'ok';
+      } else {
+        godStatus.textContent = `✗ ${data.error}`;
+        godStatus.className = 'err';
+      }
+    } catch (err) {
+      godStatus.textContent = `✗ Network error: ${err.message}`;
+      godStatus.className = 'err';
+    }
+    await poll();
+    drawGodOverlay();
+  });
+
+  // Re-draw overlay after each poll for the auto-polling interval
+  const godOverlayInterval = setInterval(drawGodOverlay, 200);
+
 </script>
 </body>
 </html>
