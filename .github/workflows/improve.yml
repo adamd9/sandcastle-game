@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   trigger-agent:
-    if: github.event.label.name == 'game-improvement'
+    if: github.event.label.name == 'approved-for-work'
     runs-on: ubuntu-latest
     steps:
       - name: Assign Copilot coding agent to issue
