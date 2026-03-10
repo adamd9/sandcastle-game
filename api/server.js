@@ -5,6 +5,7 @@ import stateRouter from './routes/state.js';
 import moveRouter from './routes/move.js';
 import tickRouter from './routes/tick.js';
 import rulesRouter from './routes/rules.js';
+import { createMcpRouter } from './lib/mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +30,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/mcp', createMcpRouter());
 app.use('/rules', rulesRouter);
 app.use('/state', stateRouter);
 app.use('/move', moveRouter);
