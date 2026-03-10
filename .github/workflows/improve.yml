@@ -13,6 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Assign Copilot coding agent to issue
-        run: gh issue edit ${{ github.event.issue.number }} --assignee copilot --repo ${{ github.repository }}
+        run: gh issue edit ${{ github.event.issue.number }} --add-assignee copilot-swe-agent --repo ${{ github.repository }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
