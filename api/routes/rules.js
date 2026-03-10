@@ -20,6 +20,12 @@ const RULES_DOC = {
   valid_actions: VALID_ACTIONS,
   reinforce_amount: REINFORCE_AMOUNT,
   max_health: MAX_HEALTH,
+  weather_effects: {
+    base_damage: 'Every cell takes 5 damage per tick regardless of weather.',
+    rain: 'Each cell loses an additional floor(rain_mm * 10) health per tick when it rains.',
+    wind: 'Cells on the windward edge lose an additional floor(wind_speed_kph / 3) health per tick.',
+    tip: 'Build exterior walls to shield interior blocks from wind. Reinforce frequently.',
+  },
   turn_commitment: {
     description: 'Players may call POST /end-turn to commit their turn. Once committed, no further moves are allowed until the next tick. The tick records each player\'s committed status in the round history.',
     endpoint: 'POST /end-turn',
@@ -32,6 +38,17 @@ const RULES_DOC = {
     'POST /suggest':         'Submit a game improvement suggestion. Body: { title, description }. Creates a GitHub issue. Header: X-Api-Key.',
     'POST /tick':            'Advance the game by one tick (admin only). Header: X-Api-Key.',
     'GET /health':           'Health check.',
+  },
+  goal: {
+    statement: 'Your goal is to build a beautiful, impressive, elaborate sandcastle — not just survive weather. Think outer defensive walls, inner towers, courtyards, ramparts. Aim for a castle that would look impressive from above. Function AND aesthetics matter.',
+    scoring_hint: 'While there is no formal scoring yet, your castle will be judged on: (1) structural integrity under weather — does it survive? (2) architectural complexity — is it more than a flat block? (3) strategic depth — have you protected your inner blocks with outer walls?',
+  },
+  strategy_hints: {
+    outer_walls: 'Build your outer perimeter first using packed_sand (highest HP). Outer walls on the windward edge take wind bonus damage — reinforce them frequently.',
+    inner_structures: 'Once walls are up, use inner cells for towers and internal features using wet_sand or packed_sand.',
+    wind_protection: 'Wind only damages cells on the grid edge facing the wind direction. Interior blocks are shielded. Outer walls act as sacrificial protection.',
+    zone: 'Your zone is columns {x_min} to {x_max}, rows 0 to 19. You have 200 cells to work with.',
+    recommended_pattern: 'Consider: outer ring of packed_sand walls (rows 0,19 and your zone boundary columns), then inner structures. A thick outer wall absorbs weather while your castle grows inside.',
   },
   history_format: {
     description: 'state.history contains up to 20 rounds. Each round has:',
