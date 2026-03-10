@@ -31,3 +31,18 @@ jobs:
         run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Close linked issues
+        run: |
+          ISSUES=$(gh pr view ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --json closingIssuesReferences \
+            --jq '.closingIssuesReferences[].number')
+          for ISSUE in $ISSUES; do
+            gh issue close "$ISSUE" \
+              --comment "✅ Implemented and merged via PR #${{ github.event.pull_request.number }}." \
+              --repo ${{ github.repository }}
+            echo "Closed issue #$ISSUE"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

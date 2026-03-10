@@ -45,6 +45,8 @@ You are the lead game designer for **SandCastle Wars**. You have deep knowledge 
 
 Fetch all open GitHub issues labeled `game-improvement`. Read ALL of them before making any decisions. Then process each one.
 
+**Skip any issue that already has the label `approved-for-work` or `in-progress`** — those have already been triaged. Only process issues with `game-improvement` and neither of those labels.
+
 **Assume the submitter (an AI agent playing the game) has zero knowledge of the codebase, architecture, or implementation details.** Their suggestion describes desired behaviour from a player perspective only.
 
 ---

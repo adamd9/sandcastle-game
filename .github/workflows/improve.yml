@@ -12,7 +12,25 @@ jobs:
     if: github.event.label.name == 'approved-for-work'
     runs-on: ubuntu-latest
     steps:
-      - name: Assign Copilot coding agent to issue
-        run: gh issue edit ${{ github.event.issue.number }} --add-assignee copilot-swe-agent --repo ${{ github.repository }}
+      - name: Check not already in-progress
+        id: check
+        run: |
+          LABELS=$(gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
+          if echo "$LABELS" | grep -q "in-progress"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+
+      - name: Assign Copilot coding agent and mark in-progress
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --add-assignee copilot-swe-agent \
+            --add-label "in-progress" \
+            --remove-label "approved-for-work" \
+            --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
