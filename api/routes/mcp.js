@@ -31,6 +31,32 @@ const RULES_DOC = {
   turn_commitment: {
     description: 'Use the end_turn tool to commit your turn. Once committed, no further moves are allowed until the next tick. The game records whether each player committed in the round history. Your opponent can see your commitment status via get_state.',
   },
+  endpoints: {
+    'GET /rules':            'This document.',
+    'GET /state':            'Full game state with last 10 rounds of history.',
+    'GET /state/:player':    'Player-filtered state: only that player\'s moves, their weather damage, and opponent stats.',
+    'POST /turn':            'Submit all moves for this tick as a batch. Body: { moves: [{action, x, y, block_type?}] }. Header: X-Api-Key.',
+    'POST /suggest':         'Submit a game improvement suggestion. Body: { title, description }. Creates a GitHub issue. Header: X-Api-Key.',
+    'POST /tick':            'Advance the game by one tick (admin only). Header: X-Api-Key.',
+    'GET /health':           'Health check.',
+  },
+  history_format: {
+    description: 'state.history contains up to 20 rounds. Each round has:',
+    fields: {
+      tick: 'Tick number when this round was recorded',
+      weather: '{ rain_mm, wind_speed_kph, wind_direction }',
+      moves: '{ player1: [{action, x, y, block_type}], player2: [...] } — moves made that tick',
+      player1: '{ actions, committed, blocks } — player1 summary for the round',
+      player2: '{ actions, committed, blocks } — player2 summary for the round',
+      weatherEvents: 'Array of damage events: [{ type: "damaged"|"destroyed", x, y, owner, block_type, rain_damage, wind_damage, total_damage, health_before, health_after }]',
+    },
+  },
+  mcp_tools: {
+    get_state: 'Get current game state with recent turn history and weather events, structured for AI consumption.',
+    get_rules: 'Get these rules.',
+    submit_turn: 'Submit all moves for this tick as a batch array. Auto-commits your turn.',
+    suggest_improvement: 'Submit a game improvement suggestion that gets raised as a GitHub issue.',
+  },
 };
 
 export function createMcpRouter() {
@@ -55,11 +81,37 @@ export function createMcpRouter() {
 
     server.tool(
       'get_state',
-      'Get the current game state including all cell positions, health values, weather, tick number, and action budgets.',
+      'Get the current game state including board, weather, your action budget, and recent turn history with weather damage events. Use this before planning your moves.',
       {},
       async () => {
         const state = await getState();
-        return { content: [{ type: 'text', text: JSON.stringify(state, null, 2) }] };
+        const recentHistory = (state.history || []).slice(-5).map(round => ({
+          tick: round.tick,
+          weather: round.weather,
+          myMoves: round.moves?.[player] || [],
+          opponentMoves: round.moves?.[player === 'player1' ? 'player2' : 'player1'] || [],
+          myStats: round[player] || {},
+          opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
+          weatherDamageToMyBlocks: (round.weatherEvents || []).filter(e => e.owner === player),
+          weatherDamageToOpponentBlocks: (round.weatherEvents || []).filter(e => e.owner !== player),
+        }));
+
+        const response = {
+          current_state: {
+            tick: state.tick,
+            weather: state.weather,
+            my_player: player,
+            my_actions_used: state.players[player].actionsThisTick,
+            my_actions_remaining: 12 - state.players[player].actionsThisTick,
+            my_turn_committed: state.players[player].turnCommitted,
+            opponent_turn_committed: state.players[player === 'player1' ? 'player2' : 'player1'].turnCommitted,
+            my_blocks: state.cells.filter(c => c.owner === player).map(c => ({ x: c.x, y: c.y, type: c.type, health: c.health })),
+            opponent_blocks: state.cells.filter(c => c.owner !== player).map(c => ({ x: c.x, y: c.y, type: c.type, health: c.health })),
+          },
+          recent_history: recentHistory,
+        };
+
+        return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] };
       },
     );
 
@@ -129,6 +181,51 @@ export function createMcpRouter() {
             }),
           }],
         };
+      },
+    );
+
+    server.tool(
+      'suggest_improvement',
+      'Submit a suggestion to improve the game. Creates a GitHub issue for the game developers to review. Use this when you notice something that could make the game better — new block types, rule changes, balance tweaks, etc.',
+      {
+        title: z.string().min(1).max(200).describe('Short title for the suggestion (max 200 chars)'),
+        description: z.string().min(10).max(2000).describe('Detailed description of the improvement (10-2000 chars)'),
+      },
+      async ({ title, description }) => {
+        try {
+          const state = await getState();
+          const issueTitle = `[Player Suggestion] ${title.trim()}`;
+          const issueBody = `## Player Suggestion\n\n**Submitted by:** ${player}\n**Current Tick:** ${state.tick}\n\n### Description\n\n${description.trim()}\n\n---\n*This suggestion was automatically submitted by the ${player} AI agent.*`;
+          
+          const token = process.env.SUGGESTIONS_GITHUB_TOKEN;
+          if (!token) {
+            return { content: [{ type: 'text', text: JSON.stringify({ error: 'SUGGESTIONS_GITHUB_TOKEN not configured on server' }) }] };
+          }
+          
+          const response = await fetch('https://api.github.com/repos/adamd9/sandcastle-game/issues', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'Content-Type': 'application/json',
+              'User-Agent': 'sandcastle-game-api',
+            },
+            body: JSON.stringify({ title: issueTitle, body: issueBody, labels: ['game-improvement'] }),
+          });
+          
+          if (!response.ok) {
+            const err = await response.text();
+            return { content: [{ type: 'text', text: JSON.stringify({ error: `GitHub API error: ${err}` }) }] };
+          }
+          
+          const issue = await response.json();
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ ok: true, issue_number: issue.number, issue_url: issue.html_url }) }],
+          };
+        } catch (err) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }] };
+        }
       },
     );
 
