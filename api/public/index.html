@@ -747,9 +747,10 @@
   function drawGrid(cells) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Background grid
+    // Background grid — skip water rows (drawn separately below)
     for (let gx = 0; gx < GRID_W; gx++) {
       for (let gy = 0; gy < GRID_H; gy++) {
+        if (gy < WATER_ROWS) continue;
         ctx.fillStyle = gx < 10 ? '#1a1200' : '#0d1a00';
         ctx.fillRect(gx * CELL_SIZE, gy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         ctx.strokeStyle = '#2a1f00';
@@ -758,28 +759,52 @@
       }
     }
 
-    // Zone divider
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(10 * CELL_SIZE, 0);
-    ctx.lineTo(10 * CELL_SIZE, GRID_H * CELL_SIZE);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Water zone
+    // Water zone — solid fill, no grid lines visible
     const waterGradient = ctx.createLinearGradient(0, 0, 0, WATER_ROWS * CELL_SIZE);
-    waterGradient.addColorStop(0, 'rgba(20, 80, 180, 0.75)');
-    waterGradient.addColorStop(1, 'rgba(40, 140, 220, 0.45)');
+    waterGradient.addColorStop(0,   '#0d3b8a');
+    waterGradient.addColorStop(0.6, '#1a6dbf');
+    waterGradient.addColorStop(1,   '#2a9de0');
     ctx.fillStyle = waterGradient;
     ctx.fillRect(0, 0, GRID_W * CELL_SIZE, WATER_ROWS * CELL_SIZE);
+
+    // Subtle wave lines within water zone
     ctx.save();
-    ctx.fillStyle = 'rgba(180, 220, 255, 0.6)';
+    ctx.strokeStyle = 'rgba(180, 230, 255, 0.25)';
+    ctx.lineWidth = 1;
+    for (let row = 0; row < WATER_ROWS; row++) {
+      const cy = row * CELL_SIZE + CELL_SIZE * 0.55;
+      ctx.beginPath();
+      for (let wx = 0; wx < GRID_W * CELL_SIZE; wx += 4) {
+        const wy = cy + Math.sin((wx / 18) + row * 2.1) * 2.5;
+        wx === 0 ? ctx.moveTo(wx, wy) : ctx.lineTo(wx, wy);
+      }
+      ctx.stroke();
+    }
+    // OCEAN label
+    ctx.fillStyle = 'rgba(200, 235, 255, 0.55)';
     ctx.font = 'bold 11px Courier New';
     ctx.textAlign = 'center';
     ctx.fillText('~ OCEAN ~', (GRID_W * CELL_SIZE) / 2, (WATER_ROWS * CELL_SIZE) / 2 + 4);
     ctx.restore();
+
+    // Shoreline at y=WATER_ROWS — foam strip
+    const shoreY = WATER_ROWS * CELL_SIZE;
+    const shoreGrad = ctx.createLinearGradient(0, shoreY - 4, 0, shoreY + 6);
+    shoreGrad.addColorStop(0, 'rgba(160, 220, 255, 0.6)');
+    shoreGrad.addColorStop(0.5, 'rgba(220, 240, 255, 0.35)');
+    shoreGrad.addColorStop(1, 'rgba(220, 210, 180, 0)');
+    ctx.fillStyle = shoreGrad;
+    ctx.fillRect(0, shoreY - 4, GRID_W * CELL_SIZE, 10);
+
+    // Zone divider — only below water zone
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(10 * CELL_SIZE, WATER_ROWS * CELL_SIZE);
+    ctx.lineTo(10 * CELL_SIZE, GRID_H * CELL_SIZE);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
     // Group cells by (x,y) position, sorted by level ascending
     const columns = new Map();
