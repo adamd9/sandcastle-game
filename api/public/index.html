@@ -611,6 +611,13 @@
     <button class="god-btn"          data-god-action="REINFORCE">REINF.</button>
     <button class="god-btn god-erase-btn" data-god-action="ERASE">🧹 ERASE</button>
   </div>
+  <div class="god-row" id="god-level-row">
+    <span class="god-label">Level</span>
+    <button class="god-btn selected" data-god-level="0">L0</button>
+    <button class="god-btn"          data-god-level="1">L1</button>
+    <button class="god-btn"          data-god-level="2">L2</button>
+    <button class="god-btn"          data-god-level="3">L3</button>
+  </div>
   <div class="god-row" id="god-type-row">
     <span class="god-label">Block</span>
     <button class="god-btn selected" data-god-type="packed_sand">packed</button>
@@ -709,6 +716,7 @@
   const CELL_SIZE  = 30;
   const GRID_W     = 20;
   const GRID_H     = 20;
+  const WATER_ROWS = 3;
   const POLL_MS    = 5000;
 
   // Block colours: base hue, then health-shaded below
@@ -737,24 +745,17 @@
   }
 
   function drawGrid(cells) {
-    // Background
-    ctx.fillStyle = '#c4a46a22';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Grid lines
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x <= GRID_W; x++) {
-      ctx.beginPath();
-      ctx.moveTo(x * CELL_SIZE, 0);
-      ctx.lineTo(x * CELL_SIZE, GRID_H * CELL_SIZE);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= GRID_H; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, y * CELL_SIZE);
-      ctx.lineTo(GRID_W * CELL_SIZE, y * CELL_SIZE);
-      ctx.stroke();
+    // Background grid
+    for (let gx = 0; gx < GRID_W; gx++) {
+      for (let gy = 0; gy < GRID_H; gy++) {
+        ctx.fillStyle = gx < 10 ? '#1a1200' : '#0d1a00';
+        ctx.fillRect(gx * CELL_SIZE, gy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        ctx.strokeStyle = '#2a1f00';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(gx * CELL_SIZE + 0.5, gy * CELL_SIZE + 0.5, CELL_SIZE - 1, CELL_SIZE - 1);
+      }
     }
 
     // Zone divider
@@ -767,54 +768,69 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Cells
+    // Water zone
+    const waterGradient = ctx.createLinearGradient(0, 0, 0, WATER_ROWS * CELL_SIZE);
+    waterGradient.addColorStop(0, 'rgba(20, 80, 180, 0.75)');
+    waterGradient.addColorStop(1, 'rgba(40, 140, 220, 0.45)');
+    ctx.fillStyle = waterGradient;
+    ctx.fillRect(0, 0, GRID_W * CELL_SIZE, WATER_ROWS * CELL_SIZE);
+    ctx.save();
+    ctx.fillStyle = 'rgba(180, 220, 255, 0.6)';
+    ctx.font = 'bold 11px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('~ OCEAN ~', (GRID_W * CELL_SIZE) / 2, (WATER_ROWS * CELL_SIZE) / 2 + 4);
+    ctx.restore();
+
+    // Group cells by (x,y) position, sorted by level ascending
+    const columns = new Map();
     for (const cell of cells) {
-      const baseColor = BLOCK_COLORS[cell.type] ?? '#888';
-      const alpha     = healthAlpha(Math.max(1, cell.health));
-      const rgb       = hexToRgb(baseColor);
+      const key = `${cell.x},${cell.y}`;
+      if (!columns.has(key)) columns.set(key, []);
+      columns.get(key).push(cell);
+    }
+    for (const stack of columns.values()) {
+      stack.sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+    }
 
-      // Fill
-      ctx.fillStyle = `rgba(${rgb},${alpha.toFixed(2)})`;
-      ctx.fillRect(
-        cell.x * CELL_SIZE + 1,
-        cell.y * CELL_SIZE + 1,
-        CELL_SIZE - 2,
-        CELL_SIZE - 2
-      );
+    // Level sizes: L0=full, L1=22px, L2=16px, L3=10px (centred)
+    const levelSizes = [CELL_SIZE, 22, 16, 10];
 
-      // Owner tint border
-      ctx.strokeStyle = cell.owner === 'player1'
-        ? `rgba(107,197,248,${(alpha * 0.7).toFixed(2)})`
-        : `rgba(248,113,113,${(alpha * 0.7).toFixed(2)})`;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(
-        cell.x * CELL_SIZE + 1.5,
-        cell.y * CELL_SIZE + 1.5,
-        CELL_SIZE - 3,
-        CELL_SIZE - 3
-      );
+    const BLOCK_DRAW_COLORS = {
+      packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
+      wet_sand:    { player1: '#c49a28', player2: '#6aab28' },
+      dry_sand:    { player1: '#e8d5a3', player2: '#a3e8a3' },
+    };
 
-      // Health text for blocks below 50%
-      if (cell.health < 50) {
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        ctx.font = '8px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(cell.health, cell.x * CELL_SIZE + CELL_SIZE / 2, cell.y * CELL_SIZE + CELL_SIZE / 2);
-      }
+    for (const [key, stack] of columns) {
+      const [gx, gy] = key.split(',').map(Number);
+      for (const cell of stack) {
+        const lvl = cell.level ?? 0;
+        const sz  = levelSizes[Math.min(lvl, levelSizes.length - 1)];
+        const ox  = gx * CELL_SIZE + (CELL_SIZE - sz) / 2;
+        const oy  = gy * CELL_SIZE + (CELL_SIZE - sz) / 2;
 
-      // Session-placed indicator: small diamond in top-left corner
-      if (godMode && godSessionBlocks.has(`${cell.x},${cell.y}`)) {
-        const cx = cell.x * CELL_SIZE + 6;
-        const cy = cell.y * CELL_SIZE + 6;
-        ctx.fillStyle = '#f5c842';
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - 3);
-        ctx.lineTo(cx + 3, cy);
-        ctx.lineTo(cx, cy + 3);
-        ctx.lineTo(cx - 3, cy);
-        ctx.closePath();
-        ctx.fill();
+        const colors = BLOCK_DRAW_COLORS[cell.type] ?? BLOCK_DRAW_COLORS.dry_sand;
+        const baseColor = colors[cell.owner] ?? colors.player1;
+
+        // Health-based brightness: full HP = base color, low HP = darker
+        const maxHp = { dry_sand: 25, wet_sand: 40, packed_sand: 60 }[cell.type] ?? 60;
+        const hpFrac = Math.max(0, cell.health / maxHp);
+        ctx.globalAlpha = 0.4 + hpFrac * 0.6;
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(ox, oy, sz, sz);
+        ctx.globalAlpha = 1;
+
+        // Border — slightly lighter
+        ctx.strokeStyle = lvl === 0 ? '#ffffff22' : '#ffffff44';
+        ctx.lineWidth = lvl === 0 ? 0.5 : 1;
+        ctx.strokeRect(ox + 0.5, oy + 0.5, sz - 1, sz - 1);
+
+        // God-session highlight
+        if (godMode && godSessionBlocks && godSessionBlocks.has(`${cell.x},${cell.y}`)) {
+          ctx.strokeStyle = '#f5c84288';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ox + 1, oy + 1, sz - 2, sz - 2);
+        }
       }
     }
   }
@@ -890,8 +906,10 @@
       document.getElementById('stat-wind').textContent = `${w.wind_speed_kph} kph ${w.wind_direction}`;
 
       const eventLabel = w.event_label ? ` · ${w.event_label}` : '';
-      document.getElementById('weather-bar').textContent =
-        `Weather: ${w.rain_mm} mm rain · ${w.wind_speed_kph} kph from ${w.wind_direction}${eventLabel}`;
+      const isDestructive = ['wave_surge', 'rogue_wave', 'storm'].includes(w.event);
+      const weatherBarEl = document.getElementById('weather-bar');
+      weatherBarEl.textContent = `Weather: ${w.rain_mm} mm rain · ${w.wind_speed_kph} kph from ${w.wind_direction}${eventLabel}`;
+      weatherBarEl.style.color = isDestructive ? '#f87171' : '#8a7350';
 
       document.getElementById('error-msg').textContent = '';
       lastTick = state.tick;
@@ -970,6 +988,7 @@
   let godPlayer = 'player1';
   let godAction = 'PLACE';
   let godBlockType = 'packed_sand';
+  let godLevel = 0;
   let godHoverCell = null;
   let godBudgetExhausted = false;
   let godQueue = []; // pending moves, submitted on End Turn
@@ -1024,8 +1043,10 @@
       b.classList.toggle('dimmed', !needsType)
     );
     godTypeRow.style.opacity = needsType ? '1' : '0.4';
+    document.getElementById('god-level-row').style.opacity = v === 'ERASE' ? '0.4' : '1';
   });
   bindGodButtons('data-god-type', v => { godBlockType = v; });
+  bindGodButtons('data-god-level', v => { godLevel = parseInt(v, 10); });
 
   // Canvas hover — RAF-throttled to prevent accumulation bug
   let godHoverRafPending = false;
@@ -1096,28 +1117,35 @@
   const blockTooltip = document.getElementById('block-tooltip');
 
   function updateTooltip(mouseEvent, gridX, gridY) {
-    const cell = (lastCells || []).find(c => c.x === gridX && c.y === gridY);
+    const stack = (lastCells || [])
+      .filter(c => c.x === gridX && c.y === gridY)
+      .sort((a, b) => (b.level ?? 0) - (a.level ?? 0)); // highest first
 
-    if (!cell) {
+    if (stack.length === 0) {
       hideTooltip();
       return;
     }
 
-    const maxHp = { dry_sand: 25, wet_sand: 40, packed_sand: 60 }[cell.type] ?? 60;
-    const hpPct = Math.round((cell.health / maxHp) * 100);
-    const hpBar = '█'.repeat(Math.round(hpPct / 10)) + '░'.repeat(10 - Math.round(hpPct / 10));
-    const hpColor = hpPct > 60 ? '#6fcf97' : hpPct > 30 ? '#f2c94c' : '#eb5757';
+    const maxHpMap = { dry_sand: 25, wet_sand: 40, packed_sand: 60 };
+    const levelNames = ['Ground', '1st Floor', 'Tower', 'Spire'];
 
+    const rows = stack.map(cell => {
+      const maxHp = maxHpMap[cell.type] ?? 60;
+      const hpPct = Math.round((cell.health / maxHp) * 100);
+      const hpColor = hpPct > 60 ? '#6fcf97' : hpPct > 30 ? '#f2c94c' : '#eb5757';
+      const lvlName = levelNames[cell.level ?? 0] ?? `L${cell.level}`;
+      return `<div style="margin-top:4px"><span style="color:#8a7350">${lvlName}</span> · ${cell.type.replace(/_/g,' ')} · <span style="color:${hpColor}">${cell.health}/${maxHp}hp</span></div>`;
+    }).join('');
+
+    const owner = stack[0].owner;
     blockTooltip.innerHTML = `
-      <div style="font-weight:bold;margin-bottom:4px;text-transform:capitalize">${cell.type.replace(/_/g,' ')}</div>
-      <div>Owner: <span style="color:${cell.owner === 'player1' ? '#4a9eff' : '#ff7043'}">${cell.owner}</span></div>
-      <div>Position: (${cell.x}, ${cell.y})</div>
-      <div>HP: <span style="color:${hpColor}">${cell.health} / ${maxHp}</span></div>
-      <div style="font-family:monospace;color:${hpColor};letter-spacing:1px">${hpBar} ${hpPct}%</div>
+      <div style="font-weight:bold;margin-bottom:2px">(${gridX}, ${gridY})</div>
+      <div style="color:${owner === 'player1' ? '#4a9eff' : '#ff7043'};margin-bottom:4px">${owner} · ${stack.length} level${stack.length > 1 ? 's' : ''}</div>
+      ${rows}
     `;
 
-    const tx = Math.min(mouseEvent.clientX + 14, window.innerWidth - 200);
-    const ty = Math.min(mouseEvent.clientY + 14, window.innerHeight - 120);
+    const tx = Math.min(mouseEvent.clientX + 14, window.innerWidth - 220);
+    const ty = Math.min(mouseEvent.clientY + 14, window.innerHeight - 140);
     blockTooltip.style.left = tx + 'px';
     blockTooltip.style.top  = ty + 'px';
     blockTooltip.style.display = 'block';
@@ -1174,7 +1202,7 @@
       return;
     }
 
-    const move = { action: godAction, x, y };
+    const move = { action: godAction, x, y, level: godLevel };
     if (godAction === 'PLACE') move.type = godBlockType;
     godQueue.push(move);
 
