@@ -573,7 +573,6 @@
         </select>
       </div>
     </div>
-    <input type="password" id="tick-admin-key" class="tick-input" placeholder="Tick admin key">
     <button id="tick-trigger-btn">🌊 Trigger Tick</button>
     <div id="tick-result"></div>
   </div>
@@ -779,8 +778,16 @@
   const godTypeRow  = document.getElementById('god-type-row');
   const godBudgetEl = document.getElementById('god-budget-warn');
 
-  // Toggle panel visibility
+  let godSessionKey = '';
+
+  // Toggle panel visibility — require admin key on first activation
   godToggle.addEventListener('click', () => {
+    if (!godMode && !godSessionKey) {
+      const key = prompt('Enter the God Mode admin key to continue:');
+      if (!key) return;
+      godSessionKey = key;
+      tickAdminKey = key;
+    }
     godMode = !godMode;
     godToggle.classList.toggle('active', godMode);
     godPanel.classList.toggle('visible', godMode);
@@ -987,7 +994,7 @@
     try {
       const res = await fetch(`${API_BASE}/god/turn`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-God-Key': godSessionKey },
         body: JSON.stringify({ player: godPlayer, moves: godQueue }),
       });
       const data = await res.json();
@@ -997,6 +1004,11 @@
         godQueue = [];
         godBudgetExhausted = false;
         godBudgetEl.classList.remove('visible');
+      } else if (res.status === 401) {
+        godSessionKey = '';
+        tickAdminKey = '';
+        godStatus.textContent = '✗ Invalid key — God Mode locked. Click again to re-enter key.';
+        godStatus.className = 'err';
       } else {
         godStatus.textContent = `✗ ${data.error}`;
         godStatus.className = 'err';
@@ -1031,10 +1043,6 @@
     }
   });
 
-  document.getElementById('tick-admin-key').addEventListener('input', e => {
-    tickAdminKey = e.target.value;
-  });
-
   document.getElementById('tick-fetch-preview-btn').addEventListener('click', async () => {
     const btn = document.getElementById('tick-fetch-preview-btn');
     const resultEl = document.getElementById('tick-result');
@@ -1061,10 +1069,10 @@
   });
 
   document.getElementById('tick-trigger-btn').addEventListener('click', async () => {
-    const key = tickAdminKey || document.getElementById('tick-admin-key').value;
+    const key = tickAdminKey || godSessionKey;
     const resultEl = document.getElementById('tick-result');
     if (!key) {
-      resultEl.textContent = '✗ Enter the Tick admin key first.';
+      resultEl.textContent = '✗ No admin key — close and re-open God Mode to enter key.';
       resultEl.className = 'err';
       return;
     }
