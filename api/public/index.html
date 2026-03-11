@@ -747,22 +747,34 @@
   });
   bindGodButtons('data-god-type', v => { godBlockType = v; });
 
-  // Canvas hover — draw highlight cell when in god mode
+  // Canvas hover — RAF-throttled to prevent accumulation bug
+  let godHoverRafPending = false;
   canvas.addEventListener('mousemove', e => {
-    if (!godMode) { godHoverCell = null; return; }
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    godHoverCell = {
-      x: Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE),
-      y: Math.floor((e.clientY - rect.top)  * scaleY / CELL_SIZE),
-    };
-    drawGrid(lastCells);
-    drawGodOverlay();
-    drawGodQueue();
+    const hx = Math.floor((e.clientX - rect.left) * scaleX / CELL_SIZE);
+    const hy = Math.floor((e.clientY - rect.top)  * scaleY / CELL_SIZE);
+
+    // Always update tooltip (fast, no canvas redraw)
+    updateTooltip(e, hx, hy);
+
+    if (!godMode) { godHoverCell = null; return; }
+
+    godHoverCell = { x: hx, y: hy };
+    if (!godHoverRafPending) {
+      godHoverRafPending = true;
+      requestAnimationFrame(() => {
+        drawGrid(lastCells);
+        drawGodOverlay();
+        drawGodQueue();
+        godHoverRafPending = false;
+      });
+    }
   });
   canvas.addEventListener('mouseleave', () => {
     godHoverCell = null;
+    hideTooltip();
     drawGrid(lastCells);
     drawGodQueue();
   });
@@ -797,6 +809,43 @@
     ctx.restore();
   }
 
+
+  // ---------------------------------------------------------------------------
+  // Block tooltip (works for all users, not just god mode)
+  // ---------------------------------------------------------------------------
+  const blockTooltip = document.getElementById('block-tooltip');
+
+  function updateTooltip(mouseEvent, gridX, gridY) {
+    const cell = (lastCells || []).find(c => c.x === gridX && c.y === gridY);
+
+    if (!cell) {
+      hideTooltip();
+      return;
+    }
+
+    const maxHp = { dry_sand: 25, wet_sand: 40, packed_sand: 60 }[cell.type] ?? 60;
+    const hpPct = Math.round((cell.health / maxHp) * 100);
+    const hpBar = '█'.repeat(Math.round(hpPct / 10)) + '░'.repeat(10 - Math.round(hpPct / 10));
+    const hpColor = hpPct > 60 ? '#6fcf97' : hpPct > 30 ? '#f2c94c' : '#eb5757';
+
+    blockTooltip.innerHTML = `
+      <div style="font-weight:bold;margin-bottom:4px;text-transform:capitalize">${cell.type.replace(/_/g,' ')}</div>
+      <div>Owner: <span style="color:${cell.owner === 'player1' ? '#4a9eff' : '#ff7043'}">${cell.owner}</span></div>
+      <div>Position: (${cell.x}, ${cell.y})</div>
+      <div>HP: <span style="color:${hpColor}">${cell.health} / ${maxHp}</span></div>
+      <div style="font-family:monospace;color:${hpColor};letter-spacing:1px">${hpBar} ${hpPct}%</div>
+    `;
+
+    const tx = Math.min(mouseEvent.clientX + 14, window.innerWidth - 200);
+    const ty = Math.min(mouseEvent.clientY + 14, window.innerHeight - 120);
+    blockTooltip.style.left = tx + 'px';
+    blockTooltip.style.top  = ty + 'px';
+    blockTooltip.style.display = 'block';
+  }
+
+  function hideTooltip() {
+    blockTooltip.style.display = 'none';
+  }
 
   canvas.addEventListener('click', e => {
     if (!godMode) return;
@@ -985,13 +1034,7 @@
     }
   });
 
-  // Re-draw overlay after each poll for the auto-polling interval
-  const godOverlayInterval = setInterval(() => {
-    if (godMode && godHoverCell) {
-      drawGrid(lastCells);
-      drawGodOverlay();
-    }
-  }, 200);
+  // RAF-throttled mousemove handles hover redraws — no interval needed
 
   // ---------------------------------------------------------------------------
   // Turn History Panel
@@ -1067,5 +1110,19 @@
   }
 
 </script>
+<div id="block-tooltip" style="
+  display:none;
+  position:fixed;
+  background:#1a120a;
+  border:1px solid #8b6914;
+  border-radius:6px;
+  padding:8px 12px;
+  font-size:12px;
+  color:#e8d5a3;
+  pointer-events:none;
+  z-index:9999;
+  box-shadow:0 2px 8px rgba(0,0,0,0.5);
+  line-height:1.6;
+"></div>
 </body>
 </html>
