@@ -230,4 +230,79 @@ router.post('/erase', devOnly, async (req, res) => {
   }
 });
 
+/**
+ * POST /god/backfill-history
+ * One-off: reconstruct cell snapshots for history entries that lack them.
+ * Works backwards from current cells undoing moves + weather events.
+ * Safe to call multiple times (skips entries that already have cells).
+ * Header: X-Api-Key (TICK_ADMIN_KEY)
+ */
+router.post('/backfill-history', async (req, res) => {
+  const key = req.headers['x-api-key'];
+  if (!key || key !== process.env.TICK_ADMIN_KEY) {
+    return res.status(401).json({ error: 'Invalid or missing X-Api-Key header.' });
+  }
+
+  const REINFORCE_AMOUNT = 15;
+
+  function undoWeather(cells, weatherEvents) {
+    const cellMap = new Map(cells.map(c => [`${c.x},${c.y}`, { ...c }]));
+    for (const ev of (weatherEvents || [])) {
+      const key = `${ev.x},${ev.y}`;
+      if (ev.type === 'destroyed') {
+        cellMap.set(key, { x: ev.x, y: ev.y, type: ev.block_type, owner: ev.owner, health: ev.health_before });
+      } else if (ev.type === 'damaged') {
+        const cell = cellMap.get(key);
+        if (cell) cell.health = ev.health_before;
+        else cellMap.set(key, { x: ev.x, y: ev.y, type: ev.block_type, owner: ev.owner, health: ev.health_before });
+      }
+    }
+    return Array.from(cellMap.values());
+  }
+
+  function undoMoves(cells, moves) {
+    const cellMap = new Map(cells.map(c => [`${c.x},${c.y}`, { ...c }]));
+    const allMoves = [...(moves.player1 || []), ...(moves.player2 || [])].reverse();
+    for (const move of allMoves) {
+      const key = `${move.x},${move.y}`;
+      if (move.action === 'PLACE') {
+        cellMap.delete(key);
+      } else if (move.action === 'REINFORCE') {
+        const cell = cellMap.get(key);
+        if (cell) cell.health = Math.max(1, cell.health - REINFORCE_AMOUNT);
+      }
+      // REMOVE: can't restore — skip
+    }
+    return Array.from(cellMap.values());
+  }
+
+  try {
+    const state = await getState();
+    const history = state.history || [];
+    const missing = history.filter(h => !h.cells).length;
+
+    if (missing === 0) return res.json({ ok: true, message: 'Nothing to backfill.', backfilled: 0 });
+
+    let cells = structuredClone(state.cells);
+    const log = [];
+
+    for (const round of [...history].reverse()) {
+      cells = undoWeather(cells, round.weatherEvents);
+      cells = undoMoves(cells, round.moves || {});
+      if (!round.cells) {
+        round.cells = structuredClone(cells);
+        log.push(`tick ${round.tick}: backfilled (${cells.length} cells)`);
+      } else {
+        cells = structuredClone(round.cells);
+        log.push(`tick ${round.tick}: already had snapshot`);
+      }
+    }
+
+    await saveState(state);
+    res.json({ ok: true, backfilled: missing, log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
