@@ -100,6 +100,77 @@
       min-height: 1.2em;
     }
 
+    /* ── Suggest Improvement ──────────────────────────────────────────────── */
+    #suggest-toggle {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 100;
+      padding: 6px 18px;
+      background: #0a1f2b;
+      border: 1px solid #1b5a3e;
+      color: #a3e8d5;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #suggest-toggle.active {
+      background: #42f5c8;
+      color: #001a14;
+      border-color: #42f5c8;
+      font-weight: bold;
+    }
+    #suggest-panel {
+      display: none;
+      position: fixed;
+      bottom: 56px;
+      right: 16px;
+      width: 360px;
+      background: #001a14;
+      border: 1px solid #1b5a3e;
+      border-radius: 6px;
+      padding: 14px;
+      font-family: 'Courier New', monospace;
+      color: #a3e8d5;
+      font-size: 12px;
+      z-index: 100;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #suggest-panel.visible { display: flex; }
+    #suggest-title-input, #suggest-desc-input, #suggest-key-input {
+      width: 100%;
+      box-sizing: border-box;
+      background: #001a0e;
+      border: 1px solid #1b5a3e;
+      color: #a3e8d5;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 4px;
+    }
+    #suggest-desc-input {
+      resize: vertical;
+      min-height: 80px;
+    }
+    #suggest-submit-btn {
+      padding: 7px 0;
+      background: #0f3d2a;
+      border: 1px solid #1b5a3e;
+      color: #42f5c8;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #suggest-submit-btn:hover { background: #1a5a3e; }
+    #suggest-result { min-height: 1.2em; word-break: break-all; }
+    #suggest-result.ok  { color: #42f5c8; }
+    #suggest-result.err { color: #eb5757; }
+
     /* ── God Mode ─────────────────────────────────────────────────── */
     #god-toggle {
       position: fixed;
@@ -1109,7 +1180,80 @@
     list.innerHTML = html;
   }
 
+  // ---------------------------------------------------------------------------
+  // Suggest Improvement Panel
+  // ---------------------------------------------------------------------------
+  const suggestToggle = document.getElementById('suggest-toggle');
+  const suggestPanel  = document.getElementById('suggest-panel');
+  let suggestOpen = false;
+
+  suggestToggle.addEventListener('click', () => {
+    suggestOpen = !suggestOpen;
+    suggestToggle.classList.toggle('active', suggestOpen);
+    suggestPanel.classList.toggle('visible', suggestOpen);
+  });
+
+  document.getElementById('suggest-submit-btn').addEventListener('click', async () => {
+    const title       = document.getElementById('suggest-title-input').value.trim();
+    const description = document.getElementById('suggest-desc-input').value.trim();
+    const key         = document.getElementById('suggest-key-input').value.trim();
+    const resultEl    = document.getElementById('suggest-result');
+
+    if (!title)       { resultEl.textContent = '✗ Title is required.';       resultEl.className = 'err'; return; }
+    if (!description) { resultEl.textContent = '✗ Description is required.'; resultEl.className = 'err'; return; }
+    if (!key)         { resultEl.textContent = '✗ Admin key is required.';   resultEl.className = 'err'; return; }
+
+    const btn = document.getElementById('suggest-submit-btn');
+    btn.textContent = '⏳ Submitting…';
+    try {
+      const res = await fetch('/suggest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': key,
+        },
+        body: JSON.stringify({ title, description }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        resultEl.textContent = `✗ ${data.error || res.status}`;
+        resultEl.className = 'err';
+      } else {
+        resultEl.innerHTML = `✓ Submitted! <a href="${data.issue_url}" target="_blank" style="color:#42f5c8">Issue #${data.issue_number}</a>`;
+        resultEl.className = 'ok';
+        document.getElementById('suggest-title-input').value = '';
+        document.getElementById('suggest-desc-input').value = '';
+      }
+    } catch (err) {
+      resultEl.textContent = `✗ Network error: ${err.message}`;
+      resultEl.className = 'err';
+    }
+    btn.textContent = '🚀 Submit Suggestion';
+  });
+
 </script>
+<!-- Suggest Improvement Panel -->
+<button id="suggest-toggle">💡 Suggest</button>
+<div id="suggest-panel">
+  <div style="font-weight:bold;margin-bottom:2px;">💡 Suggest a Game Improvement</div>
+  <div style="color:#6fcf97;font-size:11px;line-height:1.5;">
+    Ideas go into the review pipeline — a triage agent reviews them daily and approved ones get implemented automatically.
+  </div>
+  <div>
+    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Title</div>
+    <input type="text" id="suggest-title-input" maxlength="200" placeholder="Short description of your idea…">
+  </div>
+  <div>
+    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Description</div>
+    <textarea id="suggest-desc-input" placeholder="What should change, and why? Be as specific as you like."></textarea>
+  </div>
+  <div>
+    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Admin key (required)</div>
+    <input type="password" id="suggest-key-input" placeholder="Tick admin key">
+  </div>
+  <button id="suggest-submit-btn">🚀 Submit Suggestion</button>
+  <div id="suggest-result"></div>
+</div>
 <div id="block-tooltip" style="
   display:none;
   position:fixed;

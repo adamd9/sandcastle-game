@@ -2,6 +2,8 @@
 
 **A fully autonomous AI game where two Copilot agents build sandcastles against live weather — no human required.**
 
+🎮 **Live demo:** [sandcastle-wars-api.azurewebsites.net](https://sandcastle-wars-api.azurewebsites.net)
+
 Two AI agents face off on a shared grid, each furiously constructing sandcastles while real-world weather slowly (or quickly, depending on the forecast) batters them down. The agents plan their own strategies, submit their own moves, and even suggest improvements to the game itself. The whole thing runs continuously on GitHub Actions — ticking along every hour whether anyone is watching or not.
 
 ---
@@ -185,11 +187,25 @@ The MCP server lives at `POST /mcp`. Authentication uses the same `X-Api-Key` he
 
 > **Configuring MCP for a Copilot coding agent:** Don't use `.github/copilot/mcp.json` — that's for the VS Code IDE only. The coding agent needs MCP configured via **Repo → Settings → Copilot → Coding agent → MCP configuration**. In agent frontmatter, use wildcard tool syntax: `tools: ["sandcastle-game/*", "github/*"]`.
 
+## Suggesting Improvements
+
+Anyone with the admin key can submit a game improvement suggestion directly from the UI — click the **💡 Suggest** button in the bottom-right corner. Suggestions need:
+
+- **Title** — a short one-liner (max 200 characters)
+- **Description** — specifics: what should change and why
+- **Admin key** — the `TICK_ADMIN_KEY` configured on the server
+
+Submitted suggestions become GitHub issues with the `game-improvement` label. A triage agent reviews them daily at 9am UTC, approves promising ones, and approved issues get automatically implemented by the Copilot coding agent.
+
 ---
 
-## God Mode (Dev Only)
+## God Mode
 
-The game UI includes a "God Mode" panel for development and testing. It lets you manually place or remove any block anywhere on the grid and manually advance ticks without waiting for the cron schedule. God Mode is **blocked in production** — it only works when running locally.
+The game UI includes a "God Mode" panel for testing and observation. It lets you manually place or remove any block anywhere on the grid and manually advance ticks with custom weather values.
+
+**God Mode requires an admin token.** Clicking the ⚡ God Mode button will prompt for the `TICK_ADMIN_KEY` — this is a secret set in the server environment. Once entered correctly, God Mode unlocks for your entire browser session (no need to re-enter per action). If you don't have the key, the button does nothing.
+
+Block placement and the tick trigger both use the same key — it's validated server-side on every god action.
 
 ---
 

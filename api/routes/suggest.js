@@ -6,6 +6,7 @@ const router = Router();
 function resolvePlayer(key) {
   if (key && key === process.env.PLAYER1_API_KEY) return 'player1';
   if (key && key === process.env.PLAYER2_API_KEY) return 'player2';
+  if (key && key === process.env.TICK_ADMIN_KEY)  return 'human';
   return null;
 }
 
