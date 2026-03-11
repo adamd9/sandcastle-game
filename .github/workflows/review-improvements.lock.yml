@@ -22,7 +22,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"5aacffbc5786ae97ec9b6f767fcada86d3ce0eb2e91d18ed6b9eb4239ec5bc6e","compiler_version":"v0.57.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"a983fdee8f3ed9dcf257e778aa2189c21cd391887c9c0d8ef3e6690d2979f348","compiler_version":"v0.57.0","strict":true}
 
 name: "Review Game Improvement Suggestions"
 "on":
@@ -1190,7 +1190,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

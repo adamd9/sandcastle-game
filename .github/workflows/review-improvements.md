@@ -15,6 +15,8 @@ tools:
 network: defaults
 
 safe-outputs:
+  noop:
+    report-as-issue: false
   add-comment:
     max: 50
   add-labels:
