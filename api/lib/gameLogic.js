@@ -171,6 +171,7 @@ export function recordRound(state) {
       blocks: state.cells.filter(c => c.owner === 'player2').length,
     },
     weatherEvents: [],
+    cells: structuredClone(state.cells),
   };
   state.history.push(round);
   if (state.history.length > 20) state.history = state.history.slice(-20);

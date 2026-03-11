@@ -456,6 +456,69 @@
     .history-destroyed { color: #f87171; padding-left: 8px; line-height: 1.6; }
     .history-stats { color: #8a7350; margin-top: 5px; font-size: 0.72rem; padding-left: 8px; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
+
+    /* ── Timeline Scrubber ───────────────────────────────────────────── */
+    #timeline-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: #1a1000;
+      border: 1px solid #3a2a0a;
+      border-radius: 6px;
+      margin-top: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #8a7350;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #timeline-scrubber {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #3a2a0a;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    #timeline-scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #f5c842;
+      cursor: pointer;
+      border: 2px solid #1a1000;
+    }
+    #timeline-scrubber::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #f5c842;
+      cursor: pointer;
+      border: 2px solid #1a1000;
+    }
+    #timeline-label {
+      white-space: nowrap;
+      min-width: 60px;
+      text-align: right;
+    }
+    #timeline-reset-btn {
+      padding: 3px 10px;
+      background: #f5c842;
+      border: none;
+      border-radius: 4px;
+      color: #1a1000;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      display: none;
+    }
+    #timeline-reset-btn.visible { display: inline-block; }
   </style>
 </head>
 <body>
@@ -483,6 +546,13 @@
     <div class="zone-label" id="zone-p1">PLAYER 1</div>
     <div class="zone-label" id="zone-p2">PLAYER 2</div>
   </div>
+</div>
+
+<div id="timeline-bar">
+  <span style="white-space:nowrap">◀ history</span>
+  <input type="range" id="timeline-scrubber" min="0" max="0" value="0" step="1">
+  <span id="timeline-label">now</span>
+  <button id="timeline-reset-btn">↩ now</button>
 </div>
 
 <div id="weather-bar" id="weather-bar">Fetching weather…</div>
@@ -703,6 +773,8 @@
   // ---------------------------------------------------------------------------
   let lastTick = -1;
   let lastCells = [];
+  let historySnapshots = [];  // array of { tick, cells } from state.history
+  let scrubbingIndex = -1;    // -1 = showing live; >= 0 = showing history[scrubbingIndex]
 
   async function poll() {
     try {
@@ -711,7 +783,9 @@
       const state = await res.json();
 
       lastCells = state.cells;
-      drawGrid(state.cells);
+      if (scrubbingIndex === -1) {
+        drawGrid(state.cells);
+      }
 
       // Status bar
       document.getElementById('stat-tick').textContent = state.tick;
@@ -738,6 +812,18 @@
       document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
       renderHistory(state.history);
 
+      // Update timeline
+      historySnapshots = (state.history || []).filter(h => h.cells);
+      const scrubber = document.getElementById('timeline-scrubber');
+      const totalPositions = historySnapshots.length + 1;
+      scrubber.max = String(totalPositions - 1);
+
+      if (scrubbingIndex === -1) {
+        scrubber.value = String(totalPositions - 1);
+        document.getElementById('timeline-label').textContent = `tick ${state.tick}`;
+        document.getElementById('timeline-reset-btn').classList.remove('visible');
+      }
+
       // Update god mode end-turn button state
       const endTurnBtn = document.getElementById('god-end-turn-btn');
       if (endTurnBtn) {
@@ -762,6 +848,41 @@
 
   poll();
   setInterval(poll, POLL_MS);
+
+  // ── Timeline Scrubber ──────────────────────────────────────────────────
+  const timelineScrubber = document.getElementById('timeline-scrubber');
+  const timelineLabel    = document.getElementById('timeline-label');
+  const timelineResetBtn = document.getElementById('timeline-reset-btn');
+
+  timelineScrubber.addEventListener('input', () => {
+    const totalPositions = historySnapshots.length + 1;
+    const idx = parseInt(timelineScrubber.value, 10);
+    const isNow = idx === totalPositions - 1;
+
+    if (isNow) {
+      scrubbingIndex = -1;
+      drawGrid(lastCells);
+      timelineLabel.textContent = 'now';
+      timelineResetBtn.classList.remove('visible');
+    } else {
+      scrubbingIndex = idx;
+      const snap = historySnapshots[idx];
+      if (snap && snap.cells) {
+        drawGrid(snap.cells);
+        timelineLabel.textContent = `tick ${snap.tick}`;
+      }
+      timelineResetBtn.classList.add('visible');
+    }
+  });
+
+  timelineResetBtn.addEventListener('click', () => {
+    scrubbingIndex = -1;
+    const totalPositions = historySnapshots.length + 1;
+    timelineScrubber.value = String(totalPositions - 1);
+    drawGrid(lastCells);
+    timelineLabel.textContent = 'now';
+    timelineResetBtn.classList.remove('visible');
+  });
 
   // ── God Mode ──────────────────────────────────────────────────────
   let godMode = false;
