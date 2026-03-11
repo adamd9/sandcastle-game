@@ -8,6 +8,8 @@ import {
   VALID_ACTIONS,
   REINFORCE_AMOUNT,
   MAX_HEALTH,
+  WATER_ROWS,
+  MAX_LEVEL,
   WEATHER_EVENTS,
 } from '../lib/rules.js';
 
@@ -25,8 +27,17 @@ const RULES_DOC = {
     base_damage: 'Every cell takes at least 5 damage per tick (scaled by event multiplier).',
     rain: 'Additional floor(rain_mm * 10) damage per tick, multiplied by event.',
     wind: 'Edge cells take floor(wind_speed_kph / 3) extra damage. During storms, ALL cells take wind damage.',
-    tip: 'Build exterior walls to shield interior blocks. Some events destroy entire rows/columns regardless of position.',
+    tip: 'Build exterior walls to shield interior blocks. Some events destroy entire rows/columns regardless of position. Avoid building in the water zone (y=0–2) — it is ocean.',
     events: WEATHER_EVENTS.map(e => ({ id: e.id, label: e.label, description: e.description })),
+  },
+  water_zone: {
+    rows: `y=0 to y=${WATER_ROWS - 1}`,
+    description: 'Ocean — no building. Wave events surge from here.',
+  },
+  levels: {
+    max_level: MAX_LEVEL,
+    description: 'Each (x,y) cell can stack up to 4 blocks (levels 0–3). Must place L0 before L1. Removing a level destroys all levels above (cascade).',
+    weather_interaction: 'Normal/storm damage hits only the TOP level. Wave surge destroys L0 in affected rows → cascades all levels above.',
   },
   turn_commitment: {
     description: 'Players may call POST /end-turn to commit their turn. Once committed, no further moves are allowed until the next tick. The tick records each player\'s committed status in the round history.',

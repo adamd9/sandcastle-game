@@ -7,6 +7,7 @@ import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
+  WATER_ROWS, MAX_LEVEL,
   rainDamage, windDamage,
 } from '../lib/rules.js';
 
@@ -28,7 +29,16 @@ const RULES_DOC = {
     base_damage: 'Every cell takes 5 damage per tick regardless of weather.',
     rain: 'Each cell loses an additional floor(rain_mm * 10) health per tick when it rains.',
     wind: 'Cells on the windward edge lose an additional floor(wind_speed_kph / 3) health per tick.',
-    tip: 'Build exterior walls to shield interior blocks from wind. Reinforce frequently.',
+    tip: 'Build exterior walls to shield interior blocks from wind. Reinforce frequently. Avoid building in the water zone (y=0–2) — it is ocean.',
+  },
+  water_zone: {
+    rows: `y=0 to y=${WATER_ROWS - 1}`,
+    description: 'Ocean — no building. Wave events surge from here.',
+  },
+  levels: {
+    max_level: MAX_LEVEL,
+    description: 'Each (x,y) cell can stack up to 4 blocks (levels 0–3). Must place L0 before L1. Removing a level destroys all levels above (cascade).',
+    weather_interaction: 'Normal/storm damage hits only the TOP level. Wave surge destroys L0 in affected rows → cascades all levels above.',
   },
   turn_commitment: {
     description: 'Use the end_turn tool to commit your turn. Once committed, no further moves are allowed until the next tick. The game records whether each player committed in the round history. Your opponent can see your commitment status via get_state.',
@@ -118,8 +128,8 @@ export function createMcpRouter() {
             my_actions_remaining: 12 - state.players[player].actionsThisTick,
             my_turn_committed: state.players[player].turnCommitted,
             opponent_turn_committed: state.players[player === 'player1' ? 'player2' : 'player1'].turnCommitted,
-            my_blocks: state.cells.filter(c => c.owner === player).map(c => ({ x: c.x, y: c.y, type: c.type, health: c.health })),
-            opponent_blocks: state.cells.filter(c => c.owner !== player).map(c => ({ x: c.x, y: c.y, type: c.type, health: c.health })),
+            my_blocks: state.cells.filter(c => c.owner === player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
+            opponent_blocks: state.cells.filter(c => c.owner !== player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
           },
           recent_history: recentHistory,
         };
@@ -150,6 +160,8 @@ export function createMcpRouter() {
             .describe('Grid y coordinate (0–19).'),
           block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand']).optional()
             .describe('Block type — required for PLACE. packed_sand has the highest health (60).'),
+          level: z.number().int().min(0).max(3).optional().default(0)
+            .describe('Vertical level to act on: 0=ground, 1=first floor, 2=tower, 3=spire. Default: 0 for PLACE. Must place L0 before L1, etc.'),
         })).min(1).max(ACTIONS_PER_TICK)
           .describe('Array of moves to apply this tick, in order. Max 12.'),
       },
@@ -165,8 +177,8 @@ export function createMcpRouter() {
 
         // Validate all moves up-front
         for (let i = 0; i < moves.length; i++) {
-          const { action, x, y, block_type } = moves[i];
-          const result = validateMove(state, player, { action, x, y, type: block_type });
+          const { action, x, y, block_type, level } = moves[i];
+          const result = validateMove(state, player, { action, x, y, type: block_type, level });
           if (!result.valid) {
             return {
               content: [{ type: 'text', text: `Move ${i + 1} rejected: ${result.reason}` }],
@@ -177,8 +189,8 @@ export function createMcpRouter() {
 
         // Apply all moves then auto-commit
         let newState = structuredClone(state);
-        for (const { action, x, y, block_type } of moves) {
-          newState = applyMove(newState, player, { action, x, y, type: block_type });
+        for (const { action, x, y, block_type, level } of moves) {
+          newState = applyMove(newState, player, { action, x, y, type: block_type, level });
         }
         newState = commitTurn(newState, player);
         await saveState(newState);

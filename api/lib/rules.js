@@ -10,6 +10,9 @@ export const ZONES = {
 
 export const ACTIONS_PER_TICK = 12;
 
+export const WATER_ROWS = 3;   // rows y=0,1,2 are ocean — no building allowed
+export const MAX_LEVEL  = 3;   // levels 0 (ground) through 3 (spire)
+
 export const BLOCK_TYPES = {
   dry_sand:    { initial_health: 25 },
   wet_sand:    { initial_health: 40 },

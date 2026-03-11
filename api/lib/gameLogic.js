@@ -6,6 +6,8 @@ import {
   MAX_HEALTH,
   GRID_WIDTH,
   GRID_HEIGHT,
+  WATER_ROWS,
+  MAX_LEVEL,
   rainDamage,
   windDamage,
   selectWeatherEvent,
@@ -16,8 +18,8 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function findCell(cells, x, y) {
-  return cells.find(c => c.x === x && c.y === y) ?? null;
+function findCell(cells, x, y, level = 0) {
+  return cells.find(c => c.x === x && c.y === y && c.level === level) ?? null;
 }
 
 function playerZone(player) {
@@ -39,9 +41,18 @@ function inGrid(x, y) {
 
 export function validateMove(state, player, action) {
   const { action: type, x, y, type: blockType } = action;
+  const level = action.level ?? 0;
 
   if (!inGrid(x, y)) {
     return { valid: false, reason: `Coordinates (${x},${y}) are outside the grid.` };
+  }
+
+  if (y < WATER_ROWS) {
+    return { valid: false, reason: `Row y=${y} is in the water zone (rows 0–${WATER_ROWS - 1}). Build further from the ocean.` };
+  }
+
+  if (!Number.isInteger(level) || level < 0 || level > MAX_LEVEL) {
+    return { valid: false, reason: `level must be 0–${MAX_LEVEL}.` };
   }
 
   const playerState = state.players[player];
@@ -52,7 +63,7 @@ export function validateMove(state, player, action) {
     return { valid: false, reason: `Action budget exhausted (${ACTIONS_PER_TICK} actions per tick).` };
   }
 
-  const cell = findCell(state.cells, x, y);
+  const cell = findCell(state.cells, x, y, level);
 
   switch (type) {
     case 'PLACE': {
@@ -67,6 +78,12 @@ export function validateMove(state, player, action) {
           valid: false,
           reason: `Unknown block type "${blockType}". Valid types: ${Object.keys(BLOCK_TYPES).join(', ')}.`,
         };
+      }
+      if (level > 0) {
+        const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
+        if (!foundation) {
+          return { valid: false, reason: `Cannot place at level ${level} — foundation missing: no block at level ${level - 1} at (${x},${y}).` };
+        }
       }
       return { valid: true };
     }
@@ -101,18 +118,19 @@ export function validateMove(state, player, action) {
 // ---------------------------------------------------------------------------
 
 export function applyMove(state, player, action) {
-  const { action: type, x, y, type: blockType } = action;
+  const { action: type, x, y, type: blockType, level = 0 } = action;
 
   state.players[player].actionsThisTick += 1;
 
   if (!state.currentTurnMoves) state.currentTurnMoves = { player1: [], player2: [] };
-  state.currentTurnMoves[player].push({ action: type, x, y, block_type: blockType });
+  state.currentTurnMoves[player].push({ action: type, x, y, level, block_type: blockType });
 
   switch (type) {
     case 'PLACE': {
       state.cells.push({
         x,
         y,
+        level,
         type: blockType,
         health: BLOCK_TYPES[blockType].initial_health,
         owner: player,
@@ -120,11 +138,12 @@ export function applyMove(state, player, action) {
       break;
     }
     case 'REMOVE': {
-      state.cells = state.cells.filter(c => !(c.x === x && c.y === y));
+      // Remove target level and all levels above (cascade)
+      state.cells = state.cells.filter(c => !(c.x === x && c.y === y && c.level >= level));
       break;
     }
     case 'REINFORCE': {
-      const cell = state.cells.find(c => c.x === x && c.y === y);
+      const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
       cell.health = Math.min(cell.health + REINFORCE_AMOUNT, MAX_HEALTH);
       break;
     }
@@ -215,81 +234,173 @@ export function applyWeather(state) {
   let survivingCells;
 
   if (weatherEvent.specialEffect === 'wave_surge') {
-    // Bottom 3 rows (y=17,18,19) obliterated; rows y=14-16 take 40 damage
+    // Build top-block map for "other rows" standard damage
+    const topBlocks = new Map();
+    for (const cell of state.cells) {
+      const key = `${cell.x},${cell.y}`;
+      if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
+        topBlocks.set(key, cell);
+      }
+    }
+
+    // Cascade set: positions where ALL levels are destroyed
+    const cascadePositions = new Set();
+
+    // Rows WATER_ROWS to WATER_ROWS+2: direct wipe
+    for (const cell of state.cells) {
+      if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
+        cascadePositions.add(`${cell.x},${cell.y}`);
+      }
+    }
+
+    // Rows WATER_ROWS+3 to WATER_ROWS+5: 40 damage to L0; if L0 dies → cascade
+    for (const cell of state.cells) {
+      if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
+        if (cell.health - 40 <= 0) {
+          cascadePositions.add(`${cell.x},${cell.y}`);
+        }
+      }
+    }
+
     survivingCells = [];
     for (const cell of state.cells) {
+      const posKey = `${cell.x},${cell.y}`;
       const healthBefore = cell.health;
-      let healthAfter;
-      if (cell.y >= 17) {
-        healthAfter = 0;
-      } else if (cell.y >= 14) {
-        healthAfter = cell.health - 40;
-      } else {
-        healthAfter = cell.health - Math.round(baseRain * mult);
-      }
-      const totalDamage = healthBefore - healthAfter;
-      if (totalDamage > 0) {
+
+      if (cascadePositions.has(posKey)) {
         events.push({
-          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
-          x: cell.x, y: cell.y, owner: cell.owner, block_type: cell.type,
-          rain_damage: totalDamage, wind_damage: 0, total_damage: totalDamage,
+          type: 'destroyed',
+          cascade: cell.y >= WATER_ROWS + 3,
+          x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+          rain_damage: healthBefore, wind_damage: 0, total_damage: healthBefore,
+          health_before: healthBefore, health_after: 0,
+          event: weatherEvent.id,
+        });
+      } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
+        // L0 survived the 40 damage
+        const healthAfter = cell.health - 40;
+        events.push({
+          type: 'damaged',
+          x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+          rain_damage: 40, wind_damage: 0, total_damage: 40,
           health_before: healthBefore, health_after: healthAfter,
           event: weatherEvent.id,
         });
+        survivingCells.push({ ...cell, health: healthAfter });
+      } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level > 0) {
+        // Upper levels sheltered by surviving L0 — no damage
+        survivingCells.push(cell);
+      } else {
+        // Other rows — top block takes standard rain damage; lower levels sheltered
+        const isTop = topBlocks.get(posKey) === cell;
+        if (isTop) {
+          const rainDmg = Math.round(baseRain * mult);
+          const healthAfter = healthBefore - rainDmg;
+          if (rainDmg > 0) {
+            events.push({
+              type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+              x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+              rain_damage: rainDmg, wind_damage: 0, total_damage: rainDmg,
+              health_before: healthBefore, health_after: healthAfter,
+              event: weatherEvent.id,
+            });
+          }
+          if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
+        } else {
+          survivingCells.push(cell);
+        }
       }
-      if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
     }
 
   } else if (weatherEvent.specialEffect === 'rogue_wave') {
-    // Pick 1–2 random columns and obliterate everything in them
+    // Pick 1–2 random columns and obliterate all levels in them
     const numCols = Math.random() < 0.5 ? 1 : 2;
     const cols = new Set();
     while (cols.size < numCols) cols.add(Math.floor(Math.random() * GRID_WIDTH));
 
+    // Top-block map for unaffected columns
+    const topBlocks = new Map();
+    for (const cell of state.cells) {
+      if (!cols.has(cell.x)) {
+        const key = `${cell.x},${cell.y}`;
+        if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
+          topBlocks.set(key, cell);
+        }
+      }
+    }
+
     survivingCells = [];
     for (const cell of state.cells) {
       const healthBefore = cell.health;
-      let healthAfter;
       if (cols.has(cell.x)) {
-        healthAfter = 0;
-      } else {
-        healthAfter = cell.health - Math.round(baseRain * mult);
-      }
-      const totalDamage = healthBefore - healthAfter;
-      if (totalDamage > 0) {
         events.push({
-          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
-          x: cell.x, y: cell.y, owner: cell.owner, block_type: cell.type,
-          rain_damage: totalDamage, wind_damage: 0, total_damage: totalDamage,
-          health_before: healthBefore, health_after: healthAfter,
+          type: 'destroyed',
+          x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+          rain_damage: healthBefore, wind_damage: 0, total_damage: healthBefore,
+          health_before: healthBefore, health_after: 0,
           event: weatherEvent.id,
           rogue_cols: [...cols],
         });
+      } else {
+        const key = `${cell.x},${cell.y}`;
+        const isTop = topBlocks.get(key) === cell;
+        if (isTop) {
+          const rainDmg = Math.round(baseRain * mult);
+          const healthAfter = healthBefore - rainDmg;
+          if (rainDmg > 0) {
+            events.push({
+              type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+              x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+              rain_damage: rainDmg, wind_damage: 0, total_damage: rainDmg,
+              health_before: healthBefore, health_after: healthAfter,
+              event: weatherEvent.id,
+              rogue_cols: [...cols],
+            });
+          }
+          if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
+        } else {
+          survivingCells.push(cell);
+        }
       }
-      if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
     }
 
   } else {
-    // Normal / calm / storm — scaled rain + wind damage
+    // Normal / calm / storm — only the TOP block per (x,y) is exposed to weather
+    const topBlocks = new Map();
+    for (const cell of state.cells) {
+      const key = `${cell.x},${cell.y}`;
+      if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
+        topBlocks.set(key, cell);
+      }
+    }
+
     survivingCells = [];
     for (const cell of state.cells) {
-      const rainDmg = Math.round(baseRain * mult);
-      const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
-        ? baseWind : 0;
-      const windDmg = Math.round(rawWind * mult);
-      const totalDamage = rainDmg + windDmg;
-      const healthBefore = cell.health;
-      const healthAfter = cell.health - totalDamage;
-      if (totalDamage > 0) {
-        events.push({
-          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
-          x: cell.x, y: cell.y, owner: cell.owner, block_type: cell.type,
-          rain_damage: rainDmg, wind_damage: windDmg, total_damage: totalDamage,
-          health_before: healthBefore, health_after: healthAfter,
-          event: weatherEvent.id,
-        });
+      const key = `${cell.x},${cell.y}`;
+      const isTop = topBlocks.get(key) === cell;
+
+      if (isTop) {
+        const rainDmg = Math.round(baseRain * mult);
+        const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
+          ? baseWind : 0;
+        const windDmg = Math.round(rawWind * mult);
+        const totalDamage = rainDmg + windDmg;
+        const healthBefore = cell.health;
+        const healthAfter = cell.health - totalDamage;
+        if (totalDamage > 0) {
+          events.push({
+            type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+            x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+            rain_damage: rainDmg, wind_damage: windDmg, total_damage: totalDamage,
+            health_before: healthBefore, health_after: healthAfter,
+            event: weatherEvent.id,
+          });
+        }
+        if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
+      } else {
+        // Sheltered by block above — no damage
+        survivingCells.push(cell);
       }
-      if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
     }
   }
 

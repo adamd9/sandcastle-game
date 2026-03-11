@@ -27,7 +27,7 @@ describe('validateMove', () => {
 
   it('rejects PLACE on occupied cell', () => {
     const state = freshState();
-    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player1' });
+    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     const r = validateMove(state, 'player1', { action: 'PLACE', x: 3, y: 3, type: 'dry_sand' });
     expect(r.valid).toBe(false);
     expect(r.reason).toMatch(/occupied/i);
@@ -45,16 +45,35 @@ describe('validateMove', () => {
     expect(r.reason).toMatch(/unknown block type/i);
   });
 
+  it('rejects placement in water zone', () => {
+    const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 1, type: 'dry_sand' });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/water zone/i);
+  });
+
+  it('rejects level 1 placement without foundation', () => {
+    const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'dry_sand', level: 1 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/foundation/i);
+  });
+
+  it('allows level 1 placement with foundation', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 25, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'dry_sand', level: 1 });
+    expect(r.valid).toBe(true);
+  });
+
   it('allows REMOVE own cell', () => {
     const state = freshState();
-    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player1' });
+    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     const r = validateMove(state, 'player1', { action: 'REMOVE', x: 3, y: 3 });
     expect(r.valid).toBe(true);
   });
 
   it("rejects REMOVE of opponent's cell", () => {
     const state = freshState();
-    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player2' });
+    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player2', level: 0 });
     const r = validateMove(state, 'player1', { action: 'REMOVE', x: 3, y: 3 });
     expect(r.valid).toBe(false);
     expect(r.reason).toMatch(/belongs to/i);
@@ -68,7 +87,7 @@ describe('validateMove', () => {
 
   it('allows REINFORCE own cell', () => {
     const state = freshState();
-    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player1' });
+    state.cells.push({ x: 3, y: 3, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     const r = validateMove(state, 'player1', { action: 'REINFORCE', x: 3, y: 3 });
     expect(r.valid).toBe(true);
   });
@@ -98,29 +117,48 @@ describe('applyMove', () => {
     const state = freshState();
     const next = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'packed_sand' });
     expect(next.cells).toHaveLength(1);
-    expect(next.cells[0]).toMatchObject({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1' });
+    expect(next.cells[0]).toMatchObject({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
     expect(next.players.player1.actionsThisTick).toBe(1);
   });
 
   it('REMOVE deletes the cell', () => {
     const state = freshState();
-    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1' });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     const next = applyMove(structuredClone(state), 'player1', { action: 'REMOVE', x: 5, y: 5 });
     expect(next.cells).toHaveLength(0);
   });
 
   it('REINFORCE increases health up to MAX_HEALTH', () => {
     const state = freshState();
-    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 50, owner: 'player1' });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 50, owner: 'player1', level: 0 });
     const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5 });
     expect(next.cells[0].health).toBe(60); // 50 + 15 capped at 60
+  });
+
+  it('cascade removes levels above when lower level removed', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 1 });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 2 });
+    const next = applyMove(structuredClone(state), 'player1', { action: 'REMOVE', x: 5, y: 5, level: 0 });
+    expect(next.cells).toHaveLength(0);
+  });
+
+  it('cascade only removes from the target level upward', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 1 });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 2 });
+    const next = applyMove(structuredClone(state), 'player1', { action: 'REMOVE', x: 5, y: 5, level: 1 });
+    expect(next.cells).toHaveLength(1);
+    expect(next.cells[0].level).toBe(0);
   });
 });
 
 describe('applyWeather', () => {
   it('applies rain damage to all cells', () => {
     const state = freshState();
-    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1' });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // rainDamage(1) = BASE_DAMAGE(5) + floor(1*10) = 15
@@ -129,7 +167,7 @@ describe('applyWeather', () => {
 
   it('removes cells reduced to 0 health', () => {
     const state = freshState();
-    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 10, owner: 'player1' });
+    state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 10, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 10, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // rainDamage(10) = BASE_DAMAGE(5) + floor(10*10) = 105 > 10 → cell destroyed
@@ -138,9 +176,9 @@ describe('applyWeather', () => {
 
   it('applies wind damage to windward-edge cells', () => {
     const state = freshState();
-    // y=0 is the N edge — wind from N hits it
-    state.cells.push({ x: 5, y: 0, type: 'dry_sand', health: 40, owner: 'player1' });
-    state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N', event: 'normal' };
+    // y=19 is the S edge — wind from S hits it
+    state.cells.push({ x: 5, y: 19, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
+    state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'S', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // rainDamage(0) = BASE_DAMAGE(5) + 0 = 5; windDamage(50) = floor(50/3) = 16; total = 21
     expect(next.cells[0].health).toBe(19);
@@ -148,11 +186,24 @@ describe('applyWeather', () => {
 
   it('does not apply wind damage to sheltered cells', () => {
     const state = freshState();
-    state.cells.push({ x: 5, y: 10, type: 'dry_sand', health: 40, owner: 'player1' });
+    state.cells.push({ x: 5, y: 10, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // sheltered from wind but still takes BASE_DAMAGE(5)
     expect(next.cells[0].health).toBe(35);
+  });
+
+  it('only damages top level block (sheltered levels survive)', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+    state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+    const next = applyWeather(structuredClone(state));
+    // rainDamage(1) = 15; only L1 (top) takes damage; L0 sheltered
+    const l0 = next.cells.find(c => c.level === 0);
+    const l1 = next.cells.find(c => c.level === 1);
+    expect(l0.health).toBe(60);
+    expect(l1.health).toBe(45);
   });
 
   it('increments tick and resets actionsThisTick', () => {
