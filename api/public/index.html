@@ -519,6 +519,19 @@
       display: none;
     }
     #timeline-reset-btn.visible { display: inline-block; }
+    .timeline-arrow-btn {
+      padding: 3px 8px;
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      border-radius: 4px;
+      color: #e8d5a3;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .timeline-arrow-btn:hover { background: #3a2a0a; }
+    .timeline-arrow-btn:disabled { opacity: 0.3; cursor: default; }
   </style>
 </head>
 <body>
@@ -549,8 +562,9 @@
 </div>
 
 <div id="timeline-bar">
-  <span style="white-space:nowrap">◀ history</span>
+  <button class="timeline-arrow-btn" id="timeline-prev" title="Previous tick">◀</button>
   <input type="range" id="timeline-scrubber" min="0" max="0" value="0" step="1">
+  <button class="timeline-arrow-btn" id="timeline-next" title="Next tick / live">▶</button>
   <span id="timeline-label">now</span>
   <button id="timeline-reset-btn">↩ now</button>
 </div>
@@ -859,6 +873,8 @@
         scrubber.value = String(totalPositions - 1);
         document.getElementById('timeline-label').textContent = `tick ${state.tick}`;
         document.getElementById('timeline-reset-btn').classList.remove('visible');
+        document.getElementById('timeline-prev').disabled = historySnapshots.length === 0;
+        document.getElementById('timeline-next').disabled = true;
       }
 
       // Update god mode end-turn button state
@@ -890,12 +906,13 @@
   const timelineScrubber = document.getElementById('timeline-scrubber');
   const timelineLabel    = document.getElementById('timeline-label');
   const timelineResetBtn = document.getElementById('timeline-reset-btn');
+  const timelinePrev     = document.getElementById('timeline-prev');
+  const timelineNext     = document.getElementById('timeline-next');
 
-  timelineScrubber.addEventListener('input', () => {
+  function applyTimelineIndex(idx) {
     const totalPositions = historySnapshots.length + 1;
-    const idx = parseInt(timelineScrubber.value, 10);
-    const isNow = idx === totalPositions - 1;
-
+    const isNow = idx >= totalPositions - 1;
+    timelineScrubber.value = String(isNow ? totalPositions - 1 : idx);
     if (isNow) {
       scrubbingIndex = -1;
       drawGrid(lastCells);
@@ -910,15 +927,26 @@
       }
       timelineResetBtn.classList.add('visible');
     }
+    timelinePrev.disabled = idx <= 0;
+    timelineNext.disabled = isNow;
+  }
+
+  timelineScrubber.addEventListener('input', () => {
+    applyTimelineIndex(parseInt(timelineScrubber.value, 10));
+  });
+
+  timelinePrev.addEventListener('click', () => {
+    const cur = scrubbingIndex === -1 ? historySnapshots.length : scrubbingIndex;
+    applyTimelineIndex(Math.max(0, cur - 1));
+  });
+
+  timelineNext.addEventListener('click', () => {
+    const cur = scrubbingIndex === -1 ? historySnapshots.length : scrubbingIndex;
+    applyTimelineIndex(cur + 1);
   });
 
   timelineResetBtn.addEventListener('click', () => {
-    scrubbingIndex = -1;
-    const totalPositions = historySnapshots.length + 1;
-    timelineScrubber.value = String(totalPositions - 1);
-    drawGrid(lastCells);
-    timelineLabel.textContent = 'now';
-    timelineResetBtn.classList.remove('visible');
+    applyTimelineIndex(historySnapshots.length);
   });
 
   // ── God Mode ──────────────────────────────────────────────────────
