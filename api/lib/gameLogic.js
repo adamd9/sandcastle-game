@@ -8,6 +8,8 @@ import {
   GRID_HEIGHT,
   rainDamage,
   windDamage,
+  selectWeatherEvent,
+  WEATHER_EVENTS,
 } from './rules.js';
 
 // ---------------------------------------------------------------------------
@@ -197,39 +199,101 @@ function isWindwardEdge(x, y, direction) {
 
 export function applyWeather(state) {
   const { rain_mm, wind_speed_kph, wind_direction } = state.weather;
-  const rain  = rainDamage(rain_mm);
-  const wind  = windDamage(wind_speed_kph);
 
-  // Pass 1: calculate per-cell damage and build events
+  // Use pre-set event (god mode / tests) or pick randomly
+  const weatherEvent = state.weather.event
+    ? (WEATHER_EVENTS.find(e => e.id === state.weather.event) ?? selectWeatherEvent())
+    : selectWeatherEvent();
+  state.weather.event = weatherEvent.id;
+  state.weather.event_label = weatherEvent.label;
+
+  const baseRain = rainDamage(rain_mm);
+  const baseWind = windDamage(wind_speed_kph);
+  const mult = weatherEvent.damageMultiplier;
+
   const events = [];
-  const damagedCells = state.cells.map(cell => {
-    const rainDmg = rain;
-    const windDmg = (wind > 0 && isWindwardEdge(cell.x, cell.y, wind_direction)) ? wind : 0;
-    const totalDamage = rainDmg + windDmg;
-    const healthBefore = cell.health;
-    const healthAfter = cell.health - totalDamage;
+  let survivingCells;
 
-    if (totalDamage > 0) {
-      events.push({
-        type: healthAfter <= 0 ? 'destroyed' : 'damaged',
-        x: cell.x,
-        y: cell.y,
-        owner: cell.owner,
-        block_type: cell.type,
-        rain_damage: rainDmg,
-        wind_damage: windDmg,
-        total_damage: totalDamage,
-        health_before: healthBefore,
-        health_after: healthAfter,
-      });
+  if (weatherEvent.specialEffect === 'wave_surge') {
+    // Bottom 3 rows (y=17,18,19) obliterated; rows y=14-16 take 40 damage
+    survivingCells = [];
+    for (const cell of state.cells) {
+      const healthBefore = cell.health;
+      let healthAfter;
+      if (cell.y >= 17) {
+        healthAfter = 0;
+      } else if (cell.y >= 14) {
+        healthAfter = cell.health - 40;
+      } else {
+        healthAfter = cell.health - Math.round(baseRain * mult);
+      }
+      const totalDamage = healthBefore - healthAfter;
+      if (totalDamage > 0) {
+        events.push({
+          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+          x: cell.x, y: cell.y, owner: cell.owner, block_type: cell.type,
+          rain_damage: totalDamage, wind_damage: 0, total_damage: totalDamage,
+          health_before: healthBefore, health_after: healthAfter,
+          event: weatherEvent.id,
+        });
+      }
+      if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
     }
 
-    return { ...cell, health: healthAfter };
-  });
+  } else if (weatherEvent.specialEffect === 'rogue_wave') {
+    // Pick 1–2 random columns and obliterate everything in them
+    const numCols = Math.random() < 0.5 ? 1 : 2;
+    const cols = new Set();
+    while (cols.size < numCols) cols.add(Math.floor(Math.random() * GRID_WIDTH));
 
-  // Pass 2: filter out dead cells
-  state.cells = damagedCells.filter(cell => cell.health > 0);
+    survivingCells = [];
+    for (const cell of state.cells) {
+      const healthBefore = cell.health;
+      let healthAfter;
+      if (cols.has(cell.x)) {
+        healthAfter = 0;
+      } else {
+        healthAfter = cell.health - Math.round(baseRain * mult);
+      }
+      const totalDamage = healthBefore - healthAfter;
+      if (totalDamage > 0) {
+        events.push({
+          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+          x: cell.x, y: cell.y, owner: cell.owner, block_type: cell.type,
+          rain_damage: totalDamage, wind_damage: 0, total_damage: totalDamage,
+          health_before: healthBefore, health_after: healthAfter,
+          event: weatherEvent.id,
+          rogue_cols: [...cols],
+        });
+      }
+      if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
+    }
 
+  } else {
+    // Normal / calm / storm — scaled rain + wind damage
+    survivingCells = [];
+    for (const cell of state.cells) {
+      const rainDmg = Math.round(baseRain * mult);
+      const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
+        ? baseWind : 0;
+      const windDmg = Math.round(rawWind * mult);
+      const totalDamage = rainDmg + windDmg;
+      const healthBefore = cell.health;
+      const healthAfter = cell.health - totalDamage;
+      if (totalDamage > 0) {
+        events.push({
+          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+          x: cell.x, y: cell.y, owner: cell.owner, block_type: cell.type,
+          rain_damage: rainDmg, wind_damage: windDmg, total_damage: totalDamage,
+          health_before: healthBefore, health_after: healthAfter,
+          event: weatherEvent.id,
+        });
+      }
+      if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
+    }
+  }
+
+  state.cells = survivingCells;
   state.weatherEvents = events;
 
   // Reset action counters and move tracking

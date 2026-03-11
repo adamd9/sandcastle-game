@@ -121,7 +121,7 @@ describe('applyWeather', () => {
   it('applies rain damage to all cells', () => {
     const state = freshState();
     state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1' });
-    state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N' };
+    state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // rainDamage(1) = BASE_DAMAGE(5) + floor(1*10) = 15
     expect(next.cells[0].health).toBe(25);
@@ -130,7 +130,7 @@ describe('applyWeather', () => {
   it('removes cells reduced to 0 health', () => {
     const state = freshState();
     state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 10, owner: 'player1' });
-    state.weather = { rain_mm: 10, wind_speed_kph: 0, wind_direction: 'N' };
+    state.weather = { rain_mm: 10, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // rainDamage(10) = BASE_DAMAGE(5) + floor(10*10) = 105 > 10 → cell destroyed
     expect(next.cells).toHaveLength(0);
@@ -140,7 +140,7 @@ describe('applyWeather', () => {
     const state = freshState();
     // y=0 is the N edge — wind from N hits it
     state.cells.push({ x: 5, y: 0, type: 'dry_sand', health: 40, owner: 'player1' });
-    state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N' };
+    state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // rainDamage(0) = BASE_DAMAGE(5) + 0 = 5; windDamage(50) = floor(50/3) = 16; total = 21
     expect(next.cells[0].health).toBe(19);
@@ -149,7 +149,7 @@ describe('applyWeather', () => {
   it('does not apply wind damage to sheltered cells', () => {
     const state = freshState();
     state.cells.push({ x: 5, y: 10, type: 'dry_sand', health: 40, owner: 'player1' });
-    state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N' };
+    state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     // sheltered from wind but still takes BASE_DAMAGE(5)
     expect(next.cells[0].health).toBe(35);
@@ -159,7 +159,7 @@ describe('applyWeather', () => {
     const state = freshState();
     state.players.player1.actionsThisTick = 5;
     state.players.player2.actionsThisTick = 3;
-    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N' };
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
     expect(next.tick).toBe(1);
     expect(next.players.player1.actionsThisTick).toBe(0);

@@ -889,8 +889,9 @@
       document.getElementById('stat-rain').textContent = `${w.rain_mm} mm`;
       document.getElementById('stat-wind').textContent = `${w.wind_speed_kph} kph ${w.wind_direction}`;
 
+      const eventLabel = w.event_label ? ` · ${w.event_label}` : '';
       document.getElementById('weather-bar').textContent =
-        `Weather: ${w.rain_mm} mm rain · ${w.wind_speed_kph} kph from ${w.wind_direction}`;
+        `Weather: ${w.rain_mm} mm rain · ${w.wind_speed_kph} kph from ${w.wind_direction}${eventLabel}`;
 
       document.getElementById('error-msg').textContent = '';
       lastTick = state.tick;

@@ -8,6 +8,7 @@ import {
   VALID_ACTIONS,
   REINFORCE_AMOUNT,
   MAX_HEALTH,
+  WEATHER_EVENTS,
 } from '../lib/rules.js';
 
 const router = Router();
@@ -21,10 +22,11 @@ const RULES_DOC = {
   reinforce_amount: REINFORCE_AMOUNT,
   max_health: MAX_HEALTH,
   weather_effects: {
-    base_damage: 'Every cell takes 5 damage per tick regardless of weather.',
-    rain: 'Each cell loses an additional floor(rain_mm * 10) health per tick when it rains.',
-    wind: 'Cells on the windward edge lose an additional floor(wind_speed_kph / 3) health per tick.',
-    tip: 'Build exterior walls to shield interior blocks from wind. Reinforce frequently.',
+    base_damage: 'Every cell takes at least 5 damage per tick (scaled by event multiplier).',
+    rain: 'Additional floor(rain_mm * 10) damage per tick, multiplied by event.',
+    wind: 'Edge cells take floor(wind_speed_kph / 3) extra damage. During storms, ALL cells take wind damage.',
+    tip: 'Build exterior walls to shield interior blocks. Some events destroy entire rows/columns regardless of position.',
+    events: WEATHER_EVENTS.map(e => ({ id: e.id, label: e.label, description: e.description })),
   },
   turn_commitment: {
     description: 'Players may call POST /end-turn to commit their turn. Once committed, no further moves are allowed until the next tick. The tick records each player\'s committed status in the round history.',
