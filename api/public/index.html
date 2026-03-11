@@ -864,7 +864,7 @@
       renderHistory(state.history);
 
       // Update timeline
-      historySnapshots = (state.history || []).filter(h => h.cells);
+      historySnapshots = (state.history || []);
       const scrubber = document.getElementById('timeline-scrubber');
       const totalPositions = historySnapshots.length + 1;
       scrubber.max = String(totalPositions - 1);
@@ -923,8 +923,23 @@
       const snap = historySnapshots[idx];
       if (snap && snap.cells) {
         drawGrid(snap.cells);
-        timelineLabel.textContent = `tick ${snap.tick}`;
+      } else if (snap) {
+        // Snapshot exists but no cell data (recorded before cell snapshotting was added)
+        drawGrid(lastCells);
+        const octx = canvas.getContext('2d');
+        octx.save();
+        octx.fillStyle = 'rgba(0,0,0,0.55)';
+        octx.fillRect(0, 0, canvas.width, canvas.height);
+        octx.fillStyle = '#e8d5a3';
+        octx.font = 'bold 14px Courier New';
+        octx.textAlign = 'center';
+        octx.fillText(`Tick ${snap.tick}`, canvas.width / 2, canvas.height / 2 - 12);
+        octx.font = '12px Courier New';
+        octx.fillStyle = '#8a7350';
+        octx.fillText('No grid snapshot for this tick', canvas.width / 2, canvas.height / 2 + 10);
+        octx.restore();
       }
+      timelineLabel.textContent = snap ? `tick ${snap.tick}` : `#${idx}`;
       timelineResetBtn.classList.add('visible');
     }
     timelinePrev.disabled = idx <= 0;
