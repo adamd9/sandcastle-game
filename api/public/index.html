@@ -650,6 +650,43 @@
   <div id="god-status">Click a cell to act.</div>
 </div>
 
+<!-- Suggest Improvement Panel -->
+<button id="suggest-toggle">💡 Suggest</button>
+<div id="suggest-panel">
+  <div style="font-weight:bold;margin-bottom:2px;">💡 Suggest a Game Improvement</div>
+  <div style="color:#6fcf97;font-size:11px;line-height:1.5;">
+    Ideas go into the review pipeline — a triage agent reviews them daily and approved ones get implemented automatically.
+  </div>
+  <div>
+    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Title</div>
+    <input type="text" id="suggest-title-input" maxlength="200" placeholder="Short description of your idea…">
+  </div>
+  <div>
+    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Description</div>
+    <textarea id="suggest-desc-input" placeholder="What should change, and why? Be as specific as you like."></textarea>
+  </div>
+  <div>
+    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Admin key (required)</div>
+    <input type="password" id="suggest-key-input" placeholder="Tick admin key">
+  </div>
+  <button id="suggest-submit-btn">🚀 Submit Suggestion</button>
+  <div id="suggest-result"></div>
+</div>
+<div id="block-tooltip" style="
+  display:none;
+  position:fixed;
+  background:#1a120a;
+  border:1px solid #8b6914;
+  border-radius:6px;
+  padding:8px 12px;
+  font-size:12px;
+  color:#e8d5a3;
+  pointer-events:none;
+  z-index:9999;
+  box-shadow:0 2px 8px rgba(0,0,0,0.5);
+  line-height:1.6;
+"></div>
+
 <script>
   // ---------------------------------------------------------------------------
   // Config
@@ -1361,41 +1398,5 @@
   });
 
 </script>
-<!-- Suggest Improvement Panel -->
-<button id="suggest-toggle">💡 Suggest</button>
-<div id="suggest-panel">
-  <div style="font-weight:bold;margin-bottom:2px;">💡 Suggest a Game Improvement</div>
-  <div style="color:#6fcf97;font-size:11px;line-height:1.5;">
-    Ideas go into the review pipeline — a triage agent reviews them daily and approved ones get implemented automatically.
-  </div>
-  <div>
-    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Title</div>
-    <input type="text" id="suggest-title-input" maxlength="200" placeholder="Short description of your idea…">
-  </div>
-  <div>
-    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Description</div>
-    <textarea id="suggest-desc-input" placeholder="What should change, and why? Be as specific as you like."></textarea>
-  </div>
-  <div>
-    <div style="margin-bottom:4px;font-size:11px;color:#a3e8d5;">Admin key (required)</div>
-    <input type="password" id="suggest-key-input" placeholder="Tick admin key">
-  </div>
-  <button id="suggest-submit-btn">🚀 Submit Suggestion</button>
-  <div id="suggest-result"></div>
-</div>
-<div id="block-tooltip" style="
-  display:none;
-  position:fixed;
-  background:#1a120a;
-  border:1px solid #8b6914;
-  border-radius:6px;
-  padding:8px 12px;
-  font-size:12px;
-  color:#e8d5a3;
-  pointer-events:none;
-  z-index:9999;
-  box-shadow:0 2px 8px rgba(0,0,0,0.5);
-  line-height:1.6;
-"></div>
 </body>
 </html>
