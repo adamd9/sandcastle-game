@@ -445,6 +445,94 @@
     }
     .timeline-arrow-btn:hover { background: #3a2a0a; }
     .timeline-arrow-btn:disabled { opacity: 0.3; cursor: default; }
+
+    /* ── Responsive / Mobile ────────────────────────────────────────────── */
+
+    /* God panel: always scrollable so controls never go off-screen */
+    #god-panel {
+      max-height: calc(100vh - 72px);
+      overflow-y: auto;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 12px 8px;
+        gap: 12px;
+      }
+
+      h1 {
+        font-size: 1.3rem;
+      }
+
+      /* Status bar: wrap and shrink on mobile */
+      #status-bar {
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        justify-content: center;
+        padding: 8px 12px;
+      }
+
+      /* Stack main layout vertically */
+      #game-layout {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      }
+
+      /* History panel full-width below the canvas */
+      #history-panel {
+        width: 100%;
+        max-width: 600px;
+      }
+
+      /* History list shorter on mobile */
+      #history-list {
+        max-height: 300px;
+      }
+
+      /* Legend wraps on small screens */
+      #legend {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      /* God mode panel: full-width minus margins on mobile */
+      #god-panel {
+        width: calc(100vw - 32px);
+        right: 16px;
+        left: 16px;
+        top: 52px;
+      }
+
+      /* God toggle: smaller on mobile */
+      #god-toggle {
+        top: 10px;
+        right: 10px;
+        padding: 5px 12px;
+        font-size: 12px;
+      }
+
+      /* Timeline bar: wrap on very small screens */
+      #timeline-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.1rem;
+      }
+
+      #status-bar {
+        font-size: 0.75rem;
+      }
+
+      .stat-value {
+        font-size: 0.95rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -635,6 +723,28 @@
     <button id="suggest-submit-btn" style="padding:7px 0;background:#0f3d2a;border:1px solid #1b5a3e;color:#42f5c8;font-family:'Courier New',monospace;font-size:12px;border-radius:4px;cursor:pointer;">🚀 Submit Suggestion</button>
     <div id="suggest-result" style="min-height:1.2em;word-break:break-all;font-size:11px;"></div>
   </div>
+
+  <!-- Trigger Review -->
+  <div style="border-top:1px solid #3a2a0a;margin-top:4px;padding-top:6px;">
+    <button id="review-trigger-btn" style="width:100%;padding:9px 0;background:#1a1a0a;border:1px solid #c8a84b;color:#f5d87a;font-family:'Courier New',monospace;font-size:13px;font-weight:bold;border-radius:4px;cursor:pointer;">🔍 Trigger Review</button>
+    <div id="review-result" style="min-height:1.2em;word-break:break-all;font-size:11px;margin-top:4px;"></div>
+  </div>
+
+  <!-- Weather Debug (inside god panel — admin key required) -->
+  <div id="weather-debug-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #3a2a0a;margin-top:4px;font-size:11px;color:#a3e8d5;">
+    <span>🌦 Weather Debug</span><span id="weather-debug-chevron">▶</span>
+  </div>
+  <div id="weather-debug-body" style="display:none;flex-direction:column;gap:8px;">
+    <div style="color:#6fcf97;font-size:11px;line-height:1.5;">Probe each weather API from the server to diagnose which works in the deployed environment.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      <button class="god-btn weather-debug-btn" data-weather-source="openmeteo">Open-Meteo</button>
+      <button class="god-btn weather-debug-btn" data-weather-source="open-meteo-forecast">Open-Meteo Forecast</button>
+      <button class="god-btn weather-debug-btn" data-weather-source="wttr">wttr.in</button>
+      <button class="god-btn weather-debug-btn" data-weather-source="7timer">7timer</button>
+    </div>
+    <div id="weather-debug-status" style="font-size:11px;min-height:1.2em;"></div>
+    <pre id="weather-debug-output" style="display:none;background:#0d0d0d;border:1px solid #3a2a0a;border-radius:4px;padding:8px;font-size:10px;color:#e8d5a3;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;"></pre>
+  </div>
   </div><!-- end god-controls -->
 </div><!-- end god-panel -->
 <div id="block-tooltip" style="
@@ -657,11 +767,17 @@
   // Config
   // ---------------------------------------------------------------------------
   const API_BASE   = '';
-  const CELL_SIZE  = 30;
   const GRID_W     = 20;
   const GRID_H     = 20;
   const WATER_ROWS = 3;
   const POLL_MS    = 5000;
+
+  // Cell size scales down on narrow viewports (max 30px on desktop)
+  function computeCellSize() {
+    const bodyPad = 32; // 2 × 16px body padding
+    return Math.min(30, Math.floor((window.innerWidth - bodyPad) / GRID_W));
+  }
+  let CELL_SIZE = computeCellSize();
 
   // Block colours: base hue, then health-shaded below
   const BLOCK_COLORS = {
@@ -675,6 +791,24 @@
   // ---------------------------------------------------------------------------
   const canvas = document.getElementById('grid');
   const ctx    = canvas.getContext('2d');
+
+  function applyCanvasSize() {
+    canvas.width  = GRID_W * CELL_SIZE;
+    canvas.height = GRID_H * CELL_SIZE;
+  }
+  applyCanvasSize();
+
+  window.addEventListener('resize', () => {
+    const newSize = computeCellSize();
+    if (newSize === CELL_SIZE) return;
+    CELL_SIZE = newSize;
+    applyCanvasSize();
+    drawGrid(lastCells, lastFlags);
+    if (typeof godMode !== 'undefined' && godMode) {
+      drawGodOverlay();
+      drawGodQueue();
+    }
+  });
 
   function healthAlpha(health) {
     // health 1–100 → opacity 0.35–1.0
@@ -762,7 +896,7 @@
     }
 
     // Level sizes: L0=full, L1=22px, L2=16px, L3=10px (centred)
-    const levelSizes = [CELL_SIZE, 22, 16, 10];
+    const levelSizes = [CELL_SIZE, Math.round(CELL_SIZE * 0.73), Math.round(CELL_SIZE * 0.53), Math.round(CELL_SIZE * 0.33)];
 
     const BLOCK_DRAW_COLORS = {
       packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
@@ -834,6 +968,28 @@
         ctx.lineTo(px, py + 4);
         ctx.closePath();
         ctx.fill();
+
+        // Inline label text at bottom of cell
+        if (flag.label) {
+          ctx.font = 'bold 7px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const maxW = CELL_SIZE - 2;
+          let txt = flag.label;
+          if (ctx.measureText(txt).width > maxW) {
+            while (txt.length > 1 && ctx.measureText(txt + '\u2026').width > maxW) {
+              txt = txt.slice(0, -1);
+            }
+            txt += '\u2026';
+          }
+          const tx = flag.x * CELL_SIZE + CELL_SIZE / 2;
+          const ty = flag.y * CELL_SIZE + CELL_SIZE - 1;
+          ctx.shadowColor = 'rgba(0,0,0,0.85)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = color;
+          ctx.fillText(txt, tx, ty);
+          ctx.shadowBlur = 0;
+        }
       }
       ctx.restore();
     }
@@ -1491,7 +1647,91 @@
     btn.textContent = '🚀 Submit Suggestion';
   });
 
-  function showWeatherSummary(snap) {
+  // ---------------------------------------------------------------------------
+  // Trigger Review (inside God panel — uses godSessionKey)
+  // ---------------------------------------------------------------------------
+  document.getElementById('review-trigger-btn').addEventListener('click', async () => {
+    const resultEl = document.getElementById('review-result');
+    if (!godSessionKey) { resultEl.textContent = '✗ Open God Mode first to authenticate.'; resultEl.className = 'err'; return; }
+    const btn = document.getElementById('review-trigger-btn');
+    btn.textContent = '⏳ Triggering…';
+    try {
+      const res = await fetch(`${API_BASE}/hooks/review-improvements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': godSessionKey },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        resultEl.textContent = `✓ Review triggered${data.message ? ': ' + data.message : ''}`;
+        resultEl.className = 'ok';
+      } else if (res.status === 401) {
+        godSessionKey = '';
+        sessionStorage.removeItem('godSessionKey');
+        showGodAuth();
+        resultEl.textContent = '✗ Invalid key';
+        resultEl.className = 'err';
+      } else {
+        resultEl.textContent = `✗ ${data.error || res.status}`;
+        resultEl.className = 'err';
+      }
+    } catch (err) {
+      resultEl.textContent = `✗ Network error: ${err.message}`;
+      resultEl.className = 'err';
+    }
+    btn.textContent = '🔍 Trigger Review';
+  });
+
+  // ---------------------------------------------------------------------------
+  // Weather Debug (inside God panel — uses godSessionKey)
+  // ---------------------------------------------------------------------------
+  document.getElementById('weather-debug-header').addEventListener('click', () => {
+    const body    = document.getElementById('weather-debug-body');
+    const chevron = document.getElementById('weather-debug-chevron');
+    const open = body.style.display === 'flex';
+    body.style.display  = open ? 'none' : 'flex';
+    chevron.textContent = open ? '▶' : '▼';
+  });
+
+  document.querySelectorAll('.weather-debug-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const source   = btn.dataset.weatherSource;
+      const statusEl = document.getElementById('weather-debug-status');
+      const outputEl = document.getElementById('weather-debug-output');
+
+      if (!godSessionKey) {
+        statusEl.textContent = '✗ Open God Mode first to authenticate.';
+        statusEl.style.color = '#e05050';
+        return;
+      }
+
+      document.querySelectorAll('.weather-debug-btn').forEach(b => b.disabled = true);
+      statusEl.textContent = `⏳ Probing ${source}…`;
+      statusEl.style.color = '#a3e8d5';
+      outputEl.style.display = 'none';
+
+      try {
+        const res  = await fetch(`/debug/weather?source=${encodeURIComponent(source)}`, {
+          headers: { 'X-Api-Key': godSessionKey },
+        });
+        const data = await res.json();
+
+        const ok       = data.status !== null && data.status >= 200 && data.status < 300 && !data.error;
+        const icon     = ok ? '✓' : '✗';
+        const color    = ok ? '#7fc97f' : '#e05050';
+        const errNote  = data.error ? ` — ${data.error}` : '';
+        statusEl.textContent = `${icon} HTTP ${data.status ?? 'N/A'} · ${data.duration_ms}ms${errNote}`;
+        statusEl.style.color = color;
+
+        outputEl.textContent  = JSON.stringify(data, null, 2);
+        outputEl.style.display = 'block';
+      } catch (err) {
+        statusEl.textContent = `✗ Network error: ${err.message}`;
+        statusEl.style.color = '#e05050';
+      } finally {
+        document.querySelectorAll('.weather-debug-btn').forEach(b => b.disabled = false);
+      }
+    });
+  });
     const panel = document.getElementById('weather-summary');
     if (!snap || snap.type !== 'weather' || !snap.weatherEvents || snap.weatherEvents.length === 0) {
       panel.style.display = 'none';
