@@ -986,6 +986,7 @@
   const godTypeRow  = document.getElementById('god-type-row');
   const godBudgetEl = document.getElementById('god-budget-warn');
 
+  let tickAdminKey  = '';
   let godSessionKey = sessionStorage.getItem('godSessionKey') || '';
   if (godSessionKey) tickAdminKey = godSessionKey;
 
@@ -1267,7 +1268,6 @@
   });
 
   // ── Tick Control ──────────────────────────────────────────────────
-  let tickAdminKey = '';
 
   document.getElementById('tick-control-header').addEventListener('click', () => {
     const body = document.getElementById('tick-control-body');
