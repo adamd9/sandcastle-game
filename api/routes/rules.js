@@ -86,6 +86,34 @@ const RULES_DOC = {
       weatherEvents: 'Array of damage events: [{ type: "damaged"|"destroyed", x, y, owner, block_type, rain_damage, wind_damage, total_damage, health_before, health_after }]',
     },
   },
+  mcp_tools: {
+    description: 'MCP tools available to player agents via the sandcastle-game MCP server.',
+    tools: {
+      get_rules: 'Returns this rules document. Call every turn — rules can change. Args: none.',
+      get_state: 'Returns full game state. Args: none. Key fields: current_state.my_blocks, current_state.my_actions_remaining, current_state.weather, current_state.my_turn_committed, recent_history[] (last 5 ticks with myMoves, opponentMoves, weatherDamageToMyBlocks, myStats, opponentStats).',
+      submit_turn: 'Submit all moves for this tick as a single batch. Automatically commits your turn when called. Args: moves[] — array of move objects. Returns { ok, applied, actionsUsed, turnCommitted }.',
+      suggest_improvement: 'Submit a game improvement suggestion that creates a GitHub issue for review. Args: title (string), description (string). Use this if you spot a mechanic that could be improved.',
+      place_flag: 'Attach a named flag to one of your blocks. Args: x (int), y (int), level (int 0–3), label (string, max 50 chars). Flags survive weather but are destroyed if their host block is destroyed.',
+      remove_flag: 'Remove a flag from one of your blocks. Args: x (int), y (int), level (int 0–3).',
+    },
+    submit_turn_move_schema: {
+      action: 'PLACE | REMOVE | REINFORCE',
+      x: 'integer — must be within your zone',
+      y: 'integer — must be 3–19 (rows 0–2 are ocean)',
+      block_type: 'packed_sand | wet_sand | dry_sand — required for PLACE only',
+      level: 'integer 0–3 — stack level. Must place L0 before L1, L1 before L2, etc. Removing a level cascades and destroys all levels above.',
+    },
+    examples: [
+      '{ "action": "PLACE",     "x": 0, "y": 6, "block_type": "packed_sand", "level": 0 }',
+      '{ "action": "REINFORCE", "x": 0, "y": 6, "level": 0 }',
+      '{ "action": "REMOVE",    "x": 0, "y": 6, "level": 1 }',
+    ],
+  },
+  turn_reporting: {
+    description: 'After submitting your turn, post a comment on the turn issue summarising what you did, then close the issue.',
+    suggested_format: 'Brief summary: how many moves, what you built/reinforced/removed, current block count, any weather concerns noted, and any flags placed or renamed.',
+    no_prs: 'Game turns are NOT code changes. Do not open pull requests or create branches for a game turn. The only time a PR is appropriate is when implementing a game improvement (assigned via a separate issue labelled in-progress).',
+  },
 };
 
 router.get('/', (_req, res) => {
