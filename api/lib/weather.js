@@ -16,13 +16,23 @@ function degreesToCardinal(deg) {
 }
 
 export async function fetchWeather() {
-  const res = await fetch(OPEN_METEO_URL);
-  if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
-  const data = await res.json();
-  const cur = data.current;
-  return {
-    rain_mm:        Math.max(cur.rain ?? 0, cur.precipitation ?? 0),
-    wind_speed_kph: cur.wind_speed_10m ?? 0,
-    wind_direction: degreesToCardinal(cur.wind_direction_10m ?? 0),
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+  try {
+    const res = await fetch(OPEN_METEO_URL, { signal: controller.signal });
+    if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
+    const data = await res.json();
+    const cur = data.current;
+    return {
+      rain_mm:        Math.max(cur.rain ?? 0, cur.precipitation ?? 0),
+      wind_speed_kph: cur.wind_speed_10m ?? 0,
+      wind_direction: degreesToCardinal(cur.wind_direction_10m ?? 0),
+    };
+  } catch (err) {
+    // Re-throw with cause detail for better diagnostics
+    const cause = err.cause?.message ?? err.cause ?? err.message;
+    throw new Error(`Weather fetch failed: ${cause}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
