@@ -4,6 +4,7 @@ import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, reco
 import { fetchWeather } from '../lib/weather.js';
 import { getSchedulerStatus } from '../lib/scheduler.js';
 import { triggerHookByName } from '../lib/hooks.js';
+import { WATER_ROWS } from '../lib/rules.js';
 
 const router = Router();
 
@@ -175,8 +176,27 @@ router.post('/tick', async (req, res) => {
       };
     }
 
+    const { god_edits = [] } = req.body ?? {};
+
     const state = await getState();
     state.weather = weather;
+
+    // Apply god edits directly to state.cells before weather
+    const godEditsApplied = [];
+    for (const edit of god_edits) {
+      const { action, x, y, level = 0, type = 'packed_sand' } = edit;
+      if (x < 0 || x > 19 || y < WATER_ROWS || y > 19) {
+        continue; // skip invalid coords silently
+      }
+      if (action === 'PLACE') {
+        state.cells = state.cells.filter(c => !(c.x === x && c.y === y && c.level === level));
+        state.cells.push({ x, y, level, owner: 'god', type, health: 100 });
+        godEditsApplied.push({ action, x, y, level, type });
+      } else if (action === 'REMOVE' || action === 'ERASE') {
+        state.cells = state.cells.filter(c => !(c.x === x && c.y === y && c.level >= level));
+        godEditsApplied.push({ action, x, y, level });
+      }
+    }
 
     const withHistory = recordRound(structuredClone(state));
     const newState = applyWeather(withHistory);
@@ -186,6 +206,7 @@ router.post('/tick', async (req, res) => {
       lastEntry.weatherEvents = newState.weatherEvents || [];
       lastEntry.cells_after_weather = structuredClone(newState.cells);
       lastEntry.weather = { ...(lastEntry.weather || {}), ...(newState.weather || {}) };
+      lastEntry.god_edits_applied = godEditsApplied;
     }
     delete newState.weatherEvents;
 
@@ -197,6 +218,7 @@ router.post('/tick', async (req, res) => {
       weather: newState.weather,
       cellsRemaining: newState.cells.length,
       weatherSource: hasOverrides && !use_live_weather ? 'manual' : 'live',
+      god_edits_applied: godEditsApplied,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
