@@ -529,6 +529,15 @@
 <button id="god-toggle">⚡ God Mode</button>
 
 <div id="god-panel">
+  <!-- Auth gate — shown until key is validated -->
+  <div id="god-auth-row" style="display:flex;gap:6px;align-items:center;">
+    <input type="password" id="god-key-input" class="tick-input" placeholder="Admin key" style="flex:1;">
+    <button id="god-key-submit" class="god-btn" style="white-space:nowrap;">Unlock</button>
+  </div>
+  <div id="god-key-error" style="display:none;color:#eb5757;font-size:11px;"></div>
+
+  <!-- Controls — hidden until authenticated -->
+  <div id="god-controls" style="display:none;flex-direction:column;gap:10px;">
   <div class="god-row">
     <span class="god-label">Player</span>
     <button class="god-btn selected" data-god-player="player1">P1</button>
@@ -617,7 +626,8 @@
     <button id="suggest-submit-btn" style="padding:7px 0;background:#0f3d2a;border:1px solid #1b5a3e;color:#42f5c8;font-family:'Courier New',monospace;font-size:12px;border-radius:4px;cursor:pointer;">🚀 Submit Suggestion</button>
     <div id="suggest-result" style="min-height:1.2em;word-break:break-all;font-size:11px;"></div>
   </div>
-</div>
+  </div><!-- end god-controls -->
+</div><!-- end god-panel -->
 <div id="block-tooltip" style="
   display:none;
   position:fixed;
@@ -966,19 +976,43 @@
   const godTypeRow  = document.getElementById('god-type-row');
   const godBudgetEl = document.getElementById('god-budget-warn');
 
-  let godSessionKey = '';
+  let godSessionKey = sessionStorage.getItem('godSessionKey') || '';
+  if (godSessionKey) tickAdminKey = godSessionKey;
 
-  // Toggle panel visibility — require admin key on first activation
+  function showGodControls() {
+    document.getElementById('god-auth-row').style.display  = 'none';
+    document.getElementById('god-key-error').style.display = 'none';
+    document.getElementById('god-controls').style.display  = 'flex';
+  }
+  function showGodAuth() {
+    document.getElementById('god-auth-row').style.display  = 'flex';
+    document.getElementById('god-controls').style.display  = 'none';
+  }
+
+  // If key already in session, go straight to controls when panel opens
+  if (godSessionKey) showGodControls(); else showGodAuth();
+
+  document.getElementById('god-key-submit').addEventListener('click', () => {
+    const key = document.getElementById('god-key-input').value.trim();
+    const errEl = document.getElementById('god-key-error');
+    if (!key) { errEl.textContent = 'Key required.'; errEl.style.display = 'block'; return; }
+    godSessionKey = key;
+    tickAdminKey  = key;
+    sessionStorage.setItem('godSessionKey', key);
+    errEl.style.display = 'none';
+    showGodControls();
+  });
+
+  document.getElementById('god-key-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('god-key-submit').click();
+  });
+
+  // Toggle panel visibility
   godToggle.addEventListener('click', () => {
-    if (!godMode && !godSessionKey) {
-      const key = prompt('Enter the God Mode admin key to continue:');
-      if (!key) return;
-      godSessionKey = key;
-      tickAdminKey = key;
-    }
     godMode = !godMode;
     godToggle.classList.toggle('active', godMode);
     godPanel.classList.toggle('visible', godMode);
+    if (godMode && !godSessionKey) showGodAuth();
     if (!godMode) {
       godHoverCell = null;
       godQueue = [];
@@ -1203,8 +1237,12 @@
         godBudgetEl.classList.remove('visible');
       } else if (res.status === 401) {
         godSessionKey = '';
-        tickAdminKey = '';
-        godStatus.textContent = '✗ Invalid key — God Mode locked. Click again to re-enter key.';
+        tickAdminKey  = '';
+        sessionStorage.removeItem('godSessionKey');
+        showGodAuth();
+        document.getElementById('god-key-error').textContent = 'Invalid key — re-enter to continue.';
+        document.getElementById('god-key-error').style.display = 'block';
+        godStatus.textContent = '✗ Invalid key.';
         godStatus.className = 'err';
       } else {
         godStatus.textContent = `✗ ${data.error}`;
