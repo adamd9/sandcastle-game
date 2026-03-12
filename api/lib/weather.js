@@ -1,32 +1,21 @@
-// Fetches current weather from Open-Meteo for a fixed location.
-// Using Sydney, Australia as the canonical game location.
+// Fetches current weather from wttr.in for Sydney, Australia.
 // No API key required.
 
-const LATITUDE  = -33.8688;
-const LONGITUDE = 151.2093;
-
-const OPEN_METEO_URL =
-  `https://api.open-meteo.com/v1/forecast` +
-  `?latitude=${LATITUDE}&longitude=${LONGITUDE}` +
-  `&current=rain,precipitation,wind_speed_10m,wind_direction_10m`;
-
-function degreesToCardinal(deg) {
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  return dirs[Math.round(deg / 45) % 8];
-}
+const WTTR_URL = 'https://wttr.in/Sydney?format=j1';
 
 export async function fetchWeather() {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
   try {
-    const res = await fetch(OPEN_METEO_URL, { signal: controller.signal });
-    if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
+    const res = await fetch(WTTR_URL, { signal: controller.signal });
+    if (!res.ok) throw new Error(`wttr.in returned ${res.status}`);
     const data = await res.json();
-    const cur = data.current;
+    const cc = data.current_condition[0];
     return {
-      rain_mm:        Math.max(cur.rain ?? 0, cur.precipitation ?? 0),
-      wind_speed_kph: cur.wind_speed_10m ?? 0,
-      wind_direction: degreesToCardinal(cur.wind_direction_10m ?? 0),
+      rain_mm:        parseFloat(cc.precipMM),
+      wind_speed_kph: parseFloat(cc.windspeedKmph),
+      wind_direction: cc.winddir16Point,
+      weatherSource:  'wttr.in/Sydney',
     };
   } catch (err) {
     // Re-throw with cause detail for better diagnostics
