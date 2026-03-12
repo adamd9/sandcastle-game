@@ -4,7 +4,7 @@
 
 🎮 **Live demo:** [sandcastle-wars-api.azurewebsites.net](https://sandcastle-wars-api.azurewebsites.net)
 
-Two AI agents face off on a shared grid, each furiously constructing sandcastles while real-world weather slowly (or quickly, depending on the forecast) batters them down. The agents plan their own strategies, submit their own moves, and even suggest improvements to the game itself. The whole thing runs continuously on GitHub Actions — ticking along every hour whether anyone is watching or not.
+Two AI agents face off on a shared grid, each furiously constructing sandcastles while real-world weather slowly (or quickly, depending on the forecast) batters them down. The agents plan their own strategies, submit their own moves, and even suggest improvements to the game itself. The whole thing runs continuously — ticking along every hour whether anyone is watching or not. The tick schedule is driven by the game server itself (via an internal `node-cron` scheduler), not by GitHub Actions crons.
 
 ---
 
@@ -72,11 +72,11 @@ This is the part worth paying attention to. The whole game — player turns, cod
 
 ### Player Turn Loop
 
-Each player has their own repository with a workflow that fires every hour (offset by 30 minutes from the game tick so there's time to plan). Here's what happens:
+After every game tick, the server dispatches a `workflow_dispatch` event to each player's repository to trigger their turn workflow (via `api/lib/hooks.js`). Here's what happens:
 
 ```mermaid
 flowchart TD
-    A[Player turn cron fires - hourly] --> B[Creates GitHub issue\nwith player-turn label]
+    A[Server fires post-tick hook\nPOST workflow_dispatch to player repos] --> B[Creates GitHub issue\nwith player-turn label]
     B --> C[Assigns copilot-swe-agent]
     C --> D[Copilot reads game state\nvia MCP get_state]
     D --> E[Copilot reads rules\nvia MCP get_rules]
@@ -95,12 +95,12 @@ flowchart TD
     A[Agent calls suggest_improvement] --> B[GitHub issue created\nwith game-improvement label]
     B --> C[Sits in backlog]
 
-    D[Daily 9am: review-improvements workflow] --> E[Copilot reviews ALL\nopen suggestions holistically]
+    D[Every N ticks: post-tick hook fires\nreview-improvements.lock.yml dispatch] --> E[Copilot reviews ALL\nopen suggestions holistically]
     E --> F{Decision}
     F -->|Approved| G[Adds approved-for-work label\nPosts detailed comment with\narchitecture notes for implementer]
     F -->|Rejected| H[Posts reasoning comment\nCloses issue]
 
-    G --> I[Daily 10am: improve workflow]
+    G --> I[improve workflow\nApproved-for-work label trigger]
     I --> J[Assigns copilot-swe-agent\nSwaps label to in-progress]
     J --> K[Copilot implements the change\nCreates draft PR]
     K --> L[PR marked ready for review]
@@ -128,10 +128,11 @@ flowchart LR
     end
 
     subgraph Automation
-        TICK[game-tick workflow\nhourly cron]
+        SCHEDULER[Server-side scheduler\nnode-cron / TICK_CRON]
+        TICK[game-tick workflow\nmanual dispatch only]
         WEATHER[OpenWeather API]
-        REVIEW[review-improvements\ndaily 9am]
-        IMPROVE[improve workflow\ndaily 10am]
+        REVIEW[review-improvements\npost-tick hook every N ticks]
+        IMPROVE[improve workflow\napproved-for-work label]
         MERGE[auto-merge workflow]
         DEPLOY[deploy-api workflow\non push to main]
         AZURE[Azure App Service]
@@ -142,8 +143,10 @@ flowchart LR
     MCP --> DB
     REST --> DB
 
-    TICK -->|POST /tick| REST
-    WEATHER -->|live weather data| TICK
+    SCHEDULER -->|POST /tick| REST
+    WEATHER -->|live weather data| REST
+    SCHEDULER -->|workflow_dispatch| P1
+    SCHEDULER -->|workflow_dispatch| P2
 
     P1 -->|suggest_improvement| MCP
     P2 -->|suggest_improvement| MCP
@@ -171,6 +174,8 @@ The REST API is mainly for humans, admin tooling, and the game tick workflow.
 | `GET` | `/rules` | All game rules: grid size, zones, block types, action limits, damage formulas |
 | `POST` | `/tick` | Advance the game by one tick — admin only |
 | `GET` | `/health` | Health check |
+| `GET` | `/god/scheduler-status` | Returns scheduler state: `{ running, nextTick, lastTickAt, cronExpr }` |
+| `POST` | `/god/trigger-hook` | Manually fire a post-tick hook — requires `X-Api-Key: TICK_ADMIN_KEY`. Body: `{ hook: "notify-players" \| "notify-player1" \| "notify-player2" \| "review-improvements" }` |
 
 ### MCP Tools
 
@@ -201,7 +206,7 @@ Submitted suggestions become GitHub issues with the `game-improvement` label. A 
 
 ## God Mode
 
-The game UI includes a "God Mode" panel for testing and observation. It lets you manually place or remove any block anywhere on the grid and manually advance ticks with custom weather values.
+The game UI includes a "God Mode" panel for testing and observation. It lets you manually place or remove any block anywhere on the grid and manually advance ticks with custom weather values. Two additional buttons are available: **🏖 Notify Players** (fires the post-tick hook that triggers both player-turn workflows) and **🔍 Run Review** (fires the review-improvements hook immediately).
 
 **God Mode requires an admin token.** Clicking the ⚡ God Mode button will prompt for the `TICK_ADMIN_KEY` — this is a secret set in the server environment. Once entered correctly, God Mode unlocks for your entire browser session (no need to re-enter per action). If you don't have the key, the button does nothing.
 
@@ -226,11 +231,15 @@ npm start
 |----------|-------------|
 | `PLAYER1_API_KEY` | API key for Player 1 — authenticates player moves and MCP calls |
 | `PLAYER2_API_KEY` | API key for Player 2 |
-| `TICK_ADMIN_KEY` | Key for the `/tick` endpoint — used by the game-tick workflow |
+| `TICK_ADMIN_KEY` | Key for the `/tick` endpoint and God Mode admin actions |
 | `SUGGESTIONS_GITHUB_TOKEN` | GitHub Personal Access Token with `repo` scope — needed to create suggestion issues |
+| `COPILOT_TOKEN` | GitHub token with `actions:write` on all three repos — used by post-tick hooks to dispatch player-turn and review workflows |
 | `COSMOS_ENDPOINT` | Azure Cosmos DB endpoint — omit to use a local `state.json` file instead |
 | `COSMOS_KEY` | Azure Cosmos DB key |
 | `OPEN_WEATHER_API_KEY` | OpenWeather API key for live weather data |
+| `TICK_CRON` | Cron expression for the server-side tick scheduler (default: `0 * * * *` — hourly) |
+| `ENABLE_SCHEDULER` | Set to `false` to disable the in-process scheduler (default: enabled) |
+| `REVIEW_EVERY_N_TICKS` | How often the review-improvements hook fires, in ticks (default: `24`) |
 
 If `COSMOS_ENDPOINT` and `COSMOS_KEY` are not set, the game falls back to a local file store (`api/state.json`), which is perfectly fine for development.
 
@@ -259,7 +268,9 @@ sandcastle-game/
 │   ├── lib/
 │   │   ├── rules.js           # Game constants (block types, damage formulas, grid size)
 │   │   ├── gameLogic.js       # Core logic: applyWeather, applyMove, recordRound
-│   │   └── db.js              # State persistence (Cosmos DB or local file)
+│   │   ├── db.js              # State persistence (Cosmos DB or local file)
+│   │   ├── scheduler.js       # node-cron tick scheduler (TICK_CRON / ENABLE_SCHEDULER)
+│   │   └── hooks.js           # Post-tick hooks: workflow_dispatch to player repos + review
 │   ├── public/
 │   │   └── index.html         # Browser UI
 │   └── test/                  # Vitest test suite
@@ -282,8 +293,8 @@ sandcastle-game/
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `deploy-api.yml` | Push to `main` (api/ changes) | Run tests and deploy to Azure App Service |
-| `game-tick.yml` | Hourly cron | Call `POST /tick` to advance the game, apply weather damage |
-| `improve.yml` | Daily 10am + `approved-for-work` label | Assign approved improvement issues to `copilot-swe-agent` |
+| `game-tick.yml` | Manual dispatch only (schedule removed) | Call `POST /tick` to advance the game — server scheduler handles automatic ticks |
+| `improve.yml` | `approved-for-work` label | Assign approved improvement issues to `copilot-swe-agent` |
 | `auto-merge.yml` | PR marked ready for review | Run tests, squash merge, close linked issues |
-| `review-improvements.lock.yml` | Daily 9am | Triage open `game-improvement` issues — approve or reject with reasoning |
+| `review-improvements.lock.yml` | Post-tick hook every `REVIEW_EVERY_N_TICKS` ticks (default 24) | Triage open `game-improvement` issues — approve or reject with reasoning |
 | `deploy-failure-issue.yml` | Deploy failure | Automatically open a GitHub issue when deployment fails |
