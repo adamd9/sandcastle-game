@@ -794,8 +794,8 @@
         ctx.lineWidth = lvl === 0 ? 0.5 : 1;
         ctx.strokeRect(ox + 0.5, oy + 0.5, sz - 1, sz - 1);
 
-        // God-session highlight
-        if (godMode && godSessionBlocks && godSessionBlocks.has(`${cell.x},${cell.y}`)) {
+        // God-session highlight — queued edits
+        if (godMode && godQueue && godQueue.some(q => q.x === cell.x && q.y === cell.y)) {
           ctx.strokeStyle = '#f5c84288';
           ctx.lineWidth = 2;
           ctx.strokeRect(ox + 1, oy + 1, sz - 2, sz - 2);
