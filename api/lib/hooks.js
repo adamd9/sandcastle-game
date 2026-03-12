@@ -1,5 +1,5 @@
 const REVIEW_WORKFLOW = 'review-improvements.lock.yml';
-const reviewEveryNTicks = parseInt(process.env.REVIEW_EVERY_N_TICKS || '24');
+const reviewEveryNTicks = parseInt(process.env.REVIEW_GAME_ISSUES_EVERY_N_TICKS || '24');
 
 async function dispatchPlayerTurn(owner, repo, workflow, _state) {
   const token = process.env.COPILOT_TOKEN;
@@ -24,7 +24,7 @@ async function dispatchPlayerTurn(owner, repo, workflow, _state) {
 }
 
 async function maybeDispatchReview(state) {
-  const n = parseInt(process.env.REVIEW_EVERY_N_TICKS || '24');
+  const n = parseInt(process.env.REVIEW_GAME_ISSUES_EVERY_N_TICKS || '24');
   if (state.tick % n !== 0) return;
   await dispatchPlayerTurn('adamd9', 'sandcastle-game', REVIEW_WORKFLOW, state);
 }

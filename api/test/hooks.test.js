@@ -39,14 +39,14 @@ describe('firePostTickHooks', () => {
     expect(urls.some(u => u.includes('review-improvements'))).toBe(false);
   });
 
-  it('dispatches review when tick % REVIEW_EVERY_N_TICKS === 0', async () => {
-    process.env.REVIEW_EVERY_N_TICKS = '4';
+  it('dispatches review when tick % REVIEW_GAME_ISSUES_EVERY_N_TICKS === 0', async () => {
+    process.env.REVIEW_GAME_ISSUES_EVERY_N_TICKS = '4';
     try {
       await firePostTickHooks({ tick: 4 });
       const urls = globalThis.fetch.mock.calls.map(c => c[0]);
       expect(urls.some(u => u.includes('review-improvements'))).toBe(true);
     } finally {
-      delete process.env.REVIEW_EVERY_N_TICKS;
+      delete process.env.REVIEW_GAME_ISSUES_EVERY_N_TICKS;
     }
   });
 

@@ -239,7 +239,7 @@ npm start
 | `OPEN_WEATHER_API_KEY` | OpenWeather API key for live weather data |
 | `TICK_CRON` | Cron expression for the server-side tick scheduler (default: `0 * * * *` — hourly) |
 | `ENABLE_SCHEDULER` | Set to `false` to disable the in-process scheduler (default: enabled) |
-| `REVIEW_EVERY_N_TICKS` | How often the review-improvements hook fires, in ticks (default: `24`) |
+| `REVIEW_GAME_ISSUES_EVERY_N_TICKS` | How often the review-improvements hook fires, in ticks (default: `24`) |
 
 If `COSMOS_ENDPOINT` and `COSMOS_KEY` are not set, the game falls back to a local file store (`api/state.json`), which is perfectly fine for development.
 
@@ -296,5 +296,5 @@ sandcastle-game/
 | `game-tick.yml` | Manual dispatch only (schedule removed) | Call `POST /tick` to advance the game — server scheduler handles automatic ticks |
 | `improve.yml` | `approved-for-work` label | Assign approved improvement issues to `copilot-swe-agent` |
 | `auto-merge.yml` | PR marked ready for review | Run tests, squash merge, close linked issues |
-| `review-improvements.lock.yml` | Post-tick hook every `REVIEW_EVERY_N_TICKS` ticks (default 24) | Triage open `game-improvement` issues — approve or reject with reasoning |
+| `review-improvements.lock.yml` | Post-tick hook every `REVIEW_GAME_ISSUES_EVERY_N_TICKS` ticks (default 24) | Triage open `game-improvement` issues — approve or reject with reasoning |
 | `deploy-failure-issue.yml` | Deploy failure | Automatically open a GitHub issue when deployment fails |
