@@ -180,7 +180,10 @@ router.post('/tick', async (req, res) => {
     const newState = applyWeather(withHistory);
 
     if (newState.history?.length > 0) {
-      newState.history[newState.history.length - 1].weatherEvents = newState.weatherEvents || [];
+      const lastEntry = newState.history[newState.history.length - 1];
+      lastEntry.weatherEvents = newState.weatherEvents || [];
+      lastEntry.cells_after_weather = structuredClone(newState.cells);
+      lastEntry.weather = { ...(lastEntry.weather || {}), ...(newState.weather || {}) };
     }
     delete newState.weatherEvents;
 
