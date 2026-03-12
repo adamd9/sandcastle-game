@@ -1,8 +1,6 @@
 name: Game Tick
 
 on:
-  schedule:
-    - cron: '0 * * * *'   # Every hour on the hour
   workflow_dispatch:       # Allow manual trigger for testing
 
 jobs:
