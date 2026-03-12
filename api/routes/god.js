@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
 import { fetchWeather } from '../lib/weather.js';
+import { getSchedulerStatus } from '../lib/scheduler.js';
 
 const router = Router();
 
@@ -306,6 +307,14 @@ router.post('/backfill-history', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * GET /god/scheduler-status
+ * Returns current scheduler status. No auth required (read-only, non-sensitive).
+ */
+router.get('/scheduler-status', (_req, res) => {
+  res.json(getSchedulerStatus());
 });
 
 export default router;

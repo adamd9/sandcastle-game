@@ -49,7 +49,12 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // Only bind the port when run directly — not when imported by Vitest test files
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`SandCastle Wars API listening on :${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`SandCastle Wars API listening on :${PORT}`);
+    if (process.env.ENABLE_SCHEDULER !== 'false') {
+      import('./lib/scheduler.js').then(({ initScheduler }) => initScheduler(app));
+    }
+  });
 }
 
 export default app;
