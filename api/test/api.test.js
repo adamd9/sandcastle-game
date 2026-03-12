@@ -142,4 +142,15 @@ describe('POST /tick', () => {
     const state = await request(app).get('/state');
     expect(state.body.players.player1.actionsThisTick).toBe(0);
   });
+
+  it('records cells_after_weather in history entry for timeline weather points', async () => {
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+
+    const state = await request(app).get('/state');
+    expect(Array.isArray(state.body.history)).toBe(true);
+    expect(state.body.history.length).toBeGreaterThan(0);
+    const lastEntry = state.body.history[state.body.history.length - 1];
+    expect(lastEntry).toHaveProperty('cells_after_weather');
+    expect(Array.isArray(lastEntry.cells_after_weather)).toBe(true);
+  });
 });

@@ -904,8 +904,21 @@
       document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
       renderHistory(state.history);
 
-      // Update timeline
-      historySnapshots = (state.history || []);
+      // Update timeline — expand each history round into two points:
+      // 1) player moves (pre-weather cells), 2) weather event (post-weather cells)
+      historySnapshots = (state.history || []).flatMap(r => {
+        const pts = [{ type: 'moves', tick: r.tick, cells: r.cells }];
+        if (r.cells_after_weather) {
+          pts.push({
+            type: 'weather',
+            tick: r.tick,
+            cells: r.cells_after_weather,
+            event_label: r.weather?.event_label ?? '🌤 weather',
+            weatherEvents: r.weatherEvents,
+          });
+        }
+        return pts;
+      });
       const scrubber = document.getElementById('timeline-scrubber');
       const totalPositions = historySnapshots.length + 1;
       scrubber.max = String(totalPositions - 1);
@@ -983,7 +996,11 @@
         octx.fillText('No grid snapshot for this tick', canvas.width / 2, canvas.height / 2 + 10);
         octx.restore();
       }
-      timelineLabel.textContent = snap ? `tick ${snap.tick}` : `#${idx}`;
+      timelineLabel.textContent = snap
+        ? snap.type === 'weather'
+          ? `tick ${snap.tick} · ${snap.event_label}`
+          : `tick ${snap.tick} · 🏗 moves`
+        : `#${idx}`;
       timelineResetBtn.classList.add('visible');
     }
     timelinePrev.disabled = idx <= 0;
