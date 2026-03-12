@@ -8,6 +8,7 @@ import tickRouter from './routes/tick.js';
 import rulesRouter from './routes/rules.js';
 import endTurnRouter from './routes/end-turn.js';
 import godRouter from './routes/god.js';
+import hooksRouter from './routes/hooks.js';
 import suggestRouter from './routes/suggest.js';
 import debugRouter from './routes/debug.js';
 import { createMcpRouter } from './routes/mcp.js';
@@ -44,6 +45,7 @@ app.use('/turn', turnRouter);
 app.use('/tick', tickRouter);
 app.use('/end-turn', endTurnRouter);
 app.use('/god', godRouter);
+app.use('/hooks', hooksRouter);
 app.use('/suggest', suggestRouter);
 app.use('/debug', debugRouter);
 
