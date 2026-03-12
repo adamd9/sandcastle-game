@@ -42,6 +42,15 @@ Each player gets **12 actions per tick**. The available actions are:
 - **REMOVE** — demolish one of your own blocks
 - **REINFORCE** — add 15 HP to an existing block (up to the 60 HP cap)
 
+### Flags
+
+Players can label named structures with **flags**. A flag attaches a short text label to any block they own, rendered as a colored pennant on the canvas (Player 1 = blue, Player 2 = pink, God-placed = gold).
+
+- One flag per cell; max label length: 50 characters
+- Players can only flag their own blocks
+- Flags are destroyed when their host block is destroyed
+- Flags survive weather (unless the host block is destroyed by it)
+
 Players submit all their moves as a batch, then commit their turn. Once committed, no more moves until the next tick.
 
 ### Weather Damage
@@ -175,6 +184,7 @@ The REST API is mainly for humans, admin tooling, and the game tick workflow.
 | `POST` | `/tick` | Advance the game by one tick — admin only |
 | `GET` | `/health` | Health check |
 | `GET` | `/god/scheduler-status` | Returns scheduler state: `{ running, nextTick, lastTickAt, cronExpr }` |
+| `POST` | `/god/tick` | Fire a tick with optional weather mode and god edits — admin only (`X-Api-Key`). Body: `{ weather_mode?, god_edits?: [{action, x, y, level, type?, label?}] }` |
 | `POST` | `/god/trigger-hook` | Manually fire a post-tick hook — requires `X-Api-Key: TICK_ADMIN_KEY`. Body: `{ hook: "notify-players" \| "notify-player1" \| "notify-player2" \| "review-improvements" }` |
 
 ### MCP Tools
@@ -187,6 +197,8 @@ The REST API is mainly for humans, admin tooling, and the game tick workflow.
 | `get_rules` | All game rules and constraints |
 | `submit_turn` | Submit up to 12 moves as a batch array — auto-commits your turn |
 | `suggest_improvement` | Create a GitHub issue with a game improvement suggestion |
+| `place_flag` | Label one of your blocks with a named pennant. Args: `x`, `y`, `level`, `label` (max 50 chars) |
+| `remove_flag` | Remove a flag from one of your blocks. Args: `x`, `y`, `level` |
 
 The MCP server lives at `POST /mcp`. Authentication uses the same `X-Api-Key` header as REST — the server resolves which player you are based on the key.
 
@@ -206,11 +218,45 @@ Submitted suggestions become GitHub issues with the `game-improvement` label. A 
 
 ## God Mode
 
-The game UI includes a "God Mode" panel for testing and observation. It lets you manually place or remove any block anywhere on the grid and manually advance ticks with custom weather values. Two additional buttons are available: **🏖 Notify Players** (fires the post-tick hook that triggers both player-turn workflows) and **🔍 Run Review** (fires the review-improvements hook immediately).
+The game UI includes a **God Mode** panel for testing and manual control. **God Mode requires an admin token** (`TICK_ADMIN_KEY`) — enter it once via the ⚡ God Mode button and it unlocks for your entire browser session. All actions are validated server-side.
 
-**God Mode requires an admin token.** Clicking the ⚡ God Mode button will prompt for the `TICK_ADMIN_KEY` — this is a secret set in the server environment. Once entered correctly, God Mode unlocks for your entire browser session (no need to re-enter per action). If you don't have the key, the button does nothing.
+### ⚡ Fire Tick
 
-Block placement and the tick trigger both use the same key — it's validated server-side on every god action.
+The central **⚡ Fire Tick** button commits everything atomically in one operation:
+1. Applies any queued god edits to the board
+2. Applies weather effects (using the selected weather mode)
+3. Notifies both player agents to take their turns
+
+### God Edits
+
+In God Mode you can place or erase blocks anywhere on the grid — no zone restrictions, no budget. Edits are **queued** in the UI and committed to the board when you press **⚡ Fire Tick**. Supported god edit actions:
+
+| Action | Effect |
+|--------|--------|
+| `PLACE` | Place a block of any type at (x, y, level) |
+| `REMOVE` | Remove a specific block |
+| `ERASE` | Erase an entire column stack |
+| `PLACE_FLAG` | Attach a named flag label to a block |
+| `REMOVE_FLAG` | Remove a flag from a block |
+
+`POST /god/tick` accepts an optional `god_edits` array in the request body:
+```json
+{ "god_edits": [{ "action": "PLACE", "x": 5, "y": 5, "level": 0, "type": "packed_sand" }] }
+```
+
+### Weather Mode
+
+The weather pill selector controls what weather is applied when Fire Tick runs:
+
+| Mode | Description |
+|------|-------------|
+| 🌐 Live | Fetch real weather from the OpenWeather API |
+| ⚡ Event | Choose a named event: **Calm**, **Normal**, **Storm**, **Wave Surge**, or **Rogue Wave** |
+| 🎛 Manual | Set exact values: rain (mm) and wind speed (kph) |
+
+### Weather Timeline
+
+A weather summary panel below the canvas shows the event name and per-player damage stats when scrubbing through history. Colored dots on the timeline track indicate event severity (calm = blue, normal = yellow, storm = orange, wave surge = red, rogue wave = purple).
 
 ---
 

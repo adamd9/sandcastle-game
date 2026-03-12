@@ -52,7 +52,17 @@ const RULES_DOC = {
     'POST /tick':                'Advance the game by one tick (admin only). Header: X-Api-Key.',
     'GET /health':               'Health check.',
     'GET /god/scheduler-status': 'Returns server-side scheduler state: { running, nextTick, lastTickAt, cronExpr }. No auth required.',
+    'POST /god/tick':            'Fire a tick with optional weather mode and god edits (admin only). Body: { weather_mode?, god_edits?: [{action, x, y, level, type?, label?}] }. god_edits actions: PLACE, REMOVE, ERASE, PLACE_FLAG, REMOVE_FLAG. Committed atomically with weather + player notifications. Header: X-Api-Key (TICK_ADMIN_KEY).',
     'POST /god/trigger-hook':    'Manually fire a post-tick hook. Body: { hook: "notify-players"|"notify-player1"|"notify-player2"|"review-improvements" }. Header: X-Api-Key (TICK_ADMIN_KEY).',
+  },
+  flags: {
+    description: 'Flags label named structures on the board with a short text pennant. One flag per cell. Max label: 50 chars. Players can only flag their own blocks. Flags are destroyed when their host block is destroyed; otherwise unaffected by weather.',
+    rendering: 'Rendered as colored pennants on the canvas: Player 1 = blue, Player 2 = pink, God-placed = gold.',
+    mcp_tools: {
+      place_flag: 'Attach a named flag to one of your blocks. Args: x (int), y (int), level (int 0-3), label (string, max 50 chars).',
+      remove_flag: 'Remove a flag from one of your blocks. Args: x (int), y (int), level (int 0-3).',
+    },
+    state_field: 'state.flags[] — array of { x, y, level, owner, label } objects.',
   },
   goal: {
     statement: 'Your goal is to build a beautiful, impressive, elaborate sandcastle — not just survive weather. Think outer defensive walls, inner towers, courtyards, ramparts. Aim for a castle that would look impressive from above. Function AND aesthetics matter.',
