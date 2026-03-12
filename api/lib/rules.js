@@ -23,6 +23,7 @@ export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE'];
 
 export const REINFORCE_AMOUNT = 15;
 export const MAX_HEALTH = 60;
+export const FLAGS_MAX_LABEL_LENGTH = 50;
 
 // Weather damage formulae
 export const BASE_DAMAGE = 5;  // minimum damage every tick regardless of weather

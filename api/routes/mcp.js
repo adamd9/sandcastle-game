@@ -7,7 +7,7 @@ import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
-  WATER_ROWS, MAX_LEVEL,
+  WATER_ROWS, MAX_LEVEL, FLAGS_MAX_LABEL_LENGTH,
   rainDamage, windDamage,
 } from '../lib/rules.js';
 
@@ -251,6 +251,58 @@ export function createMcpRouter() {
         } catch (err) {
           return { content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }] };
         }
+      },
+    );
+
+    server.tool(
+      'place_flag',
+      'Place a named flag on one of your blocks to label a structure (e.g., "main wall", "castle tower"). Replaces any existing flag at the same position.',
+      {
+        x: z.number().int().min(0).max(19).describe('Grid x coordinate'),
+        y: z.number().int().min(0).max(19).describe('Grid y coordinate'),
+        level: z.number().int().min(0).max(3).optional().default(0).describe('Block level (0–3). Default: 0'),
+        label: z.string().min(1).max(FLAGS_MAX_LABEL_LENGTH).describe(`Flag label (max ${FLAGS_MAX_LABEL_LENGTH} chars)`),
+      },
+      async ({ x, y, level, label }) => {
+        const state = await getState();
+        const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
+        if (!cell) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `No block at (${x},${y}) level ${level}.` }) }], isError: true };
+        }
+        if (cell.owner !== player) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `Cell (${x},${y}) level ${level} belongs to ${cell.owner}, not you.` }) }], isError: true };
+        }
+        const trimmedLabel = String(label).slice(0, FLAGS_MAX_LABEL_LENGTH);
+        const newState = structuredClone(state);
+        newState.flags = (newState.flags || []).filter(f => !(f.x === x && f.y === y && f.level === level));
+        const flag = { id: `flag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, x, y, level, owner: player, label: trimmedLabel };
+        newState.flags.push(flag);
+        await saveState(newState);
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true, flag }) }] };
+      },
+    );
+
+    server.tool(
+      'remove_flag',
+      'Remove a flag you previously placed on a block.',
+      {
+        x: z.number().int().min(0).max(19).describe('Grid x coordinate'),
+        y: z.number().int().min(0).max(19).describe('Grid y coordinate'),
+        level: z.number().int().min(0).max(3).optional().default(0).describe('Block level (0–3). Default: 0'),
+      },
+      async ({ x, y, level }) => {
+        const state = await getState();
+        const flag = (state.flags || []).find(f => f.x === x && f.y === y && f.level === level);
+        if (!flag) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `No flag at (${x},${y}) level ${level}.` }) }], isError: true };
+        }
+        if (flag.owner !== player) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `Flag at (${x},${y}) level ${level} belongs to ${flag.owner}, not you.` }) }], isError: true };
+        }
+        const newState = structuredClone(state);
+        newState.flags = newState.flags.filter(f => !(f.x === x && f.y === y && f.level === level));
+        await saveState(newState);
+        return { content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] };
       },
     );
 

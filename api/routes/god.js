@@ -194,7 +194,18 @@ router.post('/tick', async (req, res) => {
         godEditsApplied.push({ action, x, y, level, type });
       } else if (action === 'REMOVE' || action === 'ERASE') {
         state.cells = state.cells.filter(c => !(c.x === x && c.y === y && c.level >= level));
+        state.flags = (state.flags || []).filter(f => !(f.x === x && f.y === y && f.level >= level));
         godEditsApplied.push({ action, x, y, level });
+      } else if (action === 'PLACE_FLAG') {
+        const { label = '' } = edit;
+        const trimmedLabel = String(label).slice(0, 50);
+        if (!trimmedLabel) continue;
+        state.flags = (state.flags || []).filter(f => !(f.x === x && f.y === y && f.level === level));
+        state.flags.push({ id: `flag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, x, y, level, owner: 'god', label: trimmedLabel });
+        godEditsApplied.push({ action: 'PLACE_FLAG', x, y, level, label: trimmedLabel });
+      } else if (action === 'REMOVE_FLAG') {
+        state.flags = (state.flags || []).filter(f => !(f.x === x && f.y === y && f.level === level));
+        godEditsApplied.push({ action: 'REMOVE_FLAG', x, y, level });
       }
     }
 
@@ -205,6 +216,7 @@ router.post('/tick', async (req, res) => {
       const lastEntry = newState.history[newState.history.length - 1];
       lastEntry.weatherEvents = newState.weatherEvents || [];
       lastEntry.cells_after_weather = structuredClone(newState.cells);
+      lastEntry.flags_snapshot = JSON.parse(JSON.stringify(newState.flags || []));
       lastEntry.weather = { ...(lastEntry.weather || {}), ...(newState.weather || {}) };
       lastEntry.god_edits_applied = godEditsApplied;
     }

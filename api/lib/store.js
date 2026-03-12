@@ -15,6 +15,7 @@ const INITIAL_STATE = () => ({
   tick: 0,
   weather: { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N' },
   cells: [],
+  flags: [],
   players: {
     player1: { actionsThisTick: 0, turnCommitted: false },
     player2: { actionsThisTick: 0, turnCommitted: false },

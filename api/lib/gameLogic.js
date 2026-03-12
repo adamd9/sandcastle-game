@@ -140,6 +140,7 @@ export function applyMove(state, player, action) {
     case 'REMOVE': {
       // Remove target level and all levels above (cascade)
       state.cells = state.cells.filter(c => !(c.x === x && c.y === y && c.level >= level));
+      state.flags = (state.flags || []).filter(f => !(f.x === x && f.y === y && f.level >= level));
       break;
     }
     case 'REINFORCE': {
@@ -406,6 +407,14 @@ export function applyWeather(state) {
 
   state.cells = survivingCells;
   state.weatherEvents = events;
+
+  // Remove flags whose host block was destroyed this tick
+  const destroyedSet = new Set(
+    events.filter(e => e.type === 'destroyed').map(e => `${e.x},${e.y},${e.level}`)
+  );
+  state.flags = (state.flags || []).filter(
+    f => !destroyedSet.has(`${f.x},${f.y},${f.level}`)
+  );
 
   // Reset action counters and move tracking
   for (const player of Object.keys(state.players)) {
