@@ -24,18 +24,9 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 describe('place_flag MCP tool', () => {
   it('places a flag on own block and appears in GET /state', async () => {
-    // First place a block via god tick
-    await request(app)
-      .post('/god/tick')
-      .set('X-Api-Key', 'test-key-tick')
-      .send({
-        rain_mm: 0, wind_speed_kph: 0,
-        god_edits: [{ action: 'PLACE', x: 5, y: 5, level: 0, type: 'packed_sand' }],
-      });
-
-    // Override owner to player1 by manipulating state
+    // Seed a player1-owned block directly into state
     const s = await getState();
-    s.cells.find(c => c.x === 5 && c.y === 5).owner = 'player1';
+    s.cells.push({ x: 5, y: 5, level: 0, owner: 'player1', type: 'packed_sand', health: 100 });
     await saveState(s);
 
     const res = await mcpCall('test-key-p1', 'place_flag', { x: 5, y: 5, level: 0, label: 'main wall' });
@@ -67,15 +58,12 @@ describe('place_flag MCP tool', () => {
   // 3. place_flag on opponent's cell — returns error
   // -------------------------------------------------------------------------
   it('returns error when placing flag on opponent cell', async () => {
-    await request(app)
-      .post('/god/tick')
-      .set('X-Api-Key', 'test-key-tick')
-      .send({
-        rain_mm: 0, wind_speed_kph: 0,
-        god_edits: [{ action: 'PLACE', x: 5, y: 5, level: 0, type: 'packed_sand' }],
-      });
+    // Directly seed a god-owned cell into state
+    const s = await getState();
+    s.cells.push({ x: 5, y: 5, level: 0, owner: 'god', type: 'packed_sand', health: 100 });
+    await saveState(s);
 
-    // Cell is owned by 'god', not player1
+    // Cell is owned by 'god', not player1 → should get "belongs to" error
     const res = await mcpCall('test-key-p1', 'place_flag', { x: 5, y: 5, level: 0, label: 'claimed' });
     expect(res.status).toBe(200);
     expect(res.body.result?.isError).toBe(true);
