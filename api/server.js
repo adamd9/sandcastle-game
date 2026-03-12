@@ -37,6 +37,7 @@ app.use((req, res, next) => {
 
 app.use('/mcp', createMcpRouter());
 app.use('/rules', rulesRouter);
+app.get('/rules.md', (_req, res) => res.redirect('/rules/md')); // friendly alias
 app.use('/state', stateRouter);
 app.use('/move', moveRouter);
 app.use('/turn', turnRouter);
