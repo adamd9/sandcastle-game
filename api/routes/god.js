@@ -3,6 +3,7 @@ import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
 import { fetchWeather } from '../lib/weather.js';
 import { getSchedulerStatus } from '../lib/scheduler.js';
+import { triggerHookByName } from '../lib/hooks.js';
 
 const router = Router();
 
@@ -315,6 +316,33 @@ router.post('/backfill-history', async (req, res) => {
  */
 router.get('/scheduler-status', (_req, res) => {
   res.json(getSchedulerStatus());
+});
+
+/**
+ * POST /god/trigger-hook
+ * Manually fires a named post-tick hook. Requires TICK_ADMIN_KEY auth.
+ * Body: { hook: 'notify-players' | 'notify-player1' | 'notify-player2' | 'review-improvements' }
+ * Header: X-Api-Key or X-God-Key (TICK_ADMIN_KEY)
+ */
+router.post('/trigger-hook', async (req, res) => {
+  const key = req.headers['x-api-key'] || req.headers['x-god-key'];
+  if (!key || key !== process.env.TICK_ADMIN_KEY) {
+    return res.status(401).json({ error: 'Invalid or missing X-Api-Key header.' });
+  }
+
+  const { hook } = req.body ?? {};
+  const validHooks = ['notify-players', 'notify-player1', 'notify-player2', 'review-improvements'];
+  if (!hook || !validHooks.includes(hook)) {
+    return res.status(400).json({ error: `hook must be one of: ${validHooks.join(', ')}` });
+  }
+
+  try {
+    const state = await getState();
+    const results = await triggerHookByName(hook, state);
+    res.json({ ok: true, hook, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;
