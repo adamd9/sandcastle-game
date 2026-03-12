@@ -11,8 +11,8 @@ function resolvePlayer(key) {
 }
 
 async function createGitHubIssue(title, body) {
-  const token = process.env.SUGGESTIONS_GITHUB_TOKEN;
-  if (!token) throw new Error('SUGGESTIONS_GITHUB_TOKEN not configured');
+  const token = process.env.SUGGESTIONS_GITHUB_TOKEN || process.env.TICK_ADMIN_KEY;
+  if (!token) throw new Error('No GitHub token configured (set SUGGESTIONS_GITHUB_TOKEN or TICK_ADMIN_KEY)');
   
   const response = await fetch('https://api.github.com/repos/adamd9/sandcastle-game/issues', {
     method: 'POST',

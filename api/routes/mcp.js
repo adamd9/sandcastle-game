@@ -222,9 +222,9 @@ export function createMcpRouter() {
           const issueTitle = `[Player Suggestion] ${title.trim()}`;
           const issueBody = `## Player Suggestion\n\n**Submitted by:** ${player}\n**Current Tick:** ${state.tick}\n\n### Description\n\n${description.trim()}\n\n---\n*This suggestion was automatically submitted by the ${player} AI agent.*`;
           
-          const token = process.env.SUGGESTIONS_GITHUB_TOKEN;
+          const token = process.env.SUGGESTIONS_GITHUB_TOKEN || process.env.TICK_ADMIN_KEY;
           if (!token) {
-            return { content: [{ type: 'text', text: JSON.stringify({ error: 'SUGGESTIONS_GITHUB_TOKEN not configured on server' }) }] };
+            return { content: [{ type: 'text', text: JSON.stringify({ error: 'No GitHub token configured (set SUGGESTIONS_GITHUB_TOKEN or TICK_ADMIN_KEY)' }) }] };
           }
           
           const response = await fetch('https://api.github.com/repos/adamd9/sandcastle-game/issues', {
