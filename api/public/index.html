@@ -541,6 +541,7 @@
     <button class="god-btn selected" data-god-action="PLACE">PLACE</button>
     <button class="god-btn"          data-god-action="REMOVE">REMOVE</button>
     <button class="god-btn god-erase-btn" data-god-action="ERASE">🧹 ERASE</button>
+    <button class="god-btn"          data-god-action="FLAG">🚩 Flag</button>
   </div>
   <div class="god-row" id="god-level-row">
     <span class="god-label">Level</span>
@@ -554,6 +555,9 @@
     <button class="god-btn selected" data-god-type="packed_sand">packed</button>
     <button class="god-btn"          data-god-type="wet_sand">wet</button>
     <button class="god-btn"          data-god-type="dry_sand">dry</button>
+  </div>
+  <div id="god-flag-row" style="display:none;gap:6px;align-items:center;">
+    <input type="text" id="god-flag-label" class="tick-input" placeholder="Structure name…" maxlength="50" style="flex:1;">
   </div>
   <!-- ⚡ Fire Tick -->
   <div id="tick-control-header">
@@ -684,7 +688,7 @@
     return `${r},${g},${b}`;
   }
 
-  function drawGrid(cells) {
+  function drawGrid(cells, flags) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Background grid — skip water rows (drawn separately below)
@@ -798,6 +802,41 @@
         }
       }
     }
+
+    // Draw flags as small pennants in the top-right corner of each flagged cell
+    if (flags && flags.length > 0) {
+      // Per (x,y): use the flag with the highest level (or first found)
+      const flagMap = new Map();
+      for (const flag of flags) {
+        const key = `${flag.x},${flag.y}`;
+        if (!flagMap.has(key) || flag.level > flagMap.get(key).level) {
+          flagMap.set(key, flag);
+        }
+      }
+      const ownerFlagColors = { player1: '#4fc3f7', player2: '#ef9a9a', god: '#f5d87a' };
+      ctx.save();
+      for (const flag of flagMap.values()) {
+        const px = flag.x * CELL_SIZE + CELL_SIZE - 4;
+        const py = flag.y * CELL_SIZE + 2;
+        const color = ownerFlagColors[flag.owner] || '#f5d87a';
+        // Flagpole
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px, py + 8);
+        ctx.stroke();
+        // Pennant triangle
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - 5, py + 2);
+        ctx.lineTo(px, py + 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -805,6 +844,7 @@
   // ---------------------------------------------------------------------------
   let lastTick = -1;
   let lastCells = [];
+  let lastFlags = [];
   let historySnapshots = [];  // array of { tick, cells } from state.history
   let scrubbingIndex = -1;    // -1 = showing live; >= 0 = showing history[scrubbingIndex]
 
@@ -815,8 +855,9 @@
       const state = await res.json();
 
       lastCells = state.cells;
+      lastFlags = state.flags || [];
       if (scrubbingIndex === -1) {
-        drawGrid(state.cells);
+        drawGrid(state.cells, lastFlags);
       }
 
       // Status bar
@@ -847,12 +888,13 @@
       // Update timeline — expand each history round into two points:
       // 1) player moves (pre-weather cells), 2) weather event (post-weather cells)
       historySnapshots = (state.history || []).flatMap(r => {
-        const pts = [{ type: 'moves', tick: r.tick, cells: r.cells }];
+        const pts = [{ type: 'moves', tick: r.tick, cells: r.cells, flags_snapshot: r.flags_snapshot }];
         if (r.cells_after_weather) {
           pts.push({
             type: 'weather',
             tick: r.tick,
             cells: r.cells_after_weather,
+            flags_snapshot: r.flags_snapshot,
             event_label: r.weather?.event_label ?? '🌤 weather',
             weatherEvents: r.weatherEvents,
           });
@@ -904,18 +946,19 @@
     timelineScrubber.value = String(isNow ? totalPositions - 1 : idx);
     if (isNow) {
       scrubbingIndex = -1;
-      drawGrid(lastCells);
+      drawGrid(lastCells, lastFlags);
       timelineLabel.textContent = 'now';
       timelineResetBtn.classList.remove('visible');
       document.getElementById('weather-summary').style.display = 'none';
     } else {
       scrubbingIndex = idx;
       const snap = historySnapshots[idx];
+      const snapFlags = snap ? (snap.flags_snapshot || []) : [];
       if (snap && snap.cells) {
-        drawGrid(snap.cells);
+        drawGrid(snap.cells, snapFlags);
       } else if (snap) {
         // Snapshot exists but no cell data (recorded before cell snapshotting was added)
-        drawGrid(lastCells);
+        drawGrid(lastCells, snapFlags);
         const octx = canvas.getContext('2d');
         octx.save();
         octx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -1013,7 +1056,7 @@
     if (!godMode) {
       godHoverCell = null;
       godQueue = [];
-      drawGrid(lastCells);
+      drawGrid(lastCells, lastFlags);
     }
   });
 
@@ -1030,13 +1073,16 @@
 
   bindGodButtons('data-god-action', v => {
     godAction = v;
-    // Dim block-type buttons when action is not PLACE
+    const isFlag = v === 'FLAG';
     const needsType = v === 'PLACE';
+    // Show/hide flag label row
+    document.getElementById('god-flag-row').style.display = isFlag ? 'flex' : 'none';
+    // Dim block-type and level rows when FLAG is selected
     document.querySelectorAll('[data-god-type]').forEach(b =>
       b.classList.toggle('dimmed', !needsType)
     );
-    godTypeRow.style.opacity = needsType ? '1' : '0.4';
-    document.getElementById('god-level-row').style.opacity = v === 'ERASE' ? '0.4' : '1';
+    godTypeRow.style.opacity = (needsType) ? '1' : '0.4';
+    document.getElementById('god-level-row').style.opacity = (v === 'ERASE' || isFlag) ? '0.4' : '1';
   });
   bindGodButtons('data-god-type', v => { godBlockType = v; });
   bindGodButtons('data-god-level', v => { godLevel = parseInt(v, 10); });
@@ -1059,7 +1105,7 @@
     if (!godHoverRafPending) {
       godHoverRafPending = true;
       requestAnimationFrame(() => {
-        drawGrid(lastCells);
+        drawGrid(lastCells, lastFlags);
         drawGodOverlay();
         drawGodQueue();
         godHoverRafPending = false;
@@ -1069,7 +1115,7 @@
   canvas.addEventListener('mouseleave', () => {
     godHoverCell = null;
     hideTooltip();
-    drawGrid(lastCells);
+    drawGrid(lastCells, lastFlags);
     drawGodQueue();
   });
 
@@ -1131,10 +1177,15 @@
     }).join('');
 
     const owner = stack[0].owner;
+    const flagAtPos = (lastFlags || []).find(f => f.x === gridX && f.y === gridY);
+    const flagHtml = flagAtPos
+      ? `<div style="color:#f5d87a;margin-top:4px;">🚩 ${flagAtPos.label}</div>`
+      : '';
     blockTooltip.innerHTML = `
       <div style="font-weight:bold;margin-bottom:2px">(${gridX}, ${gridY})</div>
       <div style="color:${owner === 'player1' ? '#4a9eff' : '#ff7043'};margin-bottom:4px">${owner} · ${stack.length} level${stack.length > 1 ? 's' : ''}</div>
       ${rows}
+      ${flagHtml}
     `;
 
     const tx = Math.min(mouseEvent.clientX + 14, window.innerWidth - 220);
@@ -1164,7 +1215,7 @@
         godStatus.textContent = `✓ Removed queued edit at (${x},${y}) — ${godQueue.length} edits queued`;
         godStatus.className = 'ok';
         updateQueueIndicator();
-        drawGrid(lastCells); drawGodOverlay(); drawGodQueue();
+        drawGrid(lastCells, lastFlags); drawGodOverlay(); drawGodQueue();
         return;
       }
       // Not in queue — erase a committed block immediately
@@ -1182,13 +1233,34 @@
 
     const move = { action: godAction, x, y, level: godLevel };
     if (godAction === 'PLACE') move.type = godBlockType;
+
+    if (godAction === 'FLAG') {
+      const label = document.getElementById('god-flag-label').value.trim();
+      if (!label) {
+        godStatus.textContent = '✗ Enter a structure name first';
+        godStatus.className = 'err';
+        return;
+      }
+      const cellExists = (lastCells || []).some(c => c.x === x && c.y === y);
+      if (!cellExists) {
+        godStatus.textContent = `✗ No block at (${x},${y})`;
+        godStatus.className = 'err';
+        return;
+      }
+      godQueue.push({ action: 'PLACE_FLAG', x, y, level: godLevel, label });
+      godStatus.textContent = `🚩 Queued: flag "${label}" at (${x},${y}) L${godLevel} — ${godQueue.length} edit(s)`;
+      godStatus.className = 'ok';
+      updateQueueIndicator();
+      return;
+    }
+
     godQueue.push(move);
     updateQueueIndicator();
 
     const typeStr = godAction === 'PLACE' ? ` ${godBlockType}` : '';
     godStatus.textContent = `+ Queued: ${godAction}${typeStr} at (${x},${y}) — ${godQueue.length} edits`;
     godStatus.className = 'ok';
-    drawGrid(lastCells); drawGodOverlay(); drawGodQueue();
+    drawGrid(lastCells, lastFlags); drawGodOverlay(); drawGodQueue();
   });
 
   // ── Tick Control ──────────────────────────────────────────────────
