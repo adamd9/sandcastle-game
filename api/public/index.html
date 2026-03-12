@@ -477,9 +477,24 @@
 <div id="timeline-bar">
   <button class="timeline-arrow-btn" id="timeline-prev" title="Previous tick">◀</button>
   <input type="range" id="timeline-scrubber" min="0" max="0" value="0" step="1">
+  <div id="timeline-markers" style="position:relative;height:8px;margin-top:2px;"></div>
   <button class="timeline-arrow-btn" id="timeline-next" title="Next tick / live">▶</button>
   <span id="timeline-label">now</span>
   <button id="timeline-reset-btn">↩ now</button>
+</div>
+
+<div id="weather-summary" style="display:none;background:#1a1a0a;border:1px solid #3a2a0a;border-radius:6px;padding:10px 12px;margin-top:6px;font-family:'Courier New',monospace;font-size:12px;">
+  <div id="weather-summary-event" style="font-size:14px;font-weight:bold;margin-bottom:8px;color:#f5d87a;"></div>
+  <div style="display:flex;gap:16px;">
+    <div style="flex:1;">
+      <div style="color:#4fc3f7;margin-bottom:4px;">🟦 Player 1</div>
+      <div id="weather-summary-p1"></div>
+    </div>
+    <div style="flex:1;">
+      <div style="color:#ef9a9a;margin-bottom:4px;">🟥 Player 2</div>
+      <div id="weather-summary-p2"></div>
+    </div>
+  </div>
 </div>
 
 <div id="weather-bar" id="weather-bar">Fetching weather…</div>
@@ -892,6 +907,7 @@
       drawGrid(lastCells);
       timelineLabel.textContent = 'now';
       timelineResetBtn.classList.remove('visible');
+      document.getElementById('weather-summary').style.display = 'none';
     } else {
       scrubbingIndex = idx;
       const snap = historySnapshots[idx];
@@ -919,6 +935,7 @@
           : `tick ${snap.tick} · 🏗 moves`
         : `#${idx}`;
       timelineResetBtn.classList.add('visible');
+      showWeatherSummary(snap);
     }
     timelinePrev.disabled = idx <= 0;
     timelineNext.disabled = isNow;
@@ -1401,6 +1418,48 @@
     }
     btn.textContent = '🚀 Submit Suggestion';
   });
+
+  function showWeatherSummary(snap) {
+    const panel = document.getElementById('weather-summary');
+    if (!snap || snap.type !== 'weather' || !snap.weatherEvents || snap.weatherEvents.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+    function summarisePlayer(events, owner) {
+      const mine = events.filter(e => e.owner === owner);
+      const damaged = mine.filter(e => e.type === 'damaged').length;
+      const destroyed = mine.filter(e => e.type === 'destroyed').length;
+      const totalDmg = mine.reduce((s, e) => s + (e.total_damage || 0), 0);
+      return { damaged, destroyed, totalDmg };
+    }
+    const p1 = summarisePlayer(snap.weatherEvents, 'player1');
+    const p2 = summarisePlayer(snap.weatherEvents, 'player2');
+    const fmt = p => (p.damaged + p.destroyed) === 0
+      ? '<span style="color:#888">No damage</span>'
+      : `${p.destroyed} destroyed · ${p.damaged} damaged · ${p.totalDmg} total dmg`;
+    document.getElementById('weather-summary-event').textContent = snap.event_label || 'Weather Event';
+    document.getElementById('weather-summary-p1').innerHTML = fmt(p1);
+    document.getElementById('weather-summary-p2').innerHTML = fmt(p2);
+    panel.style.display = 'block';
+  }
+
+  function updateTimelineMarkers() {
+    const container = document.getElementById('timeline-markers');
+    if (!container) return;
+    container.innerHTML = '';
+    const total = historySnapshots.length;
+    historySnapshots.forEach((snap, idx) => {
+      if (snap.type !== 'weather') return;
+      const pct = total > 0 ? (idx / total) * 100 : 0;
+      const eventId = snap.weatherEvents?.[0]?.event || 'normal';
+      const color = { calm: '#4fc3f7', normal: '#fff176', storm: '#ffb74d', wave_surge: '#ef5350', rogue_wave: '#ce93d8' }[eventId] || '#fff176';
+      const dot = document.createElement('div');
+      dot.style.cssText = `position:absolute;left:${pct}%;top:0;width:6px;height:6px;border-radius:50%;background:${color};transform:translateX(-50%);cursor:pointer;`;
+      dot.title = snap.event_label || '';
+      dot.addEventListener('click', () => applyTimelineIndex(idx));
+      container.appendChild(dot);
+    });
+  }
 
 </script>
 </body>
