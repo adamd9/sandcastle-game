@@ -3,7 +3,7 @@ import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
 import { fetchWeather } from '../lib/weather.js';
 import { getSchedulerStatus } from '../lib/scheduler.js';
-import { triggerHookByName } from '../lib/hooks.js';
+import { triggerHookByName, firePostTickHooks } from '../lib/hooks.js';
 import { WATER_ROWS } from '../lib/rules.js';
 
 const router = Router();
@@ -223,6 +223,11 @@ router.post('/tick', async (req, res) => {
     delete newState.weatherEvents;
 
     await saveState(newState);
+
+    // Fire post-tick hooks async (notify players, review pipeline) — non-fatal
+    firePostTickHooks(newState).catch(err =>
+      console.error('[god/tick] hooks error:', err.message)
+    );
 
     res.json({
       ok: true,
