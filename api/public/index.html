@@ -609,6 +609,16 @@
   <div id="god-budget-warn">⚠ Budget exhausted — trigger a tick to reset.</div>
   <div id="god-status">Click a cell to act.</div>
 
+  <!-- Manual Triggers -->
+  <div style="border-top:1px solid #3a2a0a;padding-top:8px;margin-top:4px;">
+    <div style="font-size:11px;color:#a3e8d5;margin-bottom:6px;">⚡ Manual Triggers</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button id="trigger-notify-players" class="god-btn" style="flex:1;">🏖 Notify Players</button>
+      <button id="trigger-review-pipeline" class="god-btn" style="flex:1;">🔍 Run Review</button>
+    </div>
+    <div id="trigger-result" style="min-height:1.2em;font-size:11px;margin-top:4px;"></div>
+  </div>
+
   <!-- Suggest Improvement (inside god panel — uses session key) -->
   <div id="suggest-section-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #3a2a0a;margin-top:4px;font-size:11px;color:#a3e8d5;">
     <span>💡 Suggest Improvement</span><span id="suggest-chevron">▶</span>
@@ -1467,6 +1477,35 @@
     }
     btn.textContent = '🚀 Submit Suggestion';
   });
+
+  async function godTriggerHook(hook) {
+    const resultEl = document.getElementById('trigger-result');
+    resultEl.textContent = `⏳ Triggering ${hook}…`;
+    resultEl.style.color = '#a3e8d5';
+    try {
+      const res = await fetch(`/god/trigger-hook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': godSessionKey },
+        body: JSON.stringify({ hook }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const successes = (data.results || []).filter(r => r.status === 'fulfilled').length;
+        const total = (data.results || []).length;
+        resultEl.textContent = `✓ ${hook}: ${successes}/${total} dispatched`;
+        resultEl.style.color = '#7fc97f';
+      } else {
+        resultEl.textContent = `✗ ${data.error || res.status}`;
+        resultEl.style.color = '#e05050';
+      }
+    } catch (e) {
+      resultEl.textContent = `✗ ${e.message}`;
+      resultEl.style.color = '#e05050';
+    }
+  }
+
+  document.getElementById('trigger-notify-players').addEventListener('click', () => godTriggerHook('notify-players'));
+  document.getElementById('trigger-review-pipeline').addEventListener('click', () => godTriggerHook('review-improvements'));
 
 </script>
 </body>
