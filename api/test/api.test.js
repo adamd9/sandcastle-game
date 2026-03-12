@@ -116,6 +116,108 @@ describe('POST /move', () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /suggest
+// ---------------------------------------------------------------------------
+describe('POST /suggest', () => {
+  it('rejects request with no API key', async () => {
+    const res = await request(app).post('/suggest').send({ title: 'Test', description: 'A test suggestion' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects request with wrong API key', async () => {
+    const res = await request(app)
+      .post('/suggest')
+      .set('X-Api-Key', 'wrong-key')
+      .send({ title: 'Test', description: 'A test suggestion' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects missing title', async () => {
+    const res = await request(app)
+      .post('/suggest')
+      .set('X-Api-Key', 'test-key-tick')
+      .send({ description: 'A test suggestion' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/title/i);
+  });
+
+  it('rejects missing description', async () => {
+    const res = await request(app)
+      .post('/suggest')
+      .set('X-Api-Key', 'test-key-tick')
+      .send({ title: 'Test' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/description/i);
+  });
+
+  it('accepts player1 key', async () => {
+    // Mock fetch for GitHub API to avoid real network calls
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({ number: 42, html_url: 'https://github.com/test/repo/issues/42' }),
+    });
+    try {
+      const res = await request(app)
+        .post('/suggest')
+        .set('X-Api-Key', 'test-key-p1')
+        .send({ title: 'My suggestion', description: 'Here is a detailed description' });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.player).toBe('player1');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('uses TICK_ADMIN_KEY as fallback when SUGGESTIONS_GITHUB_TOKEN is absent', async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedAuth;
+    globalThis.fetch = async (url, opts) => {
+      capturedAuth = opts.headers['Authorization'];
+      return {
+        ok: true,
+        json: async () => ({ number: 99, html_url: 'https://github.com/test/repo/issues/99' }),
+      };
+    };
+    const originalToken = process.env.SUGGESTIONS_GITHUB_TOKEN;
+    delete process.env.SUGGESTIONS_GITHUB_TOKEN;
+    try {
+      const res = await request(app)
+        .post('/suggest')
+        .set('X-Api-Key', 'test-key-tick')
+        .send({ title: 'Admin suggestion', description: 'Testing fallback token usage' });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(capturedAuth).toBe('Bearer test-key-tick');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalToken !== undefined) process.env.SUGGESTIONS_GITHUB_TOKEN = originalToken;
+    }
+  });
+
+  it('returns 401 when no token is configured (auth fails before GitHub call)', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({}) });
+    const originalToken = process.env.SUGGESTIONS_GITHUB_TOKEN;
+    const originalAdminKey = process.env.TICK_ADMIN_KEY;
+    delete process.env.SUGGESTIONS_GITHUB_TOKEN;
+    delete process.env.TICK_ADMIN_KEY;
+    try {
+      const res = await request(app)
+        .post('/suggest')
+        .set('X-Api-Key', 'test-key-tick')
+        .send({ title: 'No token test', description: 'Should fail with 500' });
+      expect(res.status).toBe(401);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalToken !== undefined) process.env.SUGGESTIONS_GITHUB_TOKEN = originalToken;
+      process.env.TICK_ADMIN_KEY = originalAdminKey || 'test-key-tick';
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /tick
 // ---------------------------------------------------------------------------
 describe('POST /tick', () => {
