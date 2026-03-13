@@ -1904,7 +1904,12 @@
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     const W = rect.width, H = rect.height;
 
-    ctx.fillStyle = '#0a1628';
+    // Beach sky gradient background
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0,   '#87ceeb');
+    skyGrad.addColorStop(0.6, '#d4eef8');
+    skyGrad.addColorStop(1,   '#f5e6c8');
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
 
     const GRID = 20;
@@ -1922,22 +1927,23 @@
       return { sx, sy };
     }
 
+    // Sandy warm tones — player1 golden amber, player2 terracotta/rust
     function ownerBaseColour(owner) {
-      if (owner === 'player1') return { h: 220, s: 70 };
-      if (owner === 'player2') return { h: 330, s: 60 };
-      return { h: 220, s: 10 };
+      if (owner === 'player1') return { h: 38, s: 65 };
+      if (owner === 'player2') return { h: 18, s: 60 };
+      return { h: 34, s: 40 };
     }
     function typeL(type) {
-      if (type === 'dry_sand')        return 72;
-      if (type === 'wet_sand')        return 62;
+      if (type === 'dry_sand')        return 76;
+      if (type === 'wet_sand')        return 64;
       if (type === 'packed_sand')     return 52;
-      if (type === 'reinforced_sand') return 42;
-      return 35;
+      if (type === 'reinforced_sand') return 40;
+      return 34;
     }
     function faceColour(owner, type, face) {
       const { h, s } = ownerBaseColour(owner);
       const base = typeL(type);
-      const l = face === 'top' ? base + 15 : face === 'left' ? base - 5 : base - 15;
+      const l = face === 'top' ? base + 12 : face === 'left' ? base - 4 : base - 14;
       return `hsl(${h},${s}%,${Math.max(10, Math.min(90, l))}%)`;
     }
 
@@ -1978,19 +1984,19 @@
       ], faceColour(owner, type, 'right'), true);
     }
 
-    // Water zone (y=0..2) — flat blue plane
+    // Water zone (y=0..2) — ocean teal tiles
     for (let wy = 0; wy < 3; wy++) {
       for (let wx = 0; wx < GRID; wx++) {
         const hw = tileW / 2, hh = tileH / 2;
         const { sx, sy } = toScreen(wx, wy, 0);
-        const alpha = 0.5 + 0.1 * Math.sin((wx + wy) * 0.8);
+        const alpha = 0.7 + 0.15 * Math.sin((wx + wy) * 0.8);
         ctx.globalAlpha = alpha;
         drawFace([
           [sx,      sy],
           [sx + hw, sy + hh],
           [sx,      sy + tileH],
           [sx - hw, sy + hh],
-        ], '#1e40af', false);
+        ], '#2a9d8f', false);
         ctx.globalAlpha = 1;
       }
     }
@@ -2028,19 +2034,34 @@
         const topLevel = column.length > 0 ? column[column.length - 1].level + 1 : 1;
         const { sx, sy } = toScreen(gx, gy, topLevel);
         const poleTop = sy - blockH * 0.8;
+        // Driftwood-style pole
         ctx.beginPath();
         ctx.moveTo(sx, sy);
         ctx.lineTo(sx, poleTop);
-        ctx.strokeStyle = '#e2c87a';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#7b5e3a';
+        ctx.lineWidth = 2;
         ctx.stroke();
-        const pennantColour = flag.owner === 'player1' ? '#3b82f6' : flag.owner === 'player2' ? '#f472b6' : '#94a3b8';
+        const pennantColour = flag.owner === 'player1' ? '#f59e0b' : flag.owner === 'player2' ? '#ef4444' : '#94a3b8';
         ctx.beginPath();
         ctx.moveTo(sx, poleTop);
-        ctx.lineTo(sx + tileW * 0.4, poleTop + 4);
-        ctx.lineTo(sx, poleTop + 9);
+        ctx.lineTo(sx + tileW * 0.45, poleTop + 4);
+        ctx.lineTo(sx, poleTop + 10);
+        ctx.closePath();
         ctx.fillStyle = pennantColour;
         ctx.fill();
+        // Flag label
+        if (flag.label) {
+          const fontSize = Math.max(8, Math.floor(tileW * 0.38));
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const labelY = poleTop - 2;
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#fff8e7';
+          ctx.fillText(flag.label, sx + tileW * 0.1, labelY);
+          ctx.shadowBlur = 0;
+        }
       }
     }
 
