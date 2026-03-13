@@ -769,21 +769,6 @@
     <div id="review-result" style="min-height:1.2em;word-break:break-all;font-size:11px;margin-top:4px;"></div>
   </div>
 
-  <!-- Weather Debug (inside god panel — admin key required) -->
-  <div id="weather-debug-header" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #3a2a0a;margin-top:4px;font-size:11px;color:#a3e8d5;">
-    <span>🌦 Weather Debug</span><span id="weather-debug-chevron">▶</span>
-  </div>
-  <div id="weather-debug-body" style="display:none;flex-direction:column;gap:8px;">
-    <div style="color:#6fcf97;font-size:11px;line-height:1.5;">Probe each weather API from the server to diagnose which works in the deployed environment.</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      <button class="god-btn weather-debug-btn" data-weather-source="openmeteo">Open-Meteo</button>
-      <button class="god-btn weather-debug-btn" data-weather-source="open-meteo-forecast">Open-Meteo Forecast</button>
-      <button class="god-btn weather-debug-btn" data-weather-source="wttr">wttr.in</button>
-      <button class="god-btn weather-debug-btn" data-weather-source="7timer">7timer</button>
-    </div>
-    <div id="weather-debug-status" style="font-size:11px;min-height:1.2em;"></div>
-    <pre id="weather-debug-output" style="display:none;background:#0d0d0d;border:1px solid #3a2a0a;border-radius:4px;padding:8px;font-size:10px;color:#e8d5a3;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;"></pre>
-  </div>
   </div><!-- end god-controls -->
 </div><!-- end god-panel -->
 <div id="block-tooltip" style="
@@ -1859,58 +1844,6 @@
       resultEl.className = 'err';
     }
     btn.textContent = '🔍 Trigger Review';
-  });
-
-  // ---------------------------------------------------------------------------
-  // Weather Debug (inside God panel — uses godSessionKey)
-  // ---------------------------------------------------------------------------
-  document.getElementById('weather-debug-header').addEventListener('click', () => {
-    const body    = document.getElementById('weather-debug-body');
-    const chevron = document.getElementById('weather-debug-chevron');
-    const open = body.style.display === 'flex';
-    body.style.display  = open ? 'none' : 'flex';
-    chevron.textContent = open ? '▶' : '▼';
-  });
-
-  document.querySelectorAll('.weather-debug-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const source   = btn.dataset.weatherSource;
-      const statusEl = document.getElementById('weather-debug-status');
-      const outputEl = document.getElementById('weather-debug-output');
-
-      if (!godSessionKey) {
-        statusEl.textContent = '✗ Open God Mode first to authenticate.';
-        statusEl.style.color = '#e05050';
-        return;
-      }
-
-      document.querySelectorAll('.weather-debug-btn').forEach(b => b.disabled = true);
-      statusEl.textContent = `⏳ Probing ${source}…`;
-      statusEl.style.color = '#a3e8d5';
-      outputEl.style.display = 'none';
-
-      try {
-        const res  = await fetch(`/debug/weather?source=${encodeURIComponent(source)}`, {
-          headers: { 'X-Api-Key': godSessionKey },
-        });
-        const data = await res.json();
-
-        const ok       = data.status !== null && data.status >= 200 && data.status < 300 && !data.error;
-        const icon     = ok ? '✓' : '✗';
-        const color    = ok ? '#7fc97f' : '#e05050';
-        const errNote  = data.error ? ` — ${data.error}` : '';
-        statusEl.textContent = `${icon} HTTP ${data.status ?? 'N/A'} · ${data.duration_ms}ms${errNote}`;
-        statusEl.style.color = color;
-
-        outputEl.textContent  = JSON.stringify(data, null, 2);
-        outputEl.style.display = 'block';
-      } catch (err) {
-        statusEl.textContent = `✗ Network error: ${err.message}`;
-        statusEl.style.color = '#e05050';
-      } finally {
-        document.querySelectorAll('.weather-debug-btn').forEach(b => b.disabled = false);
-      }
-    });
   });
 
   function showWeatherSummary(snap) {
