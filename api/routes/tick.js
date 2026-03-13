@@ -62,7 +62,12 @@ router.post('/', authenticate, async (_req, res) => {
           renderBoard(newState, { view: 'player1', cellSize: 30 }),
           renderBoard(newState, { view: 'player2', cellSize: 30 }),
         ]);
-        const result = await judgeCastles(p1Img, p2Img);
+        const flags = newState.flags || [];
+        const result = await judgeCastles(p1Img, p2Img, {
+          p1Flags: flags.filter(f => f.owner === 'player1'),
+          p2Flags: flags.filter(f => f.owner === 'player2'),
+          tick: newState.tick,
+        });
 
         if (!newState.scores) newState.scores = { player1: 0, player2: 0 };
         if (!newState.judgments) newState.judgments = [];
@@ -75,6 +80,8 @@ router.post('/', authenticate, async (_req, res) => {
           tick: newState.tick,
           winner: result.winner,
           reasoning: result.reasoning,
+          p1_feedback: result.p1_feedback,
+          p2_feedback: result.p2_feedback,
           scores: { ...newState.scores },
         };
         newState.judgments.push(judgment);

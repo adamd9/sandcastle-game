@@ -284,7 +284,12 @@ router.post('/tick', async (req, res) => {
           renderBoard(newState, { view: 'player1', cellSize: 30 }),
           renderBoard(newState, { view: 'player2', cellSize: 30 }),
         ]);
-        const result = await judgeCastles(p1Img, p2Img);
+        const flags = newState.flags || [];
+        const result = await judgeCastles(p1Img, p2Img, {
+          p1Flags: flags.filter(f => f.owner === 'player1'),
+          p2Flags: flags.filter(f => f.owner === 'player2'),
+          tick: newState.tick,
+        });
         if (!newState.scores) newState.scores = { player1: 0, player2: 0 };
         if (!newState.judgments) newState.judgments = [];
         if (result.winner !== 'tie') {
@@ -294,6 +299,8 @@ router.post('/tick', async (req, res) => {
           tick: newState.tick,
           winner: result.winner,
           reasoning: result.reasoning,
+          p1_feedback: result.p1_feedback,
+          p2_feedback: result.p2_feedback,
           scores: { ...newState.scores },
           source: force_judgment ? 'forced' : 'scheduled',
         };
@@ -353,7 +360,12 @@ router.post('/preview-judgment', async (req, res) => {
       renderBoard(state, { view: 'player1', cellSize: 30 }),
       renderBoard(state, { view: 'player2', cellSize: 30 }),
     ]);
-    const result = await judgeCastles(p1Img, p2Img);
+    const flags = state.flags || [];
+    const result = await judgeCastles(p1Img, p2Img, {
+      p1Flags: flags.filter(f => f.owner === 'player1'),
+      p2Flags: flags.filter(f => f.owner === 'player2'),
+      tick: state.tick,
+    });
     res.json({ ok: true, judgment: result, tick: state.tick });
   } catch (err) {
     res.status(500).json({ error: err.message });

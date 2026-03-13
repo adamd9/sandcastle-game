@@ -1491,8 +1491,12 @@
       const data = await res.json();
       if (data.ok) {
         const w = data.judgment.winner;
-        resultEl.textContent = `⚖️ ${w === 'tie' ? 'Tie' : w === 'player1' ? 'P1 wins' : 'P2 wins'} — ${data.judgment.reasoning}`;
+        const winStr = w === 'tie' ? 'Tie' : w === 'player1' ? 'P1 wins' : 'P2 wins';
+        const fb1 = data.judgment.p1_feedback ? `\nP1: ${data.judgment.p1_feedback}` : '';
+        const fb2 = data.judgment.p2_feedback ? `\nP2: ${data.judgment.p2_feedback}` : '';
+        resultEl.textContent = `⚖️ ${winStr} — ${data.judgment.reasoning}${fb1}${fb2}`;
         resultEl.style.color = '#c0a030';
+        resultEl.style.whiteSpace = 'pre-wrap';
       } else {
         resultEl.textContent = `✗ ${data.error}`;
         resultEl.style.color = '#eb5757';
@@ -1750,7 +1754,7 @@
 
       // --- Judgment ---
       const judgmentHtml = round.judgment
-        ? `<div class="history-judgment">⚖️ <strong>Judgment:</strong> ${round.judgment.winner === 'tie' ? 'Tie' : round.judgment.winner === 'player1' ? 'Player 1 wins' : 'Player 2 wins'} — ${round.judgment.reasoning ?? ''} (P1: ${round.judgment.scores?.player1 ?? 0} | P2: ${round.judgment.scores?.player2 ?? 0})</div>`
+        ? `<div class="history-judgment">⚖️ <strong>${round.judgment.winner === 'tie' ? 'Tie' : round.judgment.winner === 'player1' ? 'Player 1 wins' : 'Player 2 wins'}</strong> (P1: ${round.judgment.scores?.player1 ?? 0} | P2: ${round.judgment.scores?.player2 ?? 0})<br>${round.judgment.reasoning ?? ''}${round.judgment.p1_feedback ? `<br><em>P1:</em> ${round.judgment.p1_feedback}` : ''}${round.judgment.p2_feedback ? `<br><em>P2:</em> ${round.judgment.p2_feedback}` : ''}</div>`
         : '';
 
       return `<div class="history-round">
