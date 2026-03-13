@@ -1237,6 +1237,16 @@
   bindGodButtons('data-god-type', v => { godBlockType = v; });
   bindGodButtons('data-god-level', v => { godLevel = parseInt(v, 10); });
 
+  // Returns [cells, flags] for the currently displayed state (live or timeline snapshot).
+  function getDisplayCellsAndFlags() {
+    if (scrubbingIndex >= 0) {
+      const snap = historySnapshots[scrubbingIndex];
+      const snapFlags = snap ? (snap.flags_snapshot || []) : [];
+      return [snap && snap.cells ? snap.cells : lastCells, snapFlags];
+    }
+    return [lastCells, lastFlags];
+  }
+
   // Canvas hover — RAF-throttled to prevent accumulation bug
   let godHoverRafPending = false;
   canvas.addEventListener('mousemove', e => {
@@ -1255,7 +1265,8 @@
     if (!godHoverRafPending) {
       godHoverRafPending = true;
       requestAnimationFrame(() => {
-        drawGrid(lastCells, lastFlags);
+        const [dispCells, dispFlags] = getDisplayCellsAndFlags();
+        drawGrid(dispCells, dispFlags);
         drawGodOverlay();
         drawGodQueue();
         godHoverRafPending = false;
@@ -1265,7 +1276,8 @@
   canvas.addEventListener('mouseleave', () => {
     godHoverCell = null;
     hideTooltip();
-    drawGrid(lastCells, lastFlags);
+    const [dispCells, dispFlags] = getDisplayCellsAndFlags();
+    drawGrid(dispCells, dispFlags);
     drawGodQueue();
   });
 
