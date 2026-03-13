@@ -25,6 +25,7 @@ router.get('/:player', async (req, res) => {
     const state = await getState();
     const filteredHistory = (state.history || []).slice(-10).map(round => ({
       tick: round.tick,
+      timestamp: round.timestamp,
       weather: round.weather,
       myMoves: (round.moves?.[player] || []),
       myStats: round[player] || {},

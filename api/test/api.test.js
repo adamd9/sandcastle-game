@@ -255,6 +255,21 @@ describe('POST /tick', () => {
     expect(lastEntry).toHaveProperty('cells_after_weather');
     expect(Array.isArray(lastEntry.cells_after_weather)).toBe(true);
   });
+
+  it('records a timestamp in each history entry', async () => {
+    const before = new Date();
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+    const after = new Date();
+
+    const state = await request(app).get('/state');
+    expect(Array.isArray(state.body.history)).toBe(true);
+    expect(state.body.history.length).toBeGreaterThan(0);
+    const lastEntry = state.body.history[state.body.history.length - 1];
+    expect(lastEntry).toHaveProperty('timestamp');
+    const ts = new Date(lastEntry.timestamp);
+    expect(ts.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(ts.getTime()).toBeLessThanOrEqual(after.getTime());
+  });
 });
 
 // ---------------------------------------------------------------------------
