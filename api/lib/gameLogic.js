@@ -180,6 +180,7 @@ export function recordRound(state) {
   if (!state.history) state.history = [];
   const round = {
     tick: state.tick,
+    timestamp: new Date().toISOString(),
     weather: { ...state.weather },
     moves: structuredClone(state.currentTurnMoves || { player1: [], player2: [] }),
     player1: {

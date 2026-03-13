@@ -369,6 +369,7 @@
     .history-damaged { color: #f5a442; padding-left: 8px; line-height: 1.6; }
     .history-destroyed { color: #f87171; padding-left: 8px; line-height: 1.6; }
     .history-stats { color: #8a7350; margin-top: 5px; font-size: 0.72rem; padding-left: 8px; }
+    .history-timestamp { color: #8a7350; font-size: 0.75rem; font-weight: normal; margin-left: 4px; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
 
     /* ── Timeline Scrubber ───────────────────────────────────────────── */
@@ -1558,7 +1559,10 @@
     const rounds = lastHistory.slice(-10).reverse();
     const html = rounds.map(round => {
       const w = round.weather ?? {};
-      const header = `Tick #${round.tick} — ☁️ Rain: ${w.rain_mm ?? '?'} mm | 💨 Wind: ${w.wind_speed_kph ?? '?'} kph (${w.wind_direction ?? '?'})`;
+      const timestampStr = round.timestamp
+        ? new Date(round.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+        : '';
+      const header = `Tick #${round.tick}${timestampStr ? ` <span class="history-timestamp">${timestampStr}</span>` : ''} — ☁️ Rain: ${w.rain_mm ?? '?'} mm | 💨 Wind: ${w.wind_speed_kph ?? '?'} kph (${w.wind_direction ?? '?'})`;
 
       const playerMoves = (round.moves?.[historyPlayer] ?? []);
       const movesHtml = playerMoves.length === 0
