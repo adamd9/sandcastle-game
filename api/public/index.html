@@ -970,25 +970,17 @@
         ctx.closePath();
         ctx.fill();
 
-        // Inline label text at bottom of cell
+        // Inline label text at bottom of cell (allowed to overflow block bounds)
         if (flag.label) {
-          ctx.font = 'bold 7px sans-serif';
+          ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          const maxW = CELL_SIZE - 2;
-          let txt = flag.label;
-          if (ctx.measureText(txt).width > maxW) {
-            while (txt.length > 1 && ctx.measureText(txt + '\u2026').width > maxW) {
-              txt = txt.slice(0, -1);
-            }
-            txt += '\u2026';
-          }
           const tx = flag.x * CELL_SIZE + CELL_SIZE / 2;
           const ty = flag.y * CELL_SIZE + CELL_SIZE - 1;
           ctx.shadowColor = 'rgba(0,0,0,0.85)';
-          ctx.shadowBlur = 3;
+          ctx.shadowBlur = 4;
           ctx.fillStyle = color;
-          ctx.fillText(txt, tx, ty);
+          ctx.fillText(flag.label, tx, ty);
           ctx.shadowBlur = 0;
         }
       }
