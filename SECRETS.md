@@ -24,6 +24,8 @@ Keep it up to date when adding new secrets or vars.
 | `COSMOS_KEY` | Azure App Service env | `cosmos.js` | Azure Cosmos DB access key |
 | `GH_AW_GITHUB_TOKEN` | `sandcastle-game` repo (Actions secret, optional) | `review-improvements.lock.yml` | PAT for gh-aw MCP GitHub tool calls (falls back to `GITHUB_TOKEN`) |
 | `GH_AW_GITHUB_MCP_SERVER_TOKEN` | `sandcastle-game` repo (Actions secret, optional) | `review-improvements.lock.yml` | Override for gh-aw GitHub MCP server (falls back to `GH_AW_GITHUB_TOKEN` then `GITHUB_TOKEN`) |
+| `GH_AW_MODEL_AGENT_COPILOT` | `sandcastle-game` repo (Actions **variable**, optional) | `review-improvements.lock.yml` | Override the Copilot model used by the review agent (e.g. `claude-sonnet-4`) |
+| `GH_AW_MODEL_DETECTION_COPILOT` | `sandcastle-game` repo (Actions **variable**, optional) | `review-improvements.lock.yml` | Override the Copilot model used for agent detection step |
 | `GITHUB_TOKEN` | Auto-injected by GitHub Actions | All workflows | Standard Actions token — read/write on the workflow's own repo |
 | `TICK_CRON` | Azure App Service env | `scheduler.js` | Cron expression for the server-side tick scheduler (default: `0 * * * *`) |
 | `ENABLE_SCHEDULER` | Azure App Service env | `scheduler.js` | Set to `false` to disable the server-side tick scheduler |
@@ -49,8 +51,15 @@ Keep it up to date when adding new secrets or vars.
 - **Type**: GitHub Fine-Grained PAT (`github_pat_...`)
 - **How to generate**: GitHub → Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens → Generate new token
   - Resource owner: your GitHub user account
-  - Repository access: All repositories (or select the 3 sandcastle repos explicitly)
-  - Repository permissions: Actions (read/write), Contents (read/write), Issues (read/write), Pull Requests (read/write)
+  - Repository access: select the 3 sandcastle repos explicitly (`sandcastle-game`, `sandcastle-player-one`, `sandcastle-player-two`)
+  - **Required repository permissions**:
+    | Permission | Level | Why |
+    |---|---|---|
+    | Actions | Read and Write | Trigger `player-turn.yml`, `improve.yml` via `workflow_dispatch` |
+    | Contents | Read and Write | `hooks.js` pushes state; player turn workflows read code |
+    | Issues | Read and Write | Create turn issues, label them, assign `copilot-swe-agent` |
+    | Pull Requests | Read and Write | Auto-merge improvement PRs |
+    | Metadata | Read | Required by GitHub for all fine-grained PATs |
   - Token name: `sandcastle-wars-copilot-token`
 - **Set in**: all 3 repos → Settings → Secrets → Actions; also Azure App Service env (used by `hooks.js` server-side)
 - **Used by**:
@@ -71,19 +80,24 @@ Keep it up to date when adding new secrets or vars.
 - **How to generate**: GitHub → Settings → Developer Settings → Personal Access Tokens → Fine-grained tokens → Generate new token
   - Resource owner: your personal GitHub account
   - Repository access: **"Public repositories"** ← required to unlock the Copilot Requests permission
-  - Account permissions: **Copilot Requests: Read-only**
+  - **Required account permissions**:
+    | Permission | Level | Why |
+    |---|---|---|
+    | Copilot Requests | Read-only | Authenticates the Copilot CLI inside the gh-aw container |
+  - No repository permissions needed — this token is only for Copilot API auth
   - Token name: `sandcastle-wars-copilot-github-token`
 - **Set in**: `sandcastle-game` repo → Settings → Secrets → Actions
 - **Used by**: `review-improvements.lock.yml` (the `gh-aw` agentic workflow runner)
-- **Purpose**: Authenticates the `copilot` CLI inside the GitHub Actions agentic container. This token is for Copilot API access only — actual repo read/write uses `GITHUB_TOKEN` separately.
+- **Purpose**: Authenticates the `copilot` CLI inside the GitHub Actions agentic container. Repo read/write comes from `GITHUB_TOKEN` / `GH_AW_GITHUB_TOKEN` separately.
 
-> ℹ️ "Public repositories" scope doesn't restrict the agent to public repos — it's just the UI quirk that unlocks "Copilot Requests" in the permissions list. The agent's actual repo access comes from `GITHUB_TOKEN` / `GH_AW_GITHUB_TOKEN`.
+> ℹ️ "Public repositories" scope doesn't restrict the agent to public repos — it's just the UI quirk that unlocks "Copilot Requests" in the account permissions list.
 
 ---
 
 ### `SUGGESTIONS_GITHUB_TOKEN`
-- **Type**: GitHub Fine-Grained PAT — same permissions as `COPILOT_TOKEN`
+- **Type**: GitHub Fine-Grained PAT — same permissions as `COPILOT_TOKEN` (Issues: read/write on `sandcastle-game` is the minimum)
 - **How to generate**: same process as `COPILOT_TOKEN` above; or reuse the same PAT value for simplicity
+  - Minimum: `sandcastle-game` repo only, Issues: Read and Write
   - Token name: `sandcastle-wars-suggestions-token` (or just reuse `sandcastle-wars-copilot-token`)
 - **Set in**: Azure App Service → Configuration → Application settings
 - **Used by**: `api/routes/suggest.js`, `api/routes/mcp.js`
@@ -120,12 +134,22 @@ Keep it up to date when adding new secrets or vars.
 ---
 
 ### `GH_AW_GITHUB_TOKEN` / `GH_AW_GITHUB_MCP_SERVER_TOKEN`
-- **Type**: GitHub PAT (Fine-Grained or Classic, depending on required access)
-- **How to generate**: same process as `COPILOT_TOKEN`; grant whatever repo permissions the agent needs across repos
+- **Type**: GitHub Fine-Grained PAT
+- **How to generate**: same process as `COPILOT_TOKEN`
+  - Repository access: `sandcastle-game` (and any other repos the review agent needs to read/write)
+  - **Required repository permissions** (if set explicitly):
+    | Permission | Level | Why |
+    |---|---|---|
+    | Issues | Read and Write | Agent reads, comments on, and labels improvement issues |
+    | Contents | Read | Agent reads repo code for context |
+    | Pull Requests | Read and Write | If agent creates PRs |
+    | Metadata | Read | Required |
 - **Set in**: `sandcastle-game` repo → Settings → Secrets → Actions (both optional)
-- **Used by**: `review-improvements.lock.yml` for the GitHub MCP server tool calls inside the agent
-- **Fallback**: if not set, both fall back to `GITHUB_TOKEN` (the standard Actions token) — sufficient for most cases
-- **When to set explicitly**: if the agent needs to access, push to, or create PRs on other repos beyond `sandcastle-game`
+- **Used by**: `review-improvements.lock.yml` — passed to the GitHub MCP server inside the agent container for all GitHub API tool calls (read issues, add comments, add labels)
+- **Fallback**: if not set, both fall back to `GITHUB_TOKEN` (the standard Actions token), which has Issues: write on `sandcastle-game` — sufficient for the review agent's needs
+- **When to set explicitly**: only if the review agent needs to access other repos (e.g. reading `sandcastle-player-one` code)
+
+> ⚠️ The many `GH_AW_INFO_*` and other `GH_AW_*` environment variables seen in `review-improvements.lock.yml` are **auto-generated by `gh aw compile`** and baked directly into the lock file. They are NOT repo variables you need to set manually.
 
 ---
 
@@ -167,8 +191,16 @@ Keep it up to date when adding new secrets or vars.
 | `COPILOT_TOKEN` | ✅ Required | Fine-Grained PAT |
 | `COPILOT_GITHUB_TOKEN` | ✅ Required | Fine-Grained PAT, "Public repositories" scope + Copilot Requests |
 | `AZURE_WEBAPP_PUBLISH_PROFILE` | ✅ Required | XML from Azure portal |
-| `GH_AW_GITHUB_TOKEN` | ⚡ Optional | Falls back to `GITHUB_TOKEN` |
+| `GH_AW_GITHUB_TOKEN` | ⚡ Optional | Falls back to `GITHUB_TOKEN` — only needed for cross-repo access |
 | `GH_AW_GITHUB_MCP_SERVER_TOKEN` | ⚡ Optional | Falls back to `GH_AW_GITHUB_TOKEN` |
+
+### `sandcastle-game` repo → Settings → Variables → Actions
+| Variable | Required | Notes |
+|---|---|---|
+| `GH_AW_MODEL_AGENT_COPILOT` | ⚡ Optional | Override Copilot model for the review agent (leave unset for default) |
+| `GH_AW_MODEL_DETECTION_COPILOT` | ⚡ Optional | Override model for agent detection step (leave unset for default) |
+
+> ℹ️ All other `GH_AW_*` values seen in `review-improvements.lock.yml` (e.g. `GH_AW_INFO_ENGINE_ID`, `GH_AW_COMPILED_STRICT`) are **baked in by `gh aw compile`** — not repo variables.
 
 ### `sandcastle-player-one` repo → Settings → Secrets → Actions
 | Secret | Required | Notes |
