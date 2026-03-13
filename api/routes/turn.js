@@ -16,8 +16,10 @@ function authenticate(req, res, next) {
 /**
  * POST /turn
  * Submit all moves for this tick in one call. Auto-commits turn on completion.
+ * Valid moves are applied; invalid moves are skipped and logged (non-atomic / partial execution).
  * Body: { moves: [{ action, x, y, block_type? }] }
  * Header: X-Api-Key
+ * Response includes a per-move `results` array with status 'applied' or 'skipped'.
  */
 router.post('/', authenticate, async (req, res) => {
   const { moves } = req.body ?? {};
@@ -36,19 +38,18 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(422).json({ error: 'Turn already committed this tick.' });
     }
 
-    // Validate all moves up-front before applying any
+    // Apply valid moves; skip and log invalid ones (partial / non-atomic execution)
+    let newState = structuredClone(state);
+    const results = [];
     for (let i = 0; i < moves.length; i++) {
       const { action, x, y, block_type } = moves[i];
-      const result = validateMove(state, req.player, { action, x, y, type: block_type });
+      const result = validateMove(newState, req.player, { action, x, y, type: block_type });
       if (!result.valid) {
-        return res.status(422).json({ error: `Move ${i + 1} rejected: ${result.reason}` });
+        results.push({ index: i, action, x, y, status: 'skipped', reason: result.reason });
+      } else {
+        newState = applyMove(newState, req.player, { action, x, y, type: block_type });
+        results.push({ index: i, action, x, y, status: 'applied' });
       }
-    }
-
-    // Apply all moves
-    let newState = structuredClone(state);
-    for (const { action, x, y, block_type } of moves) {
-      newState = applyMove(newState, req.player, { action, x, y, type: block_type });
     }
 
     // Auto-commit the turn
@@ -57,9 +58,11 @@ router.post('/', authenticate, async (req, res) => {
 
     res.json({
       ok: true,
-      applied: moves.length,
+      applied: results.filter(r => r.status === 'applied').length,
+      skipped: results.filter(r => r.status === 'skipped').length,
       actionsUsed: newState.players[req.player].actionsThisTick,
       turnCommitted: true,
+      results,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

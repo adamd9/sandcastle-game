@@ -51,6 +51,148 @@ describe('GET /state', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /state/:player/blocks
+// ---------------------------------------------------------------------------
+describe('GET /state/:player/blocks', () => {
+  it('returns empty blocks array when no cells exist', async () => {
+    const res = await request(app).get('/state/player1/blocks');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('player', 'player1');
+    expect(Array.isArray(res.body.blocks)).toBe(true);
+    expect(res.body.blocks).toHaveLength(0);
+  });
+
+  it('returns only player1 blocks after placement', async () => {
+    // Place a block for player1
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ action: 'PLACE', x: 5, y: 5, type: 'packed_sand' });
+    // Place a block for player2
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p2')
+      .send({ action: 'PLACE', x: 15, y: 5, type: 'wet_sand' });
+
+    const res = await request(app).get('/state/player1/blocks');
+    expect(res.status).toBe(200);
+    expect(res.body.player).toBe('player1');
+    expect(res.body.blocks).toHaveLength(1);
+    const block = res.body.blocks[0];
+    expect(block).toMatchObject({ x: 5, y: 5, level: 0, type: 'packed_sand', health: 60 });
+    // owner should NOT be in the response
+    expect(block).not.toHaveProperty('owner');
+  });
+
+  it('returns only player2 blocks', async () => {
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p2')
+      .send({ action: 'PLACE', x: 15, y: 6, type: 'dry_sand' });
+
+    const res = await request(app).get('/state/player2/blocks');
+    expect(res.status).toBe(200);
+    expect(res.body.blocks).toHaveLength(1);
+    expect(res.body.blocks[0]).toMatchObject({ x: 15, y: 6 });
+  });
+
+  it('returns 400 for invalid player name', async () => {
+    const res = await request(app).get('/state/badplayer/blocks');
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /turn — partial batch execution
+// ---------------------------------------------------------------------------
+describe('POST /turn partial batch execution', () => {
+  it('applies valid moves and skips invalid ones in the same batch', async () => {
+    // Place a block first so we can try to double-place it
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ action: 'PLACE', x: 3, y: 3, type: 'dry_sand' });
+
+    // Submit a batch: first move is valid, second tries to place on occupied cell
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        moves: [
+          { action: 'PLACE', x: 4, y: 4, block_type: 'dry_sand' },
+          { action: 'PLACE', x: 3, y: 3, block_type: 'dry_sand' }, // already occupied
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.applied).toBe(1);
+    expect(res.body.skipped).toBe(1);
+    expect(res.body.turnCommitted).toBe(true);
+    expect(Array.isArray(res.body.results)).toBe(true);
+    expect(res.body.results[0]).toMatchObject({ index: 0, status: 'applied' });
+    expect(res.body.results[1]).toMatchObject({ index: 1, status: 'skipped' });
+    expect(res.body.results[1]).toHaveProperty('reason');
+  });
+
+  it('all valid moves returns applied count equal to moves length', async () => {
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        moves: [
+          { action: 'PLACE', x: 1, y: 3, block_type: 'dry_sand' },
+          { action: 'PLACE', x: 2, y: 3, block_type: 'dry_sand' },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.applied).toBe(2);
+    expect(res.body.skipped).toBe(0);
+    expect(res.body.results.every(r => r.status === 'applied')).toBe(true);
+  });
+
+  it('all invalid moves returns skipped count equal to moves length but still commits', async () => {
+    // Both moves try to place outside player1 zone
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        moves: [
+          { action: 'PLACE', x: 15, y: 5, block_type: 'dry_sand' }, // player2 zone
+          { action: 'PLACE', x: 16, y: 5, block_type: 'dry_sand' }, // player2 zone
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.applied).toBe(0);
+    expect(res.body.skipped).toBe(2);
+    expect(res.body.turnCommitted).toBe(true);
+  });
+
+  it('still rejects empty moves array', async () => {
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it('still rejects turn already committed', async () => {
+    await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [{ action: 'PLACE', x: 1, y: 4, block_type: 'dry_sand' }] });
+
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [{ action: 'PLACE', x: 2, y: 4, block_type: 'dry_sand' }] });
+    expect(res.status).toBe(422);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /move
 // ---------------------------------------------------------------------------
 describe('POST /move', () => {

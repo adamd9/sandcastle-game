@@ -16,6 +16,28 @@ router.get('/', async (_req, res) => {
   }
 });
 
+/**
+ * GET /state/:player/blocks
+ * Returns a compact list of the player's own blocks: [{ x, y, level, type, health }].
+ * Useful for AI agents that need to know which cells are occupied without parsing
+ * the full state response.
+ */
+router.get('/:player/blocks', async (req, res) => {
+  const { player } = req.params;
+  if (player !== 'player1' && player !== 'player2') {
+    return res.status(400).json({ error: 'player must be player1 or player2' });
+  }
+  try {
+    const state = await getState();
+    const blocks = state.cells
+      .filter(c => c.owner === player)
+      .map(({ x, y, level, type, health }) => ({ x, y, level, type, health }));
+    res.json({ player, blocks });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:player', async (req, res) => {
   const { player } = req.params;
   if (player !== 'player1' && player !== 'player2') {
