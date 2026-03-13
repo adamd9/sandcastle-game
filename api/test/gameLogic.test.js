@@ -216,4 +216,70 @@ describe('applyWeather', () => {
     expect(next.players.player1.actionsThisTick).toBe(0);
     expect(next.players.player2.actionsThisTick).toBe(0);
   });
+
+  describe('flag damage reduction', () => {
+    it('a block in a flagged component takes 50% damage', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.flags = [{ x: 5, y: 10, level: 0, owner: 'player1', label: 'Keep' }];
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 15, with 50% reduction → floor(15 * 0.5) = 7
+      expect(next.cells[0].health).toBe(53);
+    });
+
+    it('a block NOT in a flagged component takes full damage', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.flags = [];
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 15, no reduction
+      expect(next.cells[0].health).toBe(45);
+    });
+
+    it('two separate structures: only flagged one gets reduction', () => {
+      const state = freshState();
+      // Flagged structure at (3,10)
+      state.cells.push({ x: 3, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      // Unflagged structure at (8,10) — not adjacent to (3,10)
+      state.cells.push({ x: 8, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.flags = [{ x: 3, y: 10, level: 0, owner: 'player1', label: 'Tower' }];
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      const flagged = next.cells.find(c => c.x === 3);
+      const unflagged = next.cells.find(c => c.x === 8);
+      // flagged: 60 - floor(15 * 0.5) = 60 - 7 = 53
+      expect(flagged.health).toBe(53);
+      // unflagged: 60 - 15 = 45
+      expect(unflagged.health).toBe(45);
+    });
+
+    it('a flagged structure spanning multiple cells — all cells get reduction', () => {
+      const state = freshState();
+      // Three adjacent cells forming a connected structure
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.cells.push({ x: 6, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.cells.push({ x: 7, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      // Flag only on the middle cell — entire component should be protected
+      state.flags = [{ x: 6, y: 10, level: 0, owner: 'player1', label: 'Wall' }];
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      for (const cell of next.cells) {
+        expect(cell.health).toBe(53);
+      }
+    });
+
+    it('wave surge on flagged structure in rows 3-5: takes damage instead of instant destroy', () => {
+      const state = freshState();
+      // Block at y=4 (in wave surge instant-destroy zone rows 3-5)
+      state.cells.push({ x: 5, y: 4, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.flags = [{ x: 5, y: 4, level: 0, owner: 'player1', label: 'Breakwater' }];
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // Flag-protected: takes floor(40 * 0.5) = 20 damage instead of instant destroy
+      expect(next.cells).toHaveLength(1);
+      expect(next.cells[0].health).toBe(40);
+    });
+  });
 });

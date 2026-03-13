@@ -1,0 +1,2002 @@
+[
+  {
+    "id": "seagull-approved-sunshine",
+    "name": "Seagull Approved Sunshine",
+    "emoji": "☀️",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 5,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 5
+  },
+  {
+    "id": "suspiciously-perfect-weather",
+    "name": "Suspiciously Perfect Weather",
+    "emoji": "🤨",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 3,
+    "wind_direction": "NE",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "gentle-sea-breeze",
+    "name": "Gentle Sea Breeze",
+    "emoji": "🌬️",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 12,
+    "wind_direction": "E",
+    "event_type": "calm",
+    "weight": 5
+  },
+  {
+    "id": "sunscreen-optional",
+    "name": "Sunscreen Optional",
+    "emoji": "😎",
+    "rain_mm": 0.1,
+    "wind_speed_kph": 8,
+    "wind_direction": "SE",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "golden-hour-forever",
+    "name": "Golden Hour Forever",
+    "emoji": "🌅",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 2,
+    "wind_direction": "W",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "the-doldrums",
+    "name": "The Doldrums",
+    "emoji": "😴",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 1,
+    "wind_direction": "N",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "instagram-worthy-sky",
+    "name": "Instagram-Worthy Sky",
+    "emoji": "📸",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 6,
+    "wind_direction": "NW",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "sand-drying-perfection",
+    "name": "Sand Drying Perfection",
+    "emoji": "✨",
+    "rain_mm": 0.2,
+    "wind_speed_kph": 4,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "napping-weather",
+    "name": "Napping Weather",
+    "emoji": "💤",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 2,
+    "wind_direction": "SE",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "lifeguard-boredom",
+    "name": "Lifeguard Boredom",
+    "emoji": "🏖️",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 7,
+    "wind_direction": "E",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "postcard-conditions",
+    "name": "Postcard Conditions",
+    "emoji": "💌",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 3,
+    "wind_direction": "SW",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "zen-mode-activated",
+    "name": "Zen Mode Activated",
+    "emoji": "🧘",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 1,
+    "wind_direction": "N",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "flip-flop-weather",
+    "name": "Flip Flop Weather",
+    "emoji": "🩴",
+    "rain_mm": 0.1,
+    "wind_speed_kph": 9,
+    "wind_direction": "NE",
+    "event_type": "calm",
+    "weight": 5
+  },
+  {
+    "id": "hermit-crab-parade",
+    "name": "Hermit Crab Parade",
+    "emoji": "🦀",
+    "rain_mm": 0.3,
+    "wind_speed_kph": 11,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "lazy-tide",
+    "name": "Lazy Tide",
+    "emoji": "🌊",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 5,
+    "wind_direction": "W",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "coconut-radio-static",
+    "name": "Coconut Radio Static",
+    "emoji": "🥥",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 2,
+    "wind_direction": "NW",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "sand-dollar-morning",
+    "name": "Sand Dollar Morning",
+    "emoji": "🐚",
+    "rain_mm": 0.2,
+    "wind_speed_kph": 8,
+    "wind_direction": "E",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "beach-towel-weather",
+    "name": "Beach Towel Weather",
+    "emoji": "🏝️",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 4,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "popsicle-melting-heat",
+    "name": "Popsicle Melting Heat",
+    "emoji": "🍦",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 14,
+    "wind_direction": "SW",
+    "event_type": "calm",
+    "weight": 5
+  },
+  {
+    "id": "dolphin-watching-hour",
+    "name": "Dolphin Watching Hour",
+    "emoji": "🐬",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 6,
+    "wind_direction": "SE",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "pelican-flyby",
+    "name": "Pelican Flyby",
+    "emoji": "🦅",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 10,
+    "wind_direction": "NE",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "sandpiper-shuffle",
+    "name": "Sandpiper Shuffle",
+    "emoji": "🐦",
+    "rain_mm": 0.1,
+    "wind_speed_kph": 7,
+    "wind_direction": "N",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "perfect-castle-weather",
+    "name": "Perfect Castle Weather",
+    "emoji": "🏰",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 3,
+    "wind_direction": "E",
+    "event_type": "calm",
+    "weight": 5
+  },
+  {
+    "id": "tourist-trap-sunshine",
+    "name": "Tourist Trap Sunshine",
+    "emoji": "🧳",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 5,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "hammock-approved",
+    "name": "Hammock Approved",
+    "emoji": "🪺",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 2,
+    "wind_direction": "W",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "cotton-candy-clouds",
+    "name": "Cotton Candy Clouds",
+    "emoji": "☁️",
+    "rain_mm": 0.5,
+    "wind_speed_kph": 8,
+    "wind_direction": "NW",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "mild-mannered-monday",
+    "name": "Mild Mannered Monday",
+    "emoji": "📅",
+    "rain_mm": 0.3,
+    "wind_speed_kph": 11,
+    "wind_direction": "NE",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "starfish-sunbathing",
+    "name": "Starfish Sunbathing",
+    "emoji": "⭐",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 4,
+    "wind_direction": "SE",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "the-great-calm",
+    "name": "The Great Calm",
+    "emoji": "🕊️",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 1,
+    "wind_direction": "N",
+    "event_type": "calm",
+    "weight": 1
+  },
+  {
+    "id": "butterscotch-sunset",
+    "name": "Butterscotch Sunset",
+    "emoji": "🌇",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 6,
+    "wind_direction": "W",
+    "event_type": "calm",
+    "weight": 5
+  },
+  {
+    "id": "glass-ocean",
+    "name": "Glass Ocean",
+    "emoji": "🪞",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 0,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "picnic-baseline",
+    "name": "Picnic Baseline",
+    "emoji": "🧺",
+    "rain_mm": 0.2,
+    "wind_speed_kph": 9,
+    "wind_direction": "E",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "whisper-winds",
+    "name": "Whisper Winds",
+    "emoji": "🍃",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 13,
+    "wind_direction": "SW",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "boring-beautiful",
+    "name": "Boring But Beautiful",
+    "emoji": "🥱",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 3,
+    "wind_direction": "NE",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "the-calm-before",
+    "name": "The Calm Before",
+    "emoji": "⏳",
+    "rain_mm": 0.4,
+    "wind_speed_kph": 15,
+    "wind_direction": "SE",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "reef-reflection",
+    "name": "Reef Reflection",
+    "emoji": "🐠",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 2,
+    "wind_direction": "N",
+    "event_type": "calm",
+    "weight": 2
+  },
+  {
+    "id": "conch-shell-silence",
+    "name": "Conch Shell Silence",
+    "emoji": "🐚",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 1,
+    "wind_direction": "W",
+    "event_type": "calm",
+    "weight": 1
+  },
+  {
+    "id": "tideline-truce",
+    "name": "Tideline Truce",
+    "emoji": "🤝",
+    "rain_mm": 0.1,
+    "wind_speed_kph": 7,
+    "wind_direction": "NW",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "sun-kissed-serenity",
+    "name": "Sun-Kissed Serenity",
+    "emoji": "💋",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 5,
+    "wind_direction": "S",
+    "event_type": "calm",
+    "weight": 4
+  },
+  {
+    "id": "beach-bum-bliss",
+    "name": "Beach Bum Bliss",
+    "emoji": "😌",
+    "rain_mm": 0.0,
+    "wind_speed_kph": 10,
+    "wind_direction": "E",
+    "event_type": "calm",
+    "weight": 3
+  },
+  {
+    "id": "kevins-umbrella-broke",
+    "name": "Kevin's Umbrella Broke",
+    "emoji": "☂️",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 18,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "the-cloud-that-couldnt",
+    "name": "The Cloud That Couldn't",
+    "emoji": "🌥️",
+    "rain_mm": 1.5,
+    "wind_speed_kph": 12,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "drizzle-sizzle",
+    "name": "Drizzle Sizzle",
+    "emoji": "🌦️",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 15,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "slightly-annoyed-sky",
+    "name": "Slightly Annoyed Sky",
+    "emoji": "😤",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "average-tuesday",
+    "name": "Average Tuesday",
+    "emoji": "📆",
+    "rain_mm": 1.0,
+    "wind_speed_kph": 10,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "coast-guard-advisory",
+    "name": "Coast Guard Advisory",
+    "emoji": "🚤",
+    "rain_mm": 3.5,
+    "wind_speed_kph": 28,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "soggy-sandwich-weather",
+    "name": "Soggy Sandwich Weather",
+    "emoji": "🥪",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 14,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "hat-holding-breeze",
+    "name": "Hat Holding Breeze",
+    "emoji": "🎩",
+    "rain_mm": 0.5,
+    "wind_speed_kph": 32,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "towel-flapping-gusts",
+    "name": "Towel Flapping Gusts",
+    "emoji": "🌪️",
+    "rain_mm": 0.8,
+    "wind_speed_kph": 35,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "moody-maritime",
+    "name": "Moody Maritime",
+    "emoji": "🌫️",
+    "rain_mm": 2.5,
+    "wind_speed_kph": 20,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "overcast-optimism",
+    "name": "Overcast Optimism",
+    "emoji": "🤞",
+    "rain_mm": 1.2,
+    "wind_speed_kph": 16,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "light-shower-power",
+    "name": "Light Shower Power",
+    "emoji": "🚿",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 11,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "cumulonimbus-preview",
+    "name": "Cumulonimbus Preview",
+    "emoji": "☁️",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 25,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "windy-city-cosplay",
+    "name": "Windy City Cosplay",
+    "emoji": "🏙️",
+    "rain_mm": 0.3,
+    "wind_speed_kph": 38,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 1
+  },
+  {
+    "id": "mist-opportunity",
+    "name": "Mist Opportunity",
+    "emoji": "🌁",
+    "rain_mm": 1.8,
+    "wind_speed_kph": 13,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "reef-sprinkle",
+    "name": "Reef Sprinkle",
+    "emoji": "💧",
+    "rain_mm": 4.5,
+    "wind_speed_kph": 10,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "beach-day-gamble",
+    "name": "Beach Day Gamble",
+    "emoji": "🎲",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "sun-shower-surprise",
+    "name": "Sun Shower Surprise",
+    "emoji": "🌈",
+    "rain_mm": 3.5,
+    "wind_speed_kph": 15,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "forecast-said-fine",
+    "name": "Forecast Said Fine",
+    "emoji": "📺",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "coastal-drip",
+    "name": "Coastal Drip",
+    "emoji": "💦",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 18,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "mild-tantrum",
+    "name": "Mild Tantrum",
+    "emoji": "😠",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "spitting-rain",
+    "name": "Spitting Rain",
+    "emoji": "💢",
+    "rain_mm": 1.5,
+    "wind_speed_kph": 12,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "tide-is-high",
+    "name": "The Tide Is High",
+    "emoji": "📈",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 16,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "sandcastle-stress-test",
+    "name": "Sandcastle Stress Test",
+    "emoji": "🧪",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 25,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "gust-or-bust",
+    "name": "Gust or Bust",
+    "emoji": "💨",
+    "rain_mm": 0.5,
+    "wind_speed_kph": 36,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 1
+  },
+  {
+    "id": "partly-cloudy-partly-lying",
+    "name": "Partly Cloudy Partly Lying",
+    "emoji": "🤥",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "seagull-warning-cry",
+    "name": "Seagull Warning Cry",
+    "emoji": "🦅",
+    "rain_mm": 2.5,
+    "wind_speed_kph": 24,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "beach-umbrella-wobble",
+    "name": "Beach Umbrella Wobble",
+    "emoji": "⛱️",
+    "rain_mm": 1.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "drizzle-drizzle",
+    "name": "Drizzle Drizzle",
+    "emoji": "🎵",
+    "rain_mm": 2.8,
+    "wind_speed_kph": 14,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "meteorologist-was-close",
+    "name": "Meteorologist Was Close",
+    "emoji": "📡",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 19,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "salty-mist-facial",
+    "name": "Salty Mist Facial",
+    "emoji": "💆",
+    "rain_mm": 1.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "raincoat-regret",
+    "name": "Raincoat Regret",
+    "emoji": "🧥",
+    "rain_mm": 0.5,
+    "wind_speed_kph": 15,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "fog-horn-concerto",
+    "name": "Fog Horn Concerto",
+    "emoji": "🎺",
+    "rain_mm": 1.5,
+    "wind_speed_kph": 18,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "spray-and-pray",
+    "name": "Spray and Pray",
+    "emoji": "🙏",
+    "rain_mm": 3.5,
+    "wind_speed_kph": 26,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "cloud-cover-charge",
+    "name": "Cloud Cover Charge",
+    "emoji": "⛅",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "aquatic-ambiguity",
+    "name": "Aquatic Ambiguity",
+    "emoji": "🔮",
+    "rain_mm": 4.5,
+    "wind_speed_kph": 17,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "breezy-does-it",
+    "name": "Breezy Does It",
+    "emoji": "🍃",
+    "rain_mm": 0.8,
+    "wind_speed_kph": 28,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "damp-enthusiasm",
+    "name": "Damp Enthusiasm",
+    "emoji": "😬",
+    "rain_mm": 5.5,
+    "wind_speed_kph": 12,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "rain-check-bounced",
+    "name": "Rain Check Bounced",
+    "emoji": "💳",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 15,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 1
+  },
+  {
+    "id": "grey-sky-thinking",
+    "name": "Grey Sky Thinking",
+    "emoji": "🧠",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "pessimist-vindicated",
+    "name": "Pessimist Vindicated",
+    "emoji": "☝️",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 18,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "puddle-diplomacy",
+    "name": "Puddle Diplomacy",
+    "emoji": "🤝",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 10,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "passing-shower",
+    "name": "Passing Shower",
+    "emoji": "🚿",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 16,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "briny-breeze",
+    "name": "Briny Breeze",
+    "emoji": "🧂",
+    "rain_mm": 1.0,
+    "wind_speed_kph": 32,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 1
+  },
+  {
+    "id": "the-sprinkler-effect",
+    "name": "The Sprinkler Effect",
+    "emoji": "🏃",
+    "rain_mm": 3.5,
+    "wind_speed_kph": 14,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "mildly-menacing-clouds",
+    "name": "Mildly Menacing Clouds",
+    "emoji": "👀",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "sea-foam-frolic",
+    "name": "Sea Foam Frolic",
+    "emoji": "🫧",
+    "rain_mm": 1.5,
+    "wind_speed_kph": 25,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "lighthouse-flicker",
+    "name": "Lighthouse Flicker",
+    "emoji": "🔦",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 18,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "barnacle-rattle",
+    "name": "Barnacle Rattle",
+    "emoji": "🐚",
+    "rain_mm": 2.5,
+    "wind_speed_kph": 30,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "wet-footprint-trail",
+    "name": "Wet Footprint Trail",
+    "emoji": "👣",
+    "rain_mm": 4.5,
+    "wind_speed_kph": 12,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "cloud-nine-eviction",
+    "name": "Cloud Nine Eviction",
+    "emoji": "🏠",
+    "rain_mm": 6.5,
+    "wind_speed_kph": 20,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "shorebreak-shuffle",
+    "name": "Shorebreak Shuffle",
+    "emoji": "🕺",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 24,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "pier-pressure",
+    "name": "Pier Pressure",
+    "emoji": "🎢",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 28,
+    "wind_direction": "W",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "the-grey-curtain",
+    "name": "The Grey Curtain",
+    "emoji": "🎭",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 16,
+    "wind_direction": "NW",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "half-hearted-downpour",
+    "name": "Half-Hearted Downpour",
+    "emoji": "🫤",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 14,
+    "wind_direction": "N",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "intermittent-indecision",
+    "name": "Intermittent Indecision",
+    "emoji": "🔄",
+    "rain_mm": 3.5,
+    "wind_speed_kph": 22,
+    "wind_direction": "NE",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "sand-dampening-drizzle",
+    "name": "Sand Dampening Drizzle",
+    "emoji": "🏜️",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 18,
+    "wind_direction": "E",
+    "event_type": "normal",
+    "weight": 1
+  },
+  {
+    "id": "nautical-nuisance",
+    "name": "Nautical Nuisance",
+    "emoji": "⚓",
+    "rain_mm": 1.5,
+    "wind_speed_kph": 35,
+    "wind_direction": "SE",
+    "event_type": "normal",
+    "weight": 4
+  },
+  {
+    "id": "cumulus-conspiracy",
+    "name": "Cumulus Conspiracy",
+    "emoji": "🕵️",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "S",
+    "event_type": "normal",
+    "weight": 3
+  },
+  {
+    "id": "moderate-mayhem",
+    "name": "Moderate Mayhem",
+    "emoji": "⚖️",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "SW",
+    "event_type": "normal",
+    "weight": 2
+  },
+  {
+    "id": "neptunes-tantrum",
+    "name": "Neptune's Tantrum",
+    "emoji": "🔱",
+    "rain_mm": 15.0,
+    "wind_speed_kph": 65,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "absolute-unit-of-a-storm",
+    "name": "Absolute Unit of a Storm",
+    "emoji": "💪",
+    "rain_mm": 20.0,
+    "wind_speed_kph": 70,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "thunder-and-blunder",
+    "name": "Thunder and Blunder",
+    "emoji": "⚡",
+    "rain_mm": 12.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "E",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "wrath-of-the-wind-gods",
+    "name": "Wrath of the Wind Gods",
+    "emoji": "👹",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 75,
+    "wind_direction": "SE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "sandcastle-apocalypse",
+    "name": "Sandcastle Apocalypse",
+    "emoji": "💀",
+    "rain_mm": 25.0,
+    "wind_speed_kph": 60,
+    "wind_direction": "S",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "angry-ocean-noises",
+    "name": "Angry Ocean Noises",
+    "emoji": "😡",
+    "rain_mm": 18.0,
+    "wind_speed_kph": 50,
+    "wind_direction": "SW",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "sideways-rain-saga",
+    "name": "Sideways Rain Saga",
+    "emoji": "📖",
+    "rain_mm": 22.0,
+    "wind_speed_kph": 68,
+    "wind_direction": "W",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "umbrella-destruction-derby",
+    "name": "Umbrella Destruction Derby",
+    "emoji": "☂️",
+    "rain_mm": 16.0,
+    "wind_speed_kph": 72,
+    "wind_direction": "NW",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "storm-in-a-beachcup",
+    "name": "Storm in a Beachcup",
+    "emoji": "☕",
+    "rain_mm": 10.0,
+    "wind_speed_kph": 45,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "full-send-gale",
+    "name": "Full Send Gale",
+    "emoji": "🚀",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 78,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "monsoon-lite",
+    "name": "Monsoon Lite™",
+    "emoji": "🌧️",
+    "rain_mm": 28.0,
+    "wind_speed_kph": 40,
+    "wind_direction": "E",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "cloud-burst-supreme",
+    "name": "Cloud Burst Supreme",
+    "emoji": "🍔",
+    "rain_mm": 24.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "SE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "tempest-in-progress",
+    "name": "Tempest In Progress",
+    "emoji": "🚧",
+    "rain_mm": 14.0,
+    "wind_speed_kph": 62,
+    "wind_direction": "S",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "poseidons-sneeze",
+    "name": "Poseidon's Sneeze",
+    "emoji": "🤧",
+    "rain_mm": 11.0,
+    "wind_speed_kph": 48,
+    "wind_direction": "SW",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "horizontal-rain-experience",
+    "name": "Horizontal Rain Experience",
+    "emoji": "➡️",
+    "rain_mm": 20.0,
+    "wind_speed_kph": 70,
+    "wind_direction": "W",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "category-nope",
+    "name": "Category Nope",
+    "emoji": "🙅",
+    "rain_mm": 26.0,
+    "wind_speed_kph": 65,
+    "wind_direction": "NW",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "lightning-round",
+    "name": "Lightning Round",
+    "emoji": "⚡",
+    "rain_mm": 13.0,
+    "wind_speed_kph": 58,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "the-big-wet",
+    "name": "The Big Wet",
+    "emoji": "🌊",
+    "rain_mm": 30.0,
+    "wind_speed_kph": 35,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "hailmarys-revenge",
+    "name": "Hail Mary's Revenge",
+    "emoji": "🧊",
+    "rain_mm": 9.0,
+    "wind_speed_kph": 52,
+    "wind_direction": "E",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "gustnado-jr",
+    "name": "Gustnado Junior",
+    "emoji": "🌪️",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 80,
+    "wind_direction": "SE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "dramatic-downpour",
+    "name": "Dramatic Downpour",
+    "emoji": "🎬",
+    "rain_mm": 22.0,
+    "wind_speed_kph": 42,
+    "wind_direction": "S",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "beach-closure-event",
+    "name": "Beach Closure Event",
+    "emoji": "🚫",
+    "rain_mm": 17.0,
+    "wind_speed_kph": 63,
+    "wind_direction": "SW",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "reign-of-rain",
+    "name": "Reign of Rain",
+    "emoji": "👑",
+    "rain_mm": 25.0,
+    "wind_speed_kph": 50,
+    "wind_direction": "W",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "squall-goals",
+    "name": "Squall Goals",
+    "emoji": "🎯",
+    "rain_mm": 12.0,
+    "wind_speed_kph": 68,
+    "wind_direction": "NW",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "thunder-down-under",
+    "name": "Thunder Down Under",
+    "emoji": "🦘",
+    "rain_mm": 15.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "electric-boogaloo",
+    "name": "Electric Boogaloo",
+    "emoji": "💃",
+    "rain_mm": 10.0,
+    "wind_speed_kph": 60,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "maritime-meltdown",
+    "name": "Maritime Meltdown",
+    "emoji": "🫠",
+    "rain_mm": 19.0,
+    "wind_speed_kph": 72,
+    "wind_direction": "E",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "barometric-betrayal",
+    "name": "Barometric Betrayal",
+    "emoji": "📉",
+    "rain_mm": 14.0,
+    "wind_speed_kph": 58,
+    "wind_direction": "SE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "stormzilla",
+    "name": "Stormzilla",
+    "emoji": "🦖",
+    "rain_mm": 27.0,
+    "wind_speed_kph": 75,
+    "wind_direction": "S",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "wild-weather-wednesday",
+    "name": "Wild Weather Wednesday",
+    "emoji": "🐪",
+    "rain_mm": 16.0,
+    "wind_speed_kph": 50,
+    "wind_direction": "SW",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "nimbus-fury",
+    "name": "Nimbus Fury",
+    "emoji": "😈",
+    "rain_mm": 21.0,
+    "wind_speed_kph": 62,
+    "wind_direction": "W",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "surfs-not-up",
+    "name": "Surf's NOT Up",
+    "emoji": "🏄",
+    "rain_mm": 13.0,
+    "wind_speed_kph": 70,
+    "wind_direction": "NW",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "coastal-chaos-theory",
+    "name": "Coastal Chaos Theory",
+    "emoji": "🦋",
+    "rain_mm": 18.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "the-deluge-cometh",
+    "name": "The Deluge Cometh",
+    "emoji": "🫗",
+    "rain_mm": 29.0,
+    "wind_speed_kph": 45,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "gale-force-fiesta",
+    "name": "Gale Force Fiesta",
+    "emoji": "🎉",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 76,
+    "wind_direction": "E",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "soaked-and-sorry",
+    "name": "Soaked and Sorry",
+    "emoji": "😢",
+    "rain_mm": 23.0,
+    "wind_speed_kph": 40,
+    "wind_direction": "SE",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "howling-harbour",
+    "name": "Howling Harbour",
+    "emoji": "🐺",
+    "rain_mm": 11.0,
+    "wind_speed_kph": 68,
+    "wind_direction": "S",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "wet-n-wild-special",
+    "name": "Wet 'n Wild Special",
+    "emoji": "🎢",
+    "rain_mm": 20.0,
+    "wind_speed_kph": 60,
+    "wind_direction": "SW",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "cirrus-serious",
+    "name": "Cirrus? Serious.",
+    "emoji": "🧐",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 72,
+    "wind_direction": "W",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "operation-downpour",
+    "name": "Operation Downpour",
+    "emoji": "🎖️",
+    "rain_mm": 24.0,
+    "wind_speed_kph": 52,
+    "wind_direction": "NW",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "tropical-turbulence",
+    "name": "Tropical Turbulence",
+    "emoji": "✈️",
+    "rain_mm": 16.0,
+    "wind_speed_kph": 65,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "the-great-soak",
+    "name": "The Great Soak",
+    "emoji": "🛁",
+    "rain_mm": 26.0,
+    "wind_speed_kph": 48,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "waterspout-warning",
+    "name": "Waterspout Warning",
+    "emoji": "⚠️",
+    "rain_mm": 10.0,
+    "wind_speed_kph": 78,
+    "wind_direction": "E",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "squally-mcstormface",
+    "name": "Squally McStormface",
+    "emoji": "🤪",
+    "rain_mm": 15.0,
+    "wind_speed_kph": 58,
+    "wind_direction": "SE",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "cumulative-damage-event",
+    "name": "Cumulative Damage Event",
+    "emoji": "📊",
+    "rain_mm": 19.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "S",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "shipwreck-weather",
+    "name": "Shipwreck Weather",
+    "emoji": "🚢",
+    "rain_mm": 22.0,
+    "wind_speed_kph": 70,
+    "wind_direction": "SW",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "angry-nimbus",
+    "name": "Angry Nimbus",
+    "emoji": "😠",
+    "rain_mm": 14.0,
+    "wind_speed_kph": 62,
+    "wind_direction": "W",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "drenched-defenses",
+    "name": "Drenched Defenses",
+    "emoji": "🛡️",
+    "rain_mm": 25.0,
+    "wind_speed_kph": 45,
+    "wind_direction": "NW",
+    "event_type": "storm",
+    "weight": 1
+  },
+  {
+    "id": "atmospheric-aggression",
+    "name": "Atmospheric Aggression",
+    "emoji": "💥",
+    "rain_mm": 18.0,
+    "wind_speed_kph": 66,
+    "wind_direction": "N",
+    "event_type": "storm",
+    "weight": 2
+  },
+  {
+    "id": "the-sky-is-falling",
+    "name": "The Sky Is Falling",
+    "emoji": "🐔",
+    "rain_mm": 28.0,
+    "wind_speed_kph": 50,
+    "wind_direction": "NE",
+    "event_type": "storm",
+    "weight": 3
+  },
+  {
+    "id": "the-kraken-stirs",
+    "name": "The Kraken Stirs",
+    "emoji": "🦑",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 35,
+    "wind_direction": "S",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "high-tide-havoc",
+    "name": "High Tide Havoc",
+    "emoji": "🌊",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 25,
+    "wind_direction": "SE",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "tsunami-trailer",
+    "name": "Tsunami Trailer",
+    "emoji": "🎬",
+    "rain_mm": 12.0,
+    "wind_speed_kph": 40,
+    "wind_direction": "E",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "king-tide-coronation",
+    "name": "King Tide Coronation",
+    "emoji": "👑",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "N",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "surf-wall-incoming",
+    "name": "Surf Wall Incoming",
+    "emoji": "🧱",
+    "rain_mm": 10.0,
+    "wind_speed_kph": 45,
+    "wind_direction": "NE",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "beach-swallower",
+    "name": "Beach Swallower",
+    "emoji": "😱",
+    "rain_mm": 15.0,
+    "wind_speed_kph": 50,
+    "wind_direction": "S",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "wave-after-wave",
+    "name": "Wave After Wave",
+    "emoji": "🔁",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 28,
+    "wind_direction": "SW",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "tide-ate-my-homework",
+    "name": "Tide Ate My Homework",
+    "emoji": "📝",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "W",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "surging-seas-saga",
+    "name": "Surging Seas Saga",
+    "emoji": "📚",
+    "rain_mm": 9.0,
+    "wind_speed_kph": 38,
+    "wind_direction": "NW",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "moat-flooding-event",
+    "name": "Moat Flooding Event",
+    "emoji": "🏰",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "N",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "ocean-claims-territory",
+    "name": "Ocean Claims Territory",
+    "emoji": "🏴",
+    "rain_mm": 11.0,
+    "wind_speed_kph": 42,
+    "wind_direction": "NE",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "the-wet-front",
+    "name": "The Wet Front",
+    "emoji": "🫡",
+    "rain_mm": 6.5,
+    "wind_speed_kph": 32,
+    "wind_direction": "E",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "aquatic-invasion",
+    "name": "Aquatic Invasion",
+    "emoji": "👾",
+    "rain_mm": 14.0,
+    "wind_speed_kph": 35,
+    "wind_direction": "SE",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "davy-jones-delivery",
+    "name": "Davy Jones' Delivery",
+    "emoji": "📦",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 28,
+    "wind_direction": "S",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "lunar-tide-pull",
+    "name": "Lunar Tide Pull",
+    "emoji": "🌙",
+    "rain_mm": 3.5,
+    "wind_speed_kph": 18,
+    "wind_direction": "SW",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "shoreline-retreat",
+    "name": "Shoreline Retreat",
+    "emoji": "🏃",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 24,
+    "wind_direction": "W",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "wave-height-record",
+    "name": "Wave Height Record",
+    "emoji": "📏",
+    "rain_mm": 16.0,
+    "wind_speed_kph": 48,
+    "wind_direction": "NW",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "tidal-takeover",
+    "name": "Tidal Takeover",
+    "emoji": "🏴‍☠️",
+    "rain_mm": 10.0,
+    "wind_speed_kph": 36,
+    "wind_direction": "N",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "neptunes-lawn-sprinkler",
+    "name": "Neptune's Lawn Sprinkler",
+    "emoji": "💦",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "NE",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "foam-tsunami",
+    "name": "Foam Tsunami",
+    "emoji": "🫧",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 26,
+    "wind_direction": "E",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "relentless-rollers",
+    "name": "Relentless Rollers",
+    "emoji": "🎸",
+    "rain_mm": 9.0,
+    "wind_speed_kph": 40,
+    "wind_direction": "SE",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "surge-pricing",
+    "name": "Surge Pricing",
+    "emoji": "💰",
+    "rain_mm": 12.0,
+    "wind_speed_kph": 34,
+    "wind_direction": "S",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "waterline-violation",
+    "name": "Waterline Violation",
+    "emoji": "⚖️",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "SW",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "poseidons-rinse-cycle",
+    "name": "Poseidon's Rinse Cycle",
+    "emoji": "🌀",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 38,
+    "wind_direction": "W",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "breakwater-breach",
+    "name": "Breakwater Breach",
+    "emoji": "🚨",
+    "rain_mm": 18.0,
+    "wind_speed_kph": 52,
+    "wind_direction": "NW",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "barnacle-bill-returns",
+    "name": "Barnacle Bill Returns",
+    "emoji": "🦪",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "N",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "supermoon-surge",
+    "name": "Supermoon Surge",
+    "emoji": "🌕",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 15,
+    "wind_direction": "NE",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "deep-blue-uprising",
+    "name": "Deep Blue Uprising",
+    "emoji": "🐋",
+    "rain_mm": 13.0,
+    "wind_speed_kph": 44,
+    "wind_direction": "E",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "foam-party-nobody-wanted",
+    "name": "Foam Party Nobody Wanted",
+    "emoji": "🎉",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 32,
+    "wind_direction": "SE",
+    "event_type": "wave_surge",
+    "weight": 1
+  },
+  {
+    "id": "the-great-wash",
+    "name": "The Great Wash",
+    "emoji": "🧼",
+    "rain_mm": 20.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "S",
+    "event_type": "wave_surge",
+    "weight": 2
+  },
+  {
+    "id": "poseidons-monday-morning",
+    "name": "Poseidon's Monday Morning",
+    "emoji": "😤",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 30,
+    "wind_direction": "W",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "column-crusher",
+    "name": "Column Crusher",
+    "emoji": "🏛️",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 45,
+    "wind_direction": "N",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "the-finger-of-god",
+    "name": "The Finger of God",
+    "emoji": "☝️",
+    "rain_mm": 12.0,
+    "wind_speed_kph": 55,
+    "wind_direction": "NE",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "surgical-wave-strike",
+    "name": "Surgical Wave Strike",
+    "emoji": "🎯",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 25,
+    "wind_direction": "E",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "randomized-destruction",
+    "name": "Randomized Destruction",
+    "emoji": "🎰",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 40,
+    "wind_direction": "SE",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "sniper-wave",
+    "name": "Sniper Wave",
+    "emoji": "🔫",
+    "rain_mm": 2.0,
+    "wind_speed_kph": 20,
+    "wind_direction": "S",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "precision-flooding",
+    "name": "Precision Flooding",
+    "emoji": "📐",
+    "rain_mm": 10.0,
+    "wind_speed_kph": 50,
+    "wind_direction": "SW",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "the-hand-of-fate",
+    "name": "The Hand of Fate",
+    "emoji": "✋",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 35,
+    "wind_direction": "W",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "column-delete-event",
+    "name": "Column Delete Event",
+    "emoji": "🗑️",
+    "rain_mm": 4.0,
+    "wind_speed_kph": 28,
+    "wind_direction": "NW",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "targeted-annihilation",
+    "name": "Targeted Annihilation",
+    "emoji": "💥",
+    "rain_mm": 15.0,
+    "wind_speed_kph": 60,
+    "wind_direction": "N",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "rng-tsunami",
+    "name": "RNG Tsunami",
+    "emoji": "🎲",
+    "rain_mm": 9.0,
+    "wind_speed_kph": 42,
+    "wind_direction": "NE",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "ocean-laser-beam",
+    "name": "Ocean Laser Beam",
+    "emoji": "🔴",
+    "rain_mm": 1.0,
+    "wind_speed_kph": 15,
+    "wind_direction": "E",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "wave-of-consequence",
+    "name": "Wave of Consequence",
+    "emoji": "⚖️",
+    "rain_mm": 6.0,
+    "wind_speed_kph": 38,
+    "wind_direction": "SE",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "the-one-that-got-through",
+    "name": "The One That Got Through",
+    "emoji": "🕳️",
+    "rain_mm": 8.0,
+    "wind_speed_kph": 32,
+    "wind_direction": "S",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "neptunes-bowling-ball",
+    "name": "Neptune's Bowling Ball",
+    "emoji": "🎳",
+    "rain_mm": 5.0,
+    "wind_speed_kph": 44,
+    "wind_direction": "SW",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "vertical-ocean-event",
+    "name": "Vertical Ocean Event",
+    "emoji": "📈",
+    "rain_mm": 11.0,
+    "wind_speed_kph": 52,
+    "wind_direction": "W",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "surprise-deletion",
+    "name": "Surprise Deletion",
+    "emoji": "😱",
+    "rain_mm": 3.0,
+    "wind_speed_kph": 22,
+    "wind_direction": "NW",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "wavepoint-breach",
+    "name": "Wavepoint Breach",
+    "emoji": "🔓",
+    "rain_mm": 7.0,
+    "wind_speed_kph": 36,
+    "wind_direction": "N",
+    "event_type": "rogue_wave",
+    "weight": 2
+  },
+  {
+    "id": "leviathan-slap",
+    "name": "Leviathan Slap",
+    "emoji": "🐉",
+    "rain_mm": 14.0,
+    "wind_speed_kph": 58,
+    "wind_direction": "NE",
+    "event_type": "rogue_wave",
+    "weight": 1
+  },
+  {
+    "id": "cthulhu-peek",
+    "name": "Cthulhu Peek",
+    "emoji": "👁️",
+    "rain_mm": 20.0,
+    "wind_speed_kph": 65,
+    "wind_direction": "E",
+    "event_type": "rogue_wave",
+    "weight": 1
+  }
+]

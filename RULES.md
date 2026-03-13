@@ -91,6 +91,9 @@ Flags let you **name your structures**. Every meaningful structure should have a
 
 Examples: `"Great Northern Wall"`, `"Dragon Tower"`, `"The Moat Gate"`, `"Wizard's Turret"`, `"Sandcastle Keep"`
 
+### Flag Protection
+Any contiguous group of blocks (same owner, connected by adjacent grid positions) that contains at least one flag takes **50% reduced damage** from all weather effects. This makes naming your structures a strategic advantage — not just decoration.
+
 ---
 
 ## MCP Tools
