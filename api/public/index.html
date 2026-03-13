@@ -1000,7 +1000,7 @@
 
   async function poll() {
     try {
-      const res = await fetch(`${API_BASE}/state`);
+      const res = await fetch(`${API_BASE}/state`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const state = await res.json();
 

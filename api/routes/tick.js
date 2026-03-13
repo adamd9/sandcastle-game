@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
 import { applyWeather, recordRound } from '../lib/gameLogic.js';
 import { fetchWeather } from '../lib/weather.js';
+import { recordExternalTick } from '../lib/scheduler.js';
 
 const router = Router();
 
@@ -49,6 +50,7 @@ router.post('/', authenticate, async (_req, res) => {
     delete newState.weatherEvents;
 
     await saveState(newState);
+    recordExternalTick();
 
     res.json({
       ok: true,

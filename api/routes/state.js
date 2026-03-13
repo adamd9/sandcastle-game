@@ -10,6 +10,7 @@ router.get('/', async (_req, res) => {
     if (response.history) {
       response.history = response.history.slice(-10);
     }
+    res.set('Cache-Control', 'no-store');
     res.json(response);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -33,6 +34,7 @@ router.get('/:player', async (req, res) => {
       opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
     }));
 
+    res.set('Cache-Control', 'no-store');
     res.json({
       tick: state.tick,
       weather: state.weather,

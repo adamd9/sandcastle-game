@@ -92,3 +92,12 @@ export function getSchedulerStatus() {
     cronExpr,
   };
 }
+
+/**
+ * Called by external tick handlers (e.g. POST /god/tick, POST /tick) to inform
+ * the scheduler that a tick just ran. This prevents the scheduler from firing
+ * another tick too soon and potentially overwriting the external tick's saved state.
+ */
+export function recordExternalTick() {
+  lastTickAt = new Date();
+}
