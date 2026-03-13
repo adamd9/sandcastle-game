@@ -7,7 +7,7 @@ import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
-  WATER_ROWS, MAX_LEVEL, FLAGS_MAX_LABEL_LENGTH,
+  WATER_ROWS, MAX_LEVEL, FLAGS_MAX_LABEL_LENGTH, FLAG_MIN_SPACING,
   rainDamage, windDamage,
 } from '../lib/rules.js';
 
@@ -15,6 +15,25 @@ function resolvePlayer(key) {
   if (key && key === process.env.PLAYER1_API_KEY) return 'player1';
   if (key && key === process.env.PLAYER2_API_KEY) return 'player2';
   return null;
+}
+
+// Returns true if there is at least one empty cell (no blocks at any level) on
+// the Bresenham line between (x1,y1) and (x2,y2), meaning the two flags are
+// separated by a gap in the sandcastle structure.
+function flagsSeparatedByGap(state, x1, y1, x2, y2) {
+  const dx = Math.abs(x2 - x1);
+  const dy = Math.abs(y2 - y1);
+  const sx = x1 < x2 ? 1 : -1;
+  const sy = y1 < y2 ? 1 : -1;
+  let x = x1, y = y1, err = dx - dy;
+  const steps = Math.max(dx, dy);
+  for (let i = 0; i < steps - 1; i++) {
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx)  { err += dx; y += sy; }
+    if (!state.cells.some(c => c.x === x && c.y === y)) return true;
+  }
+  return false;
 }
 
 const RULES_DOC = {
@@ -271,6 +290,15 @@ export function createMcpRouter() {
         }
         if (cell.owner !== player) {
           return { content: [{ type: 'text', text: JSON.stringify({ error: `Cell (${x},${y}) level ${level} belongs to ${cell.owner}, not you.` }) }], isError: true };
+        }
+        // Enforce flag spacing: no two flags within FLAG_MIN_SPACING grid units unless separated by empty cells
+        const tooClose = (state.flags || []).find(f => {
+          if (f.x === x && f.y === y) return false; // same cell — will be replaced
+          const dist = Math.sqrt(Math.pow(x - f.x, 2) + Math.pow(y - f.y, 2));
+          return dist < FLAG_MIN_SPACING && !flagsSeparatedByGap(state, x, y, f.x, f.y);
+        });
+        if (tooClose) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `Too close to existing flag "${tooClose.label}" at (${tooClose.x},${tooClose.y}). Flags must be at least ${FLAG_MIN_SPACING} grid units apart unless separated by empty space.` }) }], isError: true };
         }
         const trimmedLabel = String(label).slice(0, FLAGS_MAX_LABEL_LENGTH);
         const newState = structuredClone(state);

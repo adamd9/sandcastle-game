@@ -85,6 +85,7 @@ Flags let you **name your structures**. Every meaningful structure should have a
 - Flags are destroyed when their host block is destroyed; otherwise weather does not affect flags
 - Place flags on well-defended **foundation blocks (L0)** for longevity — they survive as long as the block does
 - Flags are rendered as coloured pennants on the canvas (Player 1 = blue, Player 2 = pink)
+- **Spacing rule**: flags must be at least **4 grid units** apart (Euclidean distance). The exception is if the two flag positions are separated by empty (non-sand) space — a gap in your structure means they represent distinct features and can be closer.
 
 **Be creative**: name every distinct structure. A well-named castle tells a story.
 
