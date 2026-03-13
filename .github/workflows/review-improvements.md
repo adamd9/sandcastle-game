@@ -23,6 +23,10 @@ safe-outputs:
     max: 20
   update-issue:
     max: 20
+  dispatch-workflow:
+    workflows:
+      - improve
+    max: 1
 
 ---
 
@@ -111,6 +115,7 @@ Only after ALL comments have been posted:
 
 1. For **approved** issues: add label `approved-for-work`
 2. For **rejected** issues: close the issue
+3. If any issues were approved: use `dispatch_workflow` to trigger the `improve` workflow so approved issues are picked up immediately
 
 Do NOT assign `copilot-swe-agent` — that is handled automatically when `approved-for-work` is labeled.
 
