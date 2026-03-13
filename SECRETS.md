@@ -64,13 +64,15 @@ Keep it up to date when adding new secrets.
 ---
 
 ### `COPILOT_GITHUB_TOKEN`
-- **Type**: GitHub Classic PAT (not fine-grained — see note below)
-- **Required scopes**: `repo` is sufficient
+- **Type**: GitHub **Fine-Grained PAT** (`github_pat_...`) — Classic PATs are explicitly rejected
+- **Resource owner**: your personal GitHub account
+- **Repository access**: **"Public repositories"** ← this is what makes "Copilot Requests" appear in the permissions list
+- **Required permission**: Account permissions → **Copilot Requests: Read-only**
 - **Set in**: `sandcastle-game` repo → Settings → Secrets → Actions
 - **Used by**: `review-improvements.lock.yml` (the `gh-aw` agentic workflow runner)
-- **Purpose**: Authenticates the `copilot` CLI tool running inside the GitHub Actions agentic workflow container. This is what allows the Copilot coding agent to make LLM requests.
+- **Purpose**: Authenticates the `copilot` CLI tool running inside the GitHub Actions agentic workflow container. This token is for Copilot API access only — actual repo read/write uses `GITHUB_TOKEN` separately.
 
-> ⚠️ **Must be a Classic PAT**, not a Fine-Grained PAT. GitHub's Fine-Grained PATs only expose the "Copilot Requests" permission when scoped to public repositories. For private repos, use a Classic PAT with `repo` scope — the Copilot subscription is validated via the token owner's account.
+> ℹ️ The "Public repositories" scope doesn't mean the agent can only access public repos — it's just the required PAT scope to unlock the "Copilot Requests" permission in GitHub's UI. The agent's repo access comes from `GITHUB_TOKEN` / `GH_AW_GITHUB_TOKEN`.
 
 ---
 
