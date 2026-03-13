@@ -11,9 +11,11 @@
   "dependencies": {
     "@azure/cosmos": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@napi-rs/canvas": "^0.1.96",
     "express": "^4.18.3",
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
+    "openai": "^6.27.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

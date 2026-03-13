@@ -21,6 +21,8 @@ const INITIAL_STATE = () => ({
     player2: { actionsThisTick: 0, turnCommitted: false },
   },
   history: [],
+  scores: { player1: 0, player2: 0 },
+  judgments: [],
   lastUpdated: new Date().toISOString(),
 });
 

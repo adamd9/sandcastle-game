@@ -369,6 +369,7 @@
     .history-damaged { color: #f5a442; padding-left: 8px; line-height: 1.6; }
     .history-destroyed { color: #f87171; padding-left: 8px; line-height: 1.6; }
     .history-stats { color: #8a7350; margin-top: 5px; font-size: 0.72rem; padding-left: 8px; }
+    .history-judgment { color: #c0a030; margin-top: 6px; font-size: 0.75rem; padding: 4px 8px; background: rgba(192,160,48,0.1); border-left: 3px solid #c0a030; border-radius: 3px; }
     .history-timestamp { color: #8a7350; font-size: 0.75rem; font-weight: normal; margin-left: 4px; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
 
@@ -546,9 +547,11 @@
   <div class="stat"><span class="stat-label">P1 Blocks</span><span class="stat-value" id="stat-p1">—</span></div>
   <div class="stat"><span class="stat-label">P1 Actions</span><span class="stat-value" id="stat-p1-actions">—</span></div>
   <div class="stat"><span class="stat-label">P1 Turn</span><span class="stat-value" id="stat-p1-committed">—</span></div>
+  <div class="stat"><span class="stat-label">P1 Score</span><span class="stat-value" id="stat-p1-score">0</span></div>
   <div class="stat"><span class="stat-label">P2 Blocks</span><span class="stat-value" id="stat-p2">—</span></div>
   <div class="stat"><span class="stat-label">P2 Actions</span><span class="stat-value" id="stat-p2-actions">—</span></div>
   <div class="stat"><span class="stat-label">P2 Turn</span><span class="stat-value" id="stat-p2-committed">—</span></div>
+  <div class="stat"><span class="stat-label">P2 Score</span><span class="stat-value" id="stat-p2-score">0</span></div>
   <div class="stat"><span class="stat-label">Rain</span><span class="stat-value" id="stat-rain">—</span></div>
   <div class="stat"><span class="stat-label">Wind</span><span class="stat-value" id="stat-wind">—</span></div>
   <div class="stat"><span class="stat-label">Rounds</span><span class="stat-value" id="stat-rounds">—</span></div>
@@ -1031,6 +1034,10 @@
       p1cEl.className = `stat-value ${p1c ? 'committed' : 'uncommitted'}`;
       p2cEl.textContent = p2c ? '✔' : '…';
       p2cEl.className = `stat-value ${p2c ? 'committed' : 'uncommitted'}`;
+
+      // Visual scores
+      document.getElementById('stat-p1-score').textContent = state.scores?.player1 ?? 0;
+      document.getElementById('stat-p2-score').textContent = state.scores?.player2 ?? 0;
 
       document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
       renderHistory(state.history);
@@ -1600,11 +1607,16 @@
       const blocks = pData.blocks ?? '?';
       const actions = pData.actions ?? '?';
 
+      const judgmentHtml = round.judgment
+        ? `<div class="history-judgment">⚖️ <strong>Judgment:</strong> ${round.judgment.winner === 'tie' ? 'Tie' : round.judgment.winner === 'player1' ? 'Player 1 wins' : 'Player 2 wins'} — ${round.judgment.reasoning ?? ''} (P1: ${round.judgment.scores?.player1 ?? 0} | P2: ${round.judgment.scores?.player2 ?? 0})</div>`
+        : '';
+
       return `<div class="history-round">
         <div class="history-round-header">${header}</div>
         <div class="history-section-label">Moves</div>${movesHtml}
         <div class="history-section-label">Weather Damage</div>${weatherHtml}
         <div class="history-stats">Blocks this tick: ${blocks} | Actions used: ${actions}</div>
+        ${judgmentHtml}
       </div>`;
     }).join('');
 

@@ -78,6 +78,11 @@ export const WEATHER_EVENTS = [
   },
 ];
 
+// Visual scoring — every JUDGE_INTERVAL ticks, an LLM judges the castles
+export const JUDGE_INTERVAL = 4;
+export const JUDGE_MODEL = 'o4-mini';
+export const MAX_JUDGMENTS_HISTORY = 50;
+
 // Pick a random event by weight
 export function selectWeatherEvent() {
   const total = WEATHER_EVENTS.reduce((s, e) => s + e.weight, 0);

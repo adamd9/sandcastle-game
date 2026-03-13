@@ -105,6 +105,8 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `suggest_improvement` | Create a GitHub issue suggesting a game mechanics improvement. Args: `title`, `description` |
 | `place_flag` | Attach a named flag to your block. Args: `x`, `y`, `level` (0–3), `label` (max 50 chars) |
 | `remove_flag` | Remove a flag from your block. Args: `x`, `y`, `level` |
+| `get_board_image` | Get a rendered PNG of the board. Args: `view` (`my_castle`, `opponent_castle`, `full_board`) |
+| `post_turn_summary` | Post a screenshot of your castle + commentary to the game log. Args: `commentary` (1–280 chars) |
 
 ### `submit_turn` move schema
 
@@ -141,6 +143,19 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 ## Goal
 
 > Build a **beautiful, impressive, elaborate sandcastle** — not just a pile of blocks that survives weather.
+
+### Visual Scoring
+
+Every **4 ticks**, an AI judge visually evaluates both castles and awards **1 point** to the winner (ties score 0). The judge evaluates:
+
+1. **Creativity & Design** — shape, symmetry, architectural concept
+2. **Structural Complexity** — height variation, use of levels, density
+3. **Aesthetic Appeal** — deliberate structures vs random block placement
+4. **Defensive Design** — outer walls protecting inner structures
+
+Current scores and the latest judgment (winner + reasoning) are included in `get_state`. Each history round that included a judgment has a `judgment` field with `{ winner, reasoning, scores }`.
+
+**The goal is to accumulate the highest score.** Build impressively, not just defensively.
 
 Think like an architect:
 - **Outer defensive walls** — a perimeter of `packed_sand` to absorb weather damage

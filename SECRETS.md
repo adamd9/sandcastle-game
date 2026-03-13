@@ -30,6 +30,9 @@ Keep it up to date when adding new secrets or vars.
 | `TICK_CRON` | Azure App Service env | `scheduler.js` | Cron expression for the server-side tick scheduler (default: `0 * * * *`) |
 | `ENABLE_SCHEDULER` | Azure App Service env | `scheduler.js` | Set to `false` to disable the server-side tick scheduler |
 | `REVIEW_GAME_ISSUES_EVERY_N_TICKS` | Azure App Service env | `hooks.js` | Ticks between auto-triggering the review-improvements hook (default: 10) |
+| `OPENAI_API_KEY` | Azure App Service env | `judge.js`, `tick.js` | OpenAI API key for visual castle judging (scoring skips gracefully if not set) |
+| `GAME_LOG_ISSUE_NUMBER` | Azure App Service env | `mcp.js` | GitHub issue number where turn summaries are posted as comments |
+| `GAME_PUBLIC_URL` | Azure App Service env | `mcp.js` | Public URL of the deployed API (for image links in turn summary comments) |
 | `PORT` | Azure App Service env (auto-set) | `server.js` | HTTP port the API listens on (default: 8080) |
 | `PLAYER` | Azure App Service env | `mcp.js`, `turn.js`, `end-turn.js`, `move.js` | Which player this server instance represents (`player1` or `player2`) |
 
@@ -169,6 +172,34 @@ Keep it up to date when adding new secrets or vars.
 
 ---
 
+### `OPENAI_API_KEY`
+- **Type**: OpenAI API key (`sk-...`)
+- **How to generate**: [platform.openai.com](https://platform.openai.com) → API Keys → Create new secret key
+- **Set in**: Azure App Service → Configuration → Application settings
+- **Used by**: `api/lib/judge.js`, `api/routes/tick.js`
+- **Purpose**: Visual judging — every 4 ticks, the game renders both castles as PNGs and sends them to an OpenAI vision model (`o4-mini`) which scores creativity, complexity, aesthetics, and defensive design. The winner gets +1 point.
+- **Graceful degradation**: if not set, visual judging is silently skipped — scores stay at 0
+
+---
+
+### `GAME_LOG_ISSUE_NUMBER`
+- **Type**: integer string (GitHub issue number)
+- **How to set**: Azure App Service → Configuration → Application settings
+- **Used by**: `api/routes/mcp.js` (`post_turn_summary` MCP tool)
+- **Purpose**: When players call `post_turn_summary`, a comment with their castle screenshot and commentary is posted to this GitHub issue
+- **Optional**: if not set, turn summaries are saved as local screenshots only (no GitHub posting)
+
+---
+
+### `GAME_PUBLIC_URL`
+- **Type**: URL string (e.g. `https://sandcastlewars.drop37.com`)
+- **How to set**: Azure App Service → Configuration → Application settings
+- **Used by**: `api/routes/mcp.js` (`post_turn_summary` MCP tool)
+- **Purpose**: Base URL for screenshot image links in GitHub issue comments
+- **Optional**: required only if `GAME_LOG_ISSUE_NUMBER` is set (for image URLs in comments)
+
+---
+
 ## Where each secret needs to be set
 
 ### Azure App Service (`sandcastle-wars-api`) — Application Settings
@@ -184,6 +215,9 @@ Keep it up to date when adding new secrets or vars.
 | `TICK_CRON` | ⚡ Optional | Default: `0 * * * *` |
 | `ENABLE_SCHEDULER` | ⚡ Optional | Default: `true` |
 | `REVIEW_GAME_ISSUES_EVERY_N_TICKS` | ⚡ Optional | Default: `10` |
+| `OPENAI_API_KEY` | ⚡ Optional | Visual judging skips if not set |
+| `GAME_LOG_ISSUE_NUMBER` | ⚡ Optional | GitHub issue for turn summary comments |
+| `GAME_PUBLIC_URL` | ⚡ Optional | Public URL for screenshot links |
 
 ### `sandcastle-game` repo → Settings → Secrets → Actions
 | Secret | Required | Notes |

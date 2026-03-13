@@ -2,8 +2,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Router } from 'express';
 import { z } from 'zod';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
+import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
@@ -136,7 +140,12 @@ export function createMcpRouter() {
           opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
           weatherDamageToMyBlocks: (round.weatherEvents || []).filter(e => e.owner === player),
           weatherDamageToOpponentBlocks: (round.weatherEvents || []).filter(e => e.owner !== player),
+          ...(round.judgment && { judgment: round.judgment }),
         }));
+
+        const lastJudgment = (state.judgments || []).length > 0
+          ? state.judgments[state.judgments.length - 1]
+          : null;
 
         const response = {
           current_state: {
@@ -149,6 +158,8 @@ export function createMcpRouter() {
             opponent_turn_committed: state.players[player === 'player1' ? 'player2' : 'player1'].turnCommitted,
             my_blocks: state.cells.filter(c => c.owner === player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
             opponent_blocks: state.cells.filter(c => c.owner !== player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
+            scores: state.scores ?? { player1: 0, player2: 0 },
+            last_judgment: lastJudgment,
           },
           recent_history: recentHistory,
         };
@@ -331,6 +342,90 @@ export function createMcpRouter() {
         newState.flags = newState.flags.filter(f => !(f.x === x && f.y === y && f.level === level));
         await saveState(newState);
         return { content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] };
+      },
+    );
+
+    server.tool(
+      'get_board_image',
+      'Get a rendered PNG image of the game board. Use this to visually see your castle and your opponent\'s castle. Returns a base64-encoded PNG image.',
+      {
+        view: z.enum(['my_castle', 'opponent_castle', 'full_board']).optional().default('full_board')
+          .describe('Which part of the board to render: my_castle, opponent_castle, or full_board.'),
+      },
+      async ({ view }) => {
+        const state = await getState();
+        let renderView = 'full';
+        if (view === 'my_castle') renderView = player;
+        else if (view === 'opponent_castle') renderView = player === 'player1' ? 'player2' : 'player1';
+
+        const buf = await renderBoard(state, { view: renderView, cellSize: 30 });
+        return {
+          content: [
+            { type: 'image', data: buf.toString('base64'), mimeType: 'image/png' },
+            { type: 'text', text: `Board rendered (view: ${view}, tick: ${state.tick}, cells: ${state.cells.length}).` },
+          ],
+        };
+      },
+    );
+
+    server.tool(
+      'post_turn_summary',
+      'Post a turn summary with a screenshot of your castle and your commentary. Call this after submitting your turn. The screenshot and commentary are posted to the game log GitHub issue.',
+      {
+        commentary: z.string().min(1).max(280)
+          .describe('1-2 sentences about your move this turn (max 280 chars).'),
+      },
+      async ({ commentary }) => {
+        try {
+          const state = await getState();
+          const buf = await renderBoard(state, { view: player, cellSize: 30 });
+
+          // Save screenshot locally
+          const __dir = dirname(fileURLToPath(import.meta.url));
+          const screenshotsDir = join(__dir, '..', 'public', 'screenshots');
+          if (!existsSync(screenshotsDir)) mkdirSync(screenshotsDir, { recursive: true });
+          const filename = `tick-${state.tick}-${player}.png`;
+          writeFileSync(join(screenshotsDir, filename), buf);
+
+          // Try to post to GitHub issue
+          const token = process.env.SUGGESTIONS_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+          const issueNumber = process.env.GAME_LOG_ISSUE_NUMBER;
+          const publicUrl = process.env.GAME_PUBLIC_URL;
+
+          if (token && issueNumber && publicUrl) {
+            const imageUrl = `${publicUrl}/screenshots/${filename}`;
+            const playerLabel = player === 'player1' ? '🏖️ Player 1' : '🌿 Player 2';
+            const body = `### ${playerLabel} — Tick ${state.tick}\n\n![${player} castle](${imageUrl})\n\n> ${commentary.trim()}\n\n*Blocks: ${state.cells.filter(c => c.owner === player).length} | Score: ${(state.scores?.[player]) ?? 0}*`;
+
+            await fetch(`https://api.github.com/repos/adamd9/sandcastle-game/issues/${issueNumber}/comments`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+                'User-Agent': 'sandcastle-game-api',
+              },
+              body: JSON.stringify({ body }),
+            });
+          }
+
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                ok: true,
+                screenshot: filename,
+                posted_to_github: !!(token && issueNumber && publicUrl),
+              }),
+            }],
+          };
+        } catch (err) {
+          return {
+            content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }],
+            isError: true,
+          };
+        }
       },
     );
 

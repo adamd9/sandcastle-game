@@ -32,7 +32,13 @@ router.get('/:player', async (req, res) => {
       myStats: round[player] || {},
       myWeatherEvents: (round.weatherEvents || []).filter(e => e.owner === player),
       opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
+      ...(round.judgment && { judgment: round.judgment }),
     }));
+
+    // Latest judgment (if any)
+    const lastJudgment = (state.judgments || []).length > 0
+      ? state.judgments[state.judgments.length - 1]
+      : null;
 
     res.set('Cache-Control', 'no-store');
     res.json({
@@ -42,6 +48,8 @@ router.get('/:player', async (req, res) => {
       myState: state.players[player],
       opponentState: state.players[player === 'player1' ? 'player2' : 'player1'],
       cells: state.cells,
+      scores: state.scores ?? { player1: 0, player2: 0 },
+      lastJudgment,
       recentHistory: filteredHistory,
     });
   } catch (err) {

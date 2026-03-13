@@ -345,3 +345,26 @@ describe('POST /god/tick god_edits', () => {
     expect(res.body.god_edits_applied).toHaveLength(0);
   });
 });
+
+/* ── Render endpoint tests ──────────────────────────── */
+
+describe('GET /render', () => {
+  it('returns a PNG image for full board', async () => {
+    const res = await request(app).get('/render');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+    expect(res.body.length).toBeGreaterThan(100);
+  });
+
+  it('returns a PNG for player1 view', async () => {
+    const res = await request(app).get('/render/player1');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+  });
+
+  it('returns a PNG for player2 view', async () => {
+    const res = await request(app).get('/render/player2');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/image\/png/);
+  });
+});

@@ -11,6 +11,7 @@ import godRouter from './routes/god.js';
 import hooksRouter from './routes/hooks.js';
 import suggestRouter from './routes/suggest.js';
 import debugRouter from './routes/debug.js';
+import renderRouter from './routes/render.js';
 import { createMcpRouter } from './routes/mcp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,10 @@ app.use('/god', godRouter);
 app.use('/hooks', hooksRouter);
 app.use('/suggest', suggestRouter);
 app.use('/debug', debugRouter);
+app.use('/render', renderRouter);
+
+// Serve screenshots directory for turn summary images
+app.use('/screenshots', express.static(join(__dirname, 'public', 'screenshots')));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
