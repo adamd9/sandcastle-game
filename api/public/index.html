@@ -16,7 +16,7 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      padding: 24px 16px;
+      padding: 24px 16px 60px;
       gap: 20px;
     }
 
@@ -392,13 +392,18 @@
       gap: 10px;
       padding: 8px 12px;
       background: #1a1000;
-      border: 1px solid #3a2a0a;
-      border-radius: 6px;
-      margin-top: 8px;
+      border: none;
+      border-top: 1px solid #5a3e1b;
+      border-radius: 0;
+      margin: 0;
       font-family: 'Courier New', monospace;
       font-size: 11px;
       color: #8a7350;
-      width: 100%;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1002;
       box-sizing: border-box;
     }
     #timeline-scrubber {
@@ -460,19 +465,6 @@
     }
     .timeline-arrow-btn:hover { background: #3a2a0a; }
     .timeline-arrow-btn:disabled { opacity: 0.3; cursor: default; }
-    #timeline-bar.iso-overlay {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 1002;
-      margin: 0;
-      border-radius: 0;
-      border-left: none;
-      border-right: none;
-      border-bottom: none;
-      border-top: 1px solid #5a3e1b;
-    }
 
     /* ── Responsive / Mobile ────────────────────────────────────────────── */
 
@@ -799,7 +791,7 @@
   line-height:1.6;
 "></div>
 
-<div id="iso-modal" style="display:none; position:fixed; inset:0 0 44px 0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; flex-direction:column;">
+<div id="iso-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; flex-direction:column;">
   <div style="position:relative; width:95vw; height:90vh;">
     <canvas id="iso-canvas" style="width:100%; height:100%; display:block; border-radius:8px;"></canvas>
     <button id="iso-close" style="position:absolute; top:8px; right:12px; background:#1a1a1a; color:#fff; border:1px solid #555; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:14px;">✕ Close</button>
@@ -2101,14 +2093,12 @@
   function openIsoView() {
     const modal = document.getElementById('iso-modal');
     modal.style.display = 'flex';
-    document.getElementById('timeline-bar').classList.add('iso-overlay');
     const [cells, flags] = getDisplayCellsAndFlags();
     requestAnimationFrame(() => drawIsometric(cells, flags));
   }
 
   function closeIsoView() {
     document.getElementById('iso-modal').style.display = 'none';
-    document.getElementById('timeline-bar').classList.remove('iso-overlay');
   }
 
   document.getElementById('iso-close').addEventListener('click', closeIsoView);
