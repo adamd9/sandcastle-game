@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
 import { applyWeather, recordRound } from '../lib/gameLogic.js';
-import { fetchWeather } from '../lib/weather.js';
+import { selectRandomWeatherEvent } from '../lib/weather.js';
 import { recordExternalTick } from '../lib/scheduler.js';
 import { JUDGE_INTERVAL, MAX_JUDGMENTS_HISTORY } from '../lib/rules.js';
 import { renderBoard } from '../lib/renderer.js';
@@ -21,20 +21,22 @@ function authenticate(req, res, next) {
 
 /**
  * POST /tick
- * Fetches live weather, applies damage to all cells, increments tick counter,
- * and resets each player's actionsThisTick budget.
+ * Selects a random predefined weather event, applies damage to all cells,
+ * increments tick counter, and resets each player's actionsThisTick budget.
  * Header: X-Api-Key (TICK_ADMIN_KEY)
  */
 router.post('/', authenticate, async (_req, res) => {
   try {
-    let weather;
-    try {
-      weather = await fetchWeather();
-    } catch (err) {
-      // Weather fetch failed — use zero-damage weather so the tick still advances.
-      console.error('Weather fetch failed, using fallback:', err.message);
-      weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N' };
-    }
+    const ev = selectRandomWeatherEvent();
+    const weather = {
+      rain_mm:        ev.rain_mm,
+      wind_speed_kph: ev.wind_speed_kph,
+      wind_direction: ev.wind_direction,
+      event_id:       ev.id,
+      event_name:     ev.name,
+      event_emoji:    ev.emoji,
+      event_type:     ev.event_type,
+    };
 
     const state = await getState();
     state.weather = weather;

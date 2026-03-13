@@ -14,7 +14,9 @@ import {
   WATER_ROWS,
   MAX_LEVEL,
   WEATHER_EVENTS,
+  FLAG_DAMAGE_REDUCTION,
 } from '../lib/rules.js';
+import { getAllWeatherEvents } from '../lib/weather.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // RULES.md lives at the repo root (two levels up from api/routes/)
@@ -54,6 +56,7 @@ const COMPUTED = {
     weather_interaction: 'Normal/storm damage hits only the TOP level. Wave surge destroys L0 in affected rows → cascades all levels above.',
   },
   weather_events: WEATHER_EVENTS.map(e => ({ id: e.id, label: e.label, description: e.description })),
+  flag_damage_reduction: FLAG_DAMAGE_REDUCTION,
 };
 
 // GET /rules — JSON response with computed constants + raw Markdown embedded
@@ -68,6 +71,11 @@ router.get('/', (_req, res) => {
 // GET /rules.md — raw Markdown (human-readable, easy to read in agent context)
 router.get('/md', (_req, res) => {
   res.type('text/markdown').send(getRulesMd());
+});
+
+// GET /rules/weather-events — full predefined weather events list for UI dropdown
+router.get('/weather-events', (_req, res) => {
+  res.json(getAllWeatherEvents());
 });
 
 export default router;

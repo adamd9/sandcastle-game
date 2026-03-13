@@ -325,52 +325,64 @@
     #history-chevron.open { transform: rotate(180deg); }
     #history-body { display: block; }
     #history-body.collapsed { display: none; }
-    #history-tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid #3a2a0e;
-    }
-    .history-tab {
-      flex: 1;
-      padding: 7px 0;
-      text-align: center;
-      cursor: pointer;
-      color: #8a7350;
-      background: transparent;
-      border: none;
-      font-family: 'Courier New', monospace;
-      font-size: 0.78rem;
-      letter-spacing: 0.05em;
-      transition: color 0.1s, background 0.1s;
-    }
-    .history-tab:hover { background: #332512; color: #e8d5a3; }
-    .history-tab.active { color: #f5c842; border-bottom: 2px solid #f5c842; font-weight: bold; }
     #history-list { padding: 8px 0; max-height: 640px; overflow-y: auto; }
     .history-round {
-      padding: 8px 16px 10px;
       border-bottom: 1px solid #3a2a0e;
     }
     .history-round:last-child { border-bottom: none; }
     .history-round-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-weight: bold;
       color: #e8d5a3;
-      margin-bottom: 5px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      padding: 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s;
     }
-    .history-section-label {
+    .history-round-header:hover { background: #332512; }
+    .history-round-header .h-chevron { color: #8a7350; font-size: 0.65rem; flex-shrink: 0; }
+    .history-round-header .h-summary { flex: 1; }
+    .history-round-header .h-time { color: #8a7350; font-size: 0.72rem; font-weight: normal; flex-shrink: 0; }
+    .history-round-body { padding: 0 12px 10px 20px; }
+    .history-round-body.collapsed { display: none; }
+
+    .history-section {
+      margin-top: 6px;
+    }
+    .history-section-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      user-select: none;
+      padding: 3px 0;
+      transition: color 0.1s;
+    }
+    .history-section-header:hover { color: #f5c842; }
+    .history-section-header .h-chevron { color: #8a7350; font-size: 0.6rem; }
+    .history-section-header .h-label {
+      font-weight: bold;
+      color: #e8d5a3;
+      font-size: 0.76rem;
+    }
+    .history-section-header .h-counts {
       color: #8a7350;
       font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin: 5px 0 2px;
+      font-weight: normal;
+      margin-left: auto;
     }
-    .history-move { color: #b5cfe8; padding-left: 8px; line-height: 1.6; }
-    .history-none { color: #5a4a2a; font-style: italic; padding-left: 8px; line-height: 1.6; }
-    .history-damaged { color: #f5a442; padding-left: 8px; line-height: 1.6; }
-    .history-destroyed { color: #f87171; padding-left: 8px; line-height: 1.6; }
-    .history-stats { color: #8a7350; margin-top: 5px; font-size: 0.72rem; padding-left: 8px; }
+    .history-section-body { padding-left: 12px; }
+    .history-section-body.collapsed { display: none; }
+
+    .history-weather-detail { color: #87ceeb; padding-left: 4px; line-height: 1.6; font-size: 0.75rem; }
+    .history-move { color: #b5cfe8; padding-left: 4px; line-height: 1.6; }
+    .history-none { color: #5a4a2a; font-style: italic; padding-left: 4px; line-height: 1.6; }
+    .history-damaged { color: #f5a442; padding-left: 4px; line-height: 1.6; }
+    .history-destroyed { color: #f87171; padding-left: 4px; line-height: 1.6; }
     .history-judgment { color: #c0a030; margin-top: 6px; font-size: 0.75rem; padding: 4px 8px; background: rgba(192,160,48,0.1); border-left: 3px solid #c0a030; border-radius: 3px; }
-    .history-timestamp { color: #8a7350; font-size: 0.75rem; font-weight: normal; margin-left: 4px; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
 
     /* ── Timeline Scrubber ───────────────────────────────────────────── */
@@ -607,10 +619,6 @@
     <span id="history-chevron" class="open">▲</span>
   </div>
   <div id="history-body">
-    <div id="history-tabs">
-      <button class="history-tab active" data-history-player="player1">Player 1 History</button>
-      <button class="history-tab"        data-history-player="player2">Player 2 History</button>
-    </div>
     <div id="history-list"><div id="history-empty">No history yet.</div></div>
   </div>
 </div>
@@ -659,26 +667,22 @@
   <div id="tick-control-body">
     <!-- Weather mode pill selector -->
     <div style="display:flex;gap:4px;margin-bottom:8px;">
-      <button class="god-btn selected" data-weather-mode="live" style="flex:1;">🌐 Live</button>
+      <button class="god-btn selected" data-weather-mode="live" style="flex:1;">🎲 Random</button>
       <button class="god-btn"          data-weather-mode="event" style="flex:1;">⚡ Event</button>
       <button class="god-btn"          data-weather-mode="manual" style="flex:1;">🎛 Manual</button>
     </div>
 
     <!-- Live mode (default visible) -->
     <div id="weather-live-section">
-      <div style="font-size:11px;color:#a3e8d5;margin-bottom:4px;">Uses real Sydney weather data</div>
-      <button id="tick-fetch-preview-btn" class="god-btn" style="width:100%;">🔍 Preview live weather</button>
+      <div style="font-size:11px;color:#a3e8d5;margin-bottom:4px;">Picks a random predefined weather event</div>
+      <button id="tick-fetch-preview-btn" class="god-btn" style="width:100%;">🎲 Preview random weather</button>
     </div>
 
     <!-- Event mode (hidden by default) -->
     <div id="weather-event-section" style="display:none;">
       <div style="font-size:11px;color:#a3e8d5;margin-bottom:4px;">Apply a named weather event</div>
       <select id="tick-event-select" class="tick-input" style="width:100%;margin-bottom:4px;">
-        <option value="calm">😌 Calm — 0.5× damage (gentle conditions)</option>
-        <option value="normal" selected>🌤 Normal — 1× damage (standard weather)</option>
-        <option value="storm">⛈ Storm — 3× damage (all blocks take heavy hits)</option>
-        <option value="wave_surge">🌊 Wave Surge — destroys rows 3–5, heavy damage 6–8</option>
-        <option value="rogue_wave">🌀 Rogue Wave — 1–2 random columns destroyed top-to-bottom</option>
+        <option value="" selected>🎲 Random</option>
       </select>
     </div>
 
@@ -703,6 +707,31 @@
 
     <!-- Queued edits indicator -->
     <div id="god-queue-indicator" style="font-size:11px;color:#a3e8d5;min-height:1.2em;margin-top:4px;"></div>
+
+    <!-- Judgment Controls -->
+    <div id="judge-control-header" style="padding:5px 0;cursor:pointer;font-size:11px;letter-spacing:1px;color:#f5a842;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #3a2a0a;margin-top:4px;user-select:none;">
+      <span>⚖️ Judgment</span><span id="judge-chevron">▶</span>
+    </div>
+    <div id="judge-control-body" style="display:none;flex-direction:column;gap:8px;">
+      <!-- Preview button -->
+      <button id="judge-preview-btn" class="god-btn" style="width:100%;margin-bottom:6px;">🔍 Preview Judgment (no save)</button>
+      <div id="judge-preview-result" style="font-size:11px;min-height:1em;margin-bottom:8px;"></div>
+
+      <!-- Force judgment checkbox -->
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#f5d87a;margin-bottom:6px;">
+        <input type="checkbox" id="judge-force-checkbox"> Force judgment on next tick
+      </label>
+
+      <!-- Manual judgment override -->
+      <div style="font-size:11px;color:#a3e8d5;margin-bottom:4px;">Manual judgment (overrides AI)</div>
+      <select id="judge-manual-winner" class="tick-input" style="width:100%;margin-bottom:4px;">
+        <option value="">— No manual override —</option>
+        <option value="player1">Player 1 wins</option>
+        <option value="player2">Player 2 wins</option>
+        <option value="tie">Tie</option>
+      </select>
+      <input type="text" id="judge-manual-reasoning" class="tick-input" placeholder="Reasoning..." maxlength="500" style="width:100%;margin-bottom:4px;">
+    </div>
 
     <!-- THE single action button -->
     <button id="tick-trigger-btn" style="width:100%;padding:9px 0;margin-top:6px;background:#1a1a0a;border:1px solid #c8a84b;color:#f5d87a;font-family:'Courier New',monospace;font-size:13px;font-weight:bold;border-radius:4px;cursor:pointer;">⚡ Fire Tick</button>
@@ -1074,8 +1103,8 @@
       document.getElementById('stat-rain').textContent = `${w.rain_mm} mm`;
       document.getElementById('stat-wind').textContent = `${w.wind_speed_kph} kph ${w.wind_direction}`;
 
-      const eventLabel = w.event_label ? ` · ${w.event_label}` : '';
-      const isDestructive = ['wave_surge', 'rogue_wave', 'storm'].includes(w.event);
+      const eventLabel = w.event_name ? ` · ${w.event_emoji || ''} ${w.event_name}` : (w.event_label ? ` · ${w.event_label}` : '');
+      const isDestructive = ['wave_surge', 'rogue_wave', 'storm'].includes(w.event_type || w.event);
       const weatherBarEl = document.getElementById('weather-bar');
       weatherBarEl.textContent = `Weather: ${w.rain_mm} mm rain · ${w.wind_speed_kph} kph from ${w.wind_direction}${eventLabel}`;
       weatherBarEl.style.color = isDestructive ? '#f87171' : '#8a7350';
@@ -1441,7 +1470,75 @@
     chevron.textContent = open ? '▼' : '▶';
   });
 
+  // Judgment section toggle
+  document.getElementById('judge-control-header').addEventListener('click', () => {
+    const body = document.getElementById('judge-control-body');
+    const chevron = document.getElementById('judge-chevron');
+    const open = body.style.display === 'flex';
+    body.style.display = open ? 'none' : 'flex';
+    chevron.textContent = open ? '▶' : '▼';
+  });
+
+  // Preview Judgment button
+  document.getElementById('judge-preview-btn').addEventListener('click', async () => {
+    const key = tickAdminKey || godSessionKey;
+    const resultEl = document.getElementById('judge-preview-result');
+    resultEl.textContent = '⏳ Asking judge...';
+    resultEl.style.color = '#a08050';
+    try {
+      const res = await fetch(`${API_BASE}/god/preview-judgment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': key },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const w = data.judgment.winner;
+        resultEl.textContent = `⚖️ ${w === 'tie' ? 'Tie' : w === 'player1' ? 'P1 wins' : 'P2 wins'} — ${data.judgment.reasoning}`;
+        resultEl.style.color = '#c0a030';
+      } else {
+        resultEl.textContent = `✗ ${data.error}`;
+        resultEl.style.color = '#eb5757';
+      }
+    } catch (e) {
+      resultEl.textContent = `✗ ${e.message}`;
+      resultEl.style.color = '#eb5757';
+    }
+  });
+
   let weatherMode = 'live'; // 'live' | 'event' | 'manual'
+  let _weatherEventsLoaded = false;
+
+  async function loadWeatherEventsDropdown() {
+    if (_weatherEventsLoaded) return;
+    try {
+      const res = await fetch(`${API_BASE}/rules/weather-events`);
+      if (!res.ok) return;
+      const events = await res.json();
+      _weatherEventsLoaded = true;
+      const select = document.getElementById('tick-event-select');
+      // Group by event_type
+      const groups = {};
+      const typeEmoji = { calm: '☀️', normal: '🌤', storm: '⛈', wave_surge: '🌊', rogue_wave: '🌀' };
+      const typeOrder = ['calm', 'normal', 'storm', 'wave_surge', 'rogue_wave'];
+      for (const ev of events) {
+        if (!groups[ev.event_type]) groups[ev.event_type] = [];
+        groups[ev.event_type].push(ev);
+      }
+      for (const type of typeOrder) {
+        const items = groups[type];
+        if (!items) continue;
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = `${typeEmoji[type] || '❓'} ${type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} (${items.length} events)`;
+        for (const ev of items) {
+          const opt = document.createElement('option');
+          opt.value = ev.id;
+          opt.textContent = `${ev.emoji} ${ev.name}`;
+          optgroup.appendChild(opt);
+        }
+        select.appendChild(optgroup);
+      }
+    } catch { /* silent — dropdown stays with just Random */ }
+  }
 
   document.querySelectorAll('[data-weather-mode]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1450,32 +1547,29 @@
       document.getElementById('weather-live-section').style.display   = weatherMode === 'live'   ? 'block' : 'none';
       document.getElementById('weather-event-section').style.display  = weatherMode === 'event'  ? 'block' : 'none';
       document.getElementById('weather-manual-section').style.display = weatherMode === 'manual' ? 'flex'  : 'none';
+      if (weatherMode === 'event') loadWeatherEventsDropdown();
     });
   });
 
   document.getElementById('tick-fetch-preview-btn').addEventListener('click', async () => {
     const btn = document.getElementById('tick-fetch-preview-btn');
     const resultEl = document.getElementById('tick-result');
-    btn.textContent = '⏳ Fetching…';
+    btn.textContent = '⏳ Rolling…';
     try {
-      const res = await fetch(
-        'https://api.open-meteo.com/v1/forecast' +
-        '?latitude=-33.8688&longitude=151.2093' +
-        '&current=rain,precipitation,wind_speed_10m,wind_direction_10m'
-      );
+      const res = await fetch(`${API_BASE}/rules/weather-events`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const cur = data.current;
-      const dirs = ['N','NE','E','SE','S','SW','W','NW'];
-      const dir = dirs[Math.round((cur.wind_direction_10m ?? 0) / 45) % 8];
-      const rain = Math.max(cur.rain ?? 0, cur.precipitation ?? 0);
-      resultEl.textContent = `Live preview: ${rain} mm rain · ${cur.wind_speed_10m ?? 0} kph ${dir}`;
+      const events = await res.json();
+      const total = events.reduce((s, e) => s + e.weight, 0);
+      let r = Math.random() * total;
+      let picked = events[0];
+      for (const ev of events) { r -= ev.weight; if (r <= 0) { picked = ev; break; } }
+      resultEl.textContent = `Preview: ${picked.emoji} ${picked.name} — ${picked.rain_mm} mm rain · ${picked.wind_speed_kph} kph ${picked.wind_direction} (${picked.event_type})`;
       resultEl.className = 'ok';
     } catch (err) {
       resultEl.textContent = `✗ Preview failed: ${err.message}`;
       resultEl.className = 'err';
     }
-    btn.textContent = '🔍 Preview live weather';
+    btn.textContent = '🎲 Preview random weather';
   });
 
   document.getElementById('tick-trigger-btn').addEventListener('click', async () => {
@@ -1484,10 +1578,25 @@
     if (!key) { resultEl.textContent = '✗ No admin key'; resultEl.className = 'err'; return; }
 
     const body = { god_edits: godQueue };
+
+    // Judgment controls
+    if (document.getElementById('judge-force-checkbox').checked) {
+      body.force_judgment = true;
+    }
+    const manualWinner = document.getElementById('judge-manual-winner').value;
+    if (manualWinner) {
+      body.manual_judgment = {
+        winner: manualWinner,
+        reasoning: document.getElementById('judge-manual-reasoning').value || 'Manual judgment by operator',
+      };
+    }
+
     if (weatherMode === 'live') {
       body.use_live_weather = true;
     } else if (weatherMode === 'event') {
-      body.event = document.getElementById('tick-event-select').value;
+      const selectedEvent = document.getElementById('tick-event-select').value;
+      if (selectedEvent) body.event = selectedEvent; // empty = Random → let server pick
+      else body.use_live_weather = true;
     } else {
       body.rain_mm        = parseFloat(document.getElementById('tick-rain').value) || 0;
       body.wind_speed_kph = parseFloat(document.getElementById('tick-wind-speed').value) || 0;
@@ -1510,9 +1619,16 @@
         const editsMsg = data.god_edits_applied?.length
           ? ` · ${data.god_edits_applied.length} board edit(s) applied`
           : '';
-        resultEl.textContent = `✓ Tick ${data.tick} fired · ${data.weatherEvent || ''}${editsMsg} · players notified`;
+        const judgMsg = data.judgment
+          ? ` · ⚖️ ${data.judgment.winner === 'tie' ? 'Tie' : data.judgment.winner === 'player1' ? 'P1 wins' : 'P2 wins'}`
+          : '';
+        const weatherLabel = data.weather?.event_name ? `${data.weather.event_emoji || ''} ${data.weather.event_name}`.trim() : (data.weather?.event_label || '');
+        resultEl.textContent = `✓ Tick ${data.tick} fired · ${weatherLabel}${editsMsg}${judgMsg} · players notified`;
         resultEl.className = 'ok';
         godQueue = [];
+        document.getElementById('judge-force-checkbox').checked = false;
+        document.getElementById('judge-manual-winner').value = '';
+        document.getElementById('judge-manual-reasoning').value = '';
         updateQueueIndicator();
         poll();
       } else if (res.status === 401) {
@@ -1545,9 +1661,8 @@
   // ---------------------------------------------------------------------------
   // Turn History Panel
   // ---------------------------------------------------------------------------
-  let historyPlayer = 'player1';
 
-  // Collapsible toggle
+  // Collapsible toggle for the whole panel
   document.getElementById('history-header').addEventListener('click', () => {
     const body = document.getElementById('history-body');
     const chevron = document.getElementById('history-chevron');
@@ -1555,14 +1670,23 @@
     chevron.classList.toggle('open', !collapsed);
   });
 
-  // Player tabs
-  document.querySelectorAll('.history-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.history-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      historyPlayer = btn.getAttribute('data-history-player');
-      renderHistory(lastHistory);
-    });
+  // Delegated click handler for collapsible round headers and section headers
+  document.getElementById('history-list').addEventListener('click', (e) => {
+    const roundHeader = e.target.closest('.history-round-header');
+    if (roundHeader) {
+      const body = roundHeader.nextElementSibling;
+      if (body) body.classList.toggle('collapsed');
+      const chevron = roundHeader.querySelector('.h-chevron');
+      if (chevron) chevron.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+      return;
+    }
+    const sectionHeader = e.target.closest('.history-section-header');
+    if (sectionHeader) {
+      const body = sectionHeader.nextElementSibling;
+      if (body) body.classList.toggle('collapsed');
+      const chevron = sectionHeader.querySelector('.h-chevron');
+      if (chevron) chevron.textContent = body.classList.contains('collapsed') ? '▶' : '▼';
+    }
   });
 
   let lastHistory = [];
@@ -1579,44 +1703,66 @@
     const html = rounds.map(round => {
       const w = round.weather ?? {};
       const timestampStr = round.timestamp
-        ? new Date(round.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+        ? new Date(round.timestamp).toLocaleString(undefined, { timeStyle: 'short' })
         : '';
-      const header = `Tick #${round.tick}${timestampStr ? ` <span class="history-timestamp">${timestampStr}</span>` : ''} — ☁️ Rain: ${w.rain_mm ?? '?'} mm | 💨 Wind: ${w.wind_speed_kph ?? '?'} kph (${w.wind_direction ?? '?'})`;
+      const p1Blocks = round.player1?.blocks ?? '?';
+      const p2Blocks = round.player2?.blocks ?? '?';
+      const eventLabel = w.event_label ?? 'Clear';
 
-      const playerMoves = (round.moves?.[historyPlayer] ?? []);
-      const movesHtml = playerMoves.length === 0
-        ? '<div class="history-none">(no moves this tick)</div>'
-        : playerMoves.map(m => {
-            if (m.action === 'PLACE') return `<div class="history-move">▶ PLACE ${m.block_type} at (${m.x},${m.y})</div>`;
-            if (m.action === 'REINFORCE') return `<div class="history-move">▶ REINFORCE at (${m.x},${m.y})</div>`;
-            if (m.action === 'REMOVE') return `<div class="history-move">▶ REMOVE at (${m.x},${m.y})</div>`;
-            return `<div class="history-move">▶ ${m.action} at (${m.x},${m.y})</div>`;
-          }).join('');
+      // --- Weather section ---
+      const weatherDesc = w.description ? `<div class="history-weather-detail">${eventLabel} — ${w.description}</div>` : '';
+      const weatherStats = `<div class="history-weather-detail">Rain: ${w.rain_mm ?? '?'} mm | Wind: ${w.wind_speed_kph ?? '?'} kph (${w.wind_direction ?? '?'})</div>`;
+      const weatherSection = `<div class="history-section">
+        <div class="history-section-header"><span class="h-chevron">▶</span><span class="h-label">🌩️ Weather Event</span></div>
+        <div class="history-section-body collapsed">${weatherDesc}${weatherStats}</div>
+      </div>`;
 
-      const playerEvents = (round.weatherEvents ?? []).filter(e => e.owner === historyPlayer);
-      const weatherHtml = playerEvents.length === 0
-        ? '<div class="history-none">(no damage this tick)</div>'
-        : playerEvents.map(e => {
-            if (e.type === 'destroyed') {
-              return `<div class="history-destroyed">💀 ${e.block_type} (${e.x},${e.y}) destroyed</div>`;
-            }
-            return `<div class="history-damaged">⚠ ${e.block_type} (${e.x},${e.y}) lost ${e.total_damage} hp (${e.health_after} remaining)</div>`;
-          }).join('');
+      // --- Player section helper ---
+      function renderPlayerSection(playerKey, emoji, label) {
+        const moves = round.moves?.[playerKey] ?? [];
+        const events = (round.weatherEvents ?? []).filter(e => e.owner === playerKey);
+        const damaged = events.filter(e => e.type !== 'destroyed').length;
+        const destroyed = events.filter(e => e.type === 'destroyed').length;
+        const counts = `[${moves.length} moves, ${damaged} damaged, ${destroyed} destroyed]`;
 
-      const pData = round[historyPlayer] ?? {};
-      const blocks = pData.blocks ?? '?';
-      const actions = pData.actions ?? '?';
+        const movesHtml = moves.length === 0
+          ? '<div class="history-none">(no moves)</div>'
+          : moves.map(m => {
+              if (m.action === 'PLACE') return `<div class="history-move">▶ PLACE ${m.block_type} at (${m.x},${m.y})</div>`;
+              if (m.action === 'REINFORCE') return `<div class="history-move">▶ REINFORCE at (${m.x},${m.y})</div>`;
+              if (m.action === 'REMOVE') return `<div class="history-move">▶ REMOVE at (${m.x},${m.y})</div>`;
+              return `<div class="history-move">▶ ${m.action} at (${m.x},${m.y})</div>`;
+            }).join('');
 
+        const eventsHtml = events.length === 0
+          ? ''
+          : events.map(e => {
+              if (e.type === 'destroyed') return `<div class="history-destroyed">💀 ${e.block_type} (${e.x},${e.y}) destroyed</div>`;
+              return `<div class="history-damaged">⚠ ${e.block_type} (${e.x},${e.y}) lost ${e.total_damage} hp (${e.health_after} remaining)</div>`;
+            }).join('');
+
+        return `<div class="history-section">
+          <div class="history-section-header"><span class="h-chevron">▶</span><span class="h-label">${emoji} ${label}</span><span class="h-counts">${counts}</span></div>
+          <div class="history-section-body collapsed">${movesHtml}${eventsHtml}</div>
+        </div>`;
+      }
+
+      const p1Section = renderPlayerSection('player1', '🏖️', 'Player 1');
+      const p2Section = renderPlayerSection('player2', '🌿', 'Player 2');
+
+      // --- Judgment ---
       const judgmentHtml = round.judgment
         ? `<div class="history-judgment">⚖️ <strong>Judgment:</strong> ${round.judgment.winner === 'tie' ? 'Tie' : round.judgment.winner === 'player1' ? 'Player 1 wins' : 'Player 2 wins'} — ${round.judgment.reasoning ?? ''} (P1: ${round.judgment.scores?.player1 ?? 0} | P2: ${round.judgment.scores?.player2 ?? 0})</div>`
         : '';
 
       return `<div class="history-round">
-        <div class="history-round-header">${header}</div>
-        <div class="history-section-label">Moves</div>${movesHtml}
-        <div class="history-section-label">Weather Damage</div>${weatherHtml}
-        <div class="history-stats">Blocks this tick: ${blocks} | Actions used: ${actions}</div>
-        ${judgmentHtml}
+        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">Tick #${round.tick}  ${eventLabel}  |  P1: ${p1Blocks} blocks  P2: ${p2Blocks} blocks</span><span class="h-time">${timestampStr}</span></div>
+        <div class="history-round-body collapsed">
+          ${weatherSection}
+          ${p1Section}
+          ${p2Section}
+          ${judgmentHtml}
+        </div>
       </div>`;
     }).join('');
 
@@ -1786,7 +1932,7 @@
     historySnapshots.forEach((snap, idx) => {
       if (snap.type !== 'weather') return;
       const pct = total > 0 ? (idx / total) * 100 : 0;
-      const eventId = snap.weatherEvents?.[0]?.event || 'normal';
+      const eventId = snap.weatherEvents?.[0]?.event || snap.event_type || 'normal';
       const color = { calm: '#4fc3f7', normal: '#fff176', storm: '#ffb74d', wave_surge: '#ef5350', rogue_wave: '#ce93d8' }[eventId] || '#fff176';
       const dot = document.createElement('div');
       dot.style.cssText = `position:absolute;left:${pct}%;top:0;width:6px;height:6px;border-radius:50%;background:${color};transform:translateX(-50%);cursor:pointer;`;

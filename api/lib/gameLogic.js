@@ -12,6 +12,7 @@ import {
   windDamage,
   selectWeatherEvent,
   WEATHER_EVENTS,
+  FLAG_DAMAGE_REDUCTION,
 } from './rules.js';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,89 @@ function inZone(player, x) {
 
 function inGrid(x, y) {
   return x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT;
+}
+
+// ---------------------------------------------------------------------------
+// Flag protection — connected component analysis via union-find
+// ---------------------------------------------------------------------------
+
+function buildFlagProtectedSet(cells, flags) {
+  if (!flags || flags.length === 0) return new Set();
+
+  // Index cells by owner for per-owner component analysis
+  const cellsByOwner = new Map();
+  for (const cell of cells) {
+    if (!cellsByOwner.has(cell.owner)) cellsByOwner.set(cell.owner, []);
+    cellsByOwner.get(cell.owner).push(cell);
+  }
+
+  const protectedKeys = new Set();
+
+  for (const [owner, ownerCells] of cellsByOwner) {
+    // Build adjacency: cells at same (x,y) different levels are connected;
+    // cells at adjacent (x,y) sharing any level are connected.
+    const keyToIdx = new Map();
+    for (let i = 0; i < ownerCells.length; i++) {
+      const c = ownerCells[i];
+      keyToIdx.set(`${c.x},${c.y},${c.level}`, i);
+    }
+
+    // Union-Find
+    const parent = ownerCells.map((_, i) => i);
+    const rank = new Array(ownerCells.length).fill(0);
+    function find(a) {
+      while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+      return a;
+    }
+    function union(a, b) {
+      a = find(a); b = find(b);
+      if (a === b) return;
+      if (rank[a] < rank[b]) [a, b] = [b, a];
+      parent[b] = a;
+      if (rank[a] === rank[b]) rank[a]++;
+    }
+
+    // Group cells by (x,y) — same position different levels are connected
+    const byPos = new Map();
+    for (let i = 0; i < ownerCells.length; i++) {
+      const c = ownerCells[i];
+      const posKey = `${c.x},${c.y}`;
+      if (!byPos.has(posKey)) byPos.set(posKey, []);
+      byPos.get(posKey).push(i);
+    }
+    for (const indices of byPos.values()) {
+      for (let j = 1; j < indices.length; j++) union(indices[0], indices[j]);
+    }
+
+    // Adjacent (x,y) positions sharing any level are connected
+    const DX = [-1, 0, 1, 0];
+    const DY = [0, -1, 0, 1];
+    for (let i = 0; i < ownerCells.length; i++) {
+      const c = ownerCells[i];
+      for (let d = 0; d < 4; d++) {
+        const nk = `${c.x + DX[d]},${c.y + DY[d]},${c.level}`;
+        if (keyToIdx.has(nk)) union(i, keyToIdx.get(nk));
+      }
+    }
+
+    // Find which components have a flag
+    const ownerFlags = flags.filter(f => f.owner === owner);
+    const flaggedRoots = new Set();
+    for (const f of ownerFlags) {
+      const idx = keyToIdx.get(`${f.x},${f.y},${f.level}`);
+      if (idx !== undefined) flaggedRoots.add(find(idx));
+    }
+
+    // Mark all cells in flagged components
+    for (let i = 0; i < ownerCells.length; i++) {
+      if (flaggedRoots.has(find(i))) {
+        const c = ownerCells[i];
+        protectedKeys.add(`${c.x},${c.y},${c.level}`);
+      }
+    }
+  }
+
+  return protectedKeys;
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +316,9 @@ export function applyWeather(state) {
   const baseWind = windDamage(wind_speed_kph);
   const mult = weatherEvent.damageMultiplier;
 
+  // Determine which blocks are protected by flags (connected component analysis)
+  const protectedSet = buildFlagProtectedSet(state.cells, state.flags || []);
+
   const events = [];
   let survivingCells;
 
@@ -247,18 +334,27 @@ export function applyWeather(state) {
 
     // Cascade set: positions where ALL levels are destroyed
     const cascadePositions = new Set();
+    // Track positions in the wave surge direct-wipe zone (rows 3-5)
+    const waveSurgeDirectZone = new Set();
 
-    // Rows WATER_ROWS to WATER_ROWS+2: direct wipe
+    // Rows WATER_ROWS to WATER_ROWS+2: direct wipe (unless flag-protected)
     for (const cell of state.cells) {
       if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
-        cascadePositions.add(`${cell.x},${cell.y}`);
+        waveSurgeDirectZone.add(`${cell.x},${cell.y}`);
+        const cellKey = `${cell.x},${cell.y},${cell.level}`;
+        if (!protectedSet.has(cellKey)) {
+          cascadePositions.add(`${cell.x},${cell.y}`);
+        }
       }
     }
 
-    // Rows WATER_ROWS+3 to WATER_ROWS+5: 40 damage to L0; if L0 dies → cascade
+    // Rows WATER_ROWS+3 to WATER_ROWS+5: 40 damage (reduced if protected) to L0; if L0 dies → cascade
     for (const cell of state.cells) {
       if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
-        if (cell.health - 40 <= 0) {
+        const cellKey = `${cell.x},${cell.y},${cell.level}`;
+        const isProtected = protectedSet.has(cellKey);
+        const dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+        if (cell.health - dmg <= 0) {
           cascadePositions.add(`${cell.x},${cell.y}`);
         }
       }
@@ -267,6 +363,8 @@ export function applyWeather(state) {
     survivingCells = [];
     for (const cell of state.cells) {
       const posKey = `${cell.x},${cell.y}`;
+      const cellKey = `${cell.x},${cell.y},${cell.level}`;
+      const isProtected = protectedSet.has(cellKey);
       const healthBefore = cell.health;
 
       if (cascadePositions.has(posKey)) {
@@ -278,15 +376,30 @@ export function applyWeather(state) {
           health_before: healthBefore, health_after: 0,
           event: weatherEvent.id,
         });
+      } else if (waveSurgeDirectZone.has(posKey) && isProtected) {
+        // Flag-protected block in direct wipe zone — heavy damage instead of instant destroy
+        const dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
+        const healthAfter = healthBefore - dmg;
+        events.push({
+          type: healthAfter <= 0 ? 'destroyed' : 'damaged',
+          x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+          rain_damage: dmg, wind_damage: 0, total_damage: dmg,
+          health_before: healthBefore, health_after: Math.max(0, healthAfter),
+          event: weatherEvent.id,
+          flag_protected: true,
+        });
+        if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
-        // L0 survived the 40 damage
-        const healthAfter = cell.health - 40;
+        // L0 survived the damage
+        const dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+        const healthAfter = cell.health - dmg;
         events.push({
           type: 'damaged',
           x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
-          rain_damage: 40, wind_damage: 0, total_damage: 40,
+          rain_damage: dmg, wind_damage: 0, total_damage: dmg,
           health_before: healthBefore, health_after: healthAfter,
           event: weatherEvent.id,
+          ...(isProtected ? { flag_protected: true } : {}),
         });
         survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level > 0) {
@@ -296,7 +409,8 @@ export function applyWeather(state) {
         // Other rows — top block takes standard rain damage; lower levels sheltered
         const isTop = topBlocks.get(posKey) === cell;
         if (isTop) {
-          const rainDmg = Math.round(baseRain * mult);
+          let rainDmg = Math.round(baseRain * mult);
+          if (isProtected) rainDmg = Math.floor(rainDmg * FLAG_DAMAGE_REDUCTION);
           const healthAfter = healthBefore - rainDmg;
           if (rainDmg > 0) {
             events.push({
@@ -305,6 +419,7 @@ export function applyWeather(state) {
               rain_damage: rainDmg, wind_damage: 0, total_damage: rainDmg,
               health_before: healthBefore, health_after: healthAfter,
               event: weatherEvent.id,
+              ...(isProtected ? { flag_protected: true } : {}),
             });
           }
           if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -334,6 +449,8 @@ export function applyWeather(state) {
     survivingCells = [];
     for (const cell of state.cells) {
       const healthBefore = cell.health;
+      const cellKey = `${cell.x},${cell.y},${cell.level}`;
+      const isProtected = protectedSet.has(cellKey);
       if (cols.has(cell.x)) {
         events.push({
           type: 'destroyed',
@@ -347,7 +464,8 @@ export function applyWeather(state) {
         const key = `${cell.x},${cell.y}`;
         const isTop = topBlocks.get(key) === cell;
         if (isTop) {
-          const rainDmg = Math.round(baseRain * mult);
+          let rainDmg = Math.round(baseRain * mult);
+          if (isProtected) rainDmg = Math.floor(rainDmg * FLAG_DAMAGE_REDUCTION);
           const healthAfter = healthBefore - rainDmg;
           if (rainDmg > 0) {
             events.push({
@@ -357,6 +475,7 @@ export function applyWeather(state) {
               health_before: healthBefore, health_after: healthAfter,
               event: weatherEvent.id,
               rogue_cols: [...cols],
+              ...(isProtected ? { flag_protected: true } : {}),
             });
           }
           if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -382,11 +501,14 @@ export function applyWeather(state) {
       const isTop = topBlocks.get(key) === cell;
 
       if (isTop) {
+        const cellKey = `${cell.x},${cell.y},${cell.level}`;
+        const isProtected = protectedSet.has(cellKey);
         const rainDmg = Math.round(baseRain * mult);
         const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
           ? baseWind : 0;
         const windDmg = Math.round(rawWind * mult);
-        const totalDamage = rainDmg + windDmg;
+        let totalDamage = rainDmg + windDmg;
+        if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
         const healthBefore = cell.health;
         const healthAfter = cell.health - totalDamage;
         if (totalDamage > 0) {
@@ -396,6 +518,7 @@ export function applyWeather(state) {
             rain_damage: rainDmg, wind_damage: windDmg, total_damage: totalDamage,
             health_before: healthBefore, health_after: healthAfter,
             event: weatherEvent.id,
+            ...(isProtected ? { flag_protected: true } : {}),
           });
         }
         if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });

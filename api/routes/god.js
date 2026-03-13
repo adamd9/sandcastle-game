@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
-import { fetchWeather } from '../lib/weather.js';
+import { selectRandomWeatherEvent, getWeatherEventById } from '../lib/weather.js';
 import { getSchedulerStatus, recordExternalTick } from '../lib/scheduler.js';
 import { triggerHookByName, firePostTickHooks } from '../lib/hooks.js';
-import { WATER_ROWS } from '../lib/rules.js';
+import { WATER_ROWS, JUDGE_INTERVAL, MAX_JUDGMENTS_HISTORY } from '../lib/rules.js';
+import { renderBoard } from '../lib/renderer.js';
+import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
 
@@ -147,33 +149,59 @@ router.post('/tick', async (req, res) => {
   }
 
   try {
-    const { rain_mm, wind_speed_kph, wind_direction, use_live_weather } = req.body ?? {};
-    const hasOverrides = rain_mm !== undefined || wind_speed_kph !== undefined || wind_direction !== undefined;
+    const { rain_mm, wind_speed_kph, wind_direction, use_live_weather, event: eventParam } = req.body ?? {};
+    const hasManualOverrides = rain_mm !== undefined || wind_speed_kph !== undefined || wind_direction !== undefined;
 
     let weather;
-    if (!hasOverrides || use_live_weather) {
-      // Fetch live weather, fall back to safe defaults
-      try {
-        weather = await fetchWeather();
-        // Apply any partial overrides on top of live weather
-        if (rain_mm !== undefined)        weather.rain_mm        = Number(rain_mm);
-        if (wind_speed_kph !== undefined) weather.wind_speed_kph = Number(wind_speed_kph);
-        if (wind_direction !== undefined) weather.wind_direction = wind_direction;
-      } catch (err) {
-        console.error('Weather fetch failed, using fallback:', err.message);
+    if (eventParam && !hasManualOverrides) {
+      // Event mode — look up predefined event by id, fall back to WEATHER_EVENTS type id
+      const predefined = getWeatherEventById(eventParam);
+      if (predefined) {
         weather = {
-          rain_mm:        rain_mm        !== undefined ? Number(rain_mm)        : 0,
-          wind_speed_kph: wind_speed_kph !== undefined ? Number(wind_speed_kph) : 0,
-          wind_direction: wind_direction !== undefined ? wind_direction          : 'N',
+          rain_mm:        predefined.rain_mm,
+          wind_speed_kph: predefined.wind_speed_kph,
+          wind_direction: predefined.wind_direction,
+          event_id:       predefined.id,
+          event_name:     predefined.name,
+          event_emoji:    predefined.emoji,
+          event_type:     predefined.event_type,
+        };
+      } else {
+        // Legacy WEATHER_EVENTS id (calm/normal/storm/wave_surge/rogue_wave)
+        const ev = selectRandomWeatherEvent();
+        weather = {
+          rain_mm:        ev.rain_mm,
+          wind_speed_kph: ev.wind_speed_kph,
+          wind_direction: ev.wind_direction,
+          event_id:       ev.id,
+          event_name:     ev.name,
+          event_emoji:    ev.emoji,
+          event_type:     eventParam,  // force the damage type
         };
       }
-    } else {
-      // Full manual override — skip live fetch entirely
+    } else if (hasManualOverrides && !use_live_weather) {
+      // Manual mode — use provided rain/wind/direction values
       weather = {
         rain_mm:        Number(rain_mm        ?? 0),
         wind_speed_kph: Number(wind_speed_kph ?? 0),
         wind_direction: wind_direction ?? 'N',
       };
+    } else {
+      // Live/random mode — pick a random predefined event
+      const ev = selectRandomWeatherEvent();
+      weather = {
+        rain_mm:        ev.rain_mm,
+        wind_speed_kph: ev.wind_speed_kph,
+        wind_direction: ev.wind_direction,
+        event_id:       ev.id,
+        event_name:     ev.name,
+        event_emoji:    ev.emoji,
+        event_type:     ev.event_type,
+      };
+      // Apply any partial overrides on top
+      if (rain_mm !== undefined)        weather.rain_mm        = Number(rain_mm);
+      if (wind_speed_kph !== undefined) weather.wind_speed_kph = Number(wind_speed_kph);
+      if (wind_direction !== undefined) weather.wind_direction = wind_direction;
     }
 
     const { god_edits = [] } = req.body ?? {};
@@ -209,6 +237,8 @@ router.post('/tick', async (req, res) => {
       }
     }
 
+    const { force_judgment, manual_judgment } = req.body ?? {};
+
     const withHistory = recordRound(structuredClone(state));
     const newState = applyWeather(withHistory);
 
@@ -221,6 +251,63 @@ router.post('/tick', async (req, res) => {
       lastEntry.god_edits_applied = godEditsApplied;
     }
     delete newState.weatherEvents;
+
+    // Judgment logic
+    let judgment = null;
+    if (manual_judgment && manual_judgment.winner) {
+      // Manual judgment — skip AI entirely
+      if (!newState.scores) newState.scores = { player1: 0, player2: 0 };
+      if (!newState.judgments) newState.judgments = [];
+      if (manual_judgment.winner !== 'tie') {
+        newState.scores[manual_judgment.winner] += 1;
+      }
+      judgment = {
+        tick: newState.tick,
+        winner: manual_judgment.winner,
+        reasoning: manual_judgment.reasoning || 'Manual judgment by operator',
+        scores: { ...newState.scores },
+        source: 'manual',
+      };
+      newState.judgments.push(judgment);
+      if (newState.history?.length > 0) {
+        newState.history[newState.history.length - 1].judgment = judgment;
+      }
+      if (newState.judgments.length > MAX_JUDGMENTS_HISTORY) {
+        newState.judgments = newState.judgments.slice(-MAX_JUDGMENTS_HISTORY);
+      }
+    } else if (
+      (force_judgment || (newState.tick > 0 && newState.tick % JUDGE_INTERVAL === 0)) &&
+      process.env.OPENAI_API_KEY
+    ) {
+      try {
+        const [p1Img, p2Img] = await Promise.all([
+          renderBoard(newState, { view: 'player1', cellSize: 30 }),
+          renderBoard(newState, { view: 'player2', cellSize: 30 }),
+        ]);
+        const result = await judgeCastles(p1Img, p2Img);
+        if (!newState.scores) newState.scores = { player1: 0, player2: 0 };
+        if (!newState.judgments) newState.judgments = [];
+        if (result.winner !== 'tie') {
+          newState.scores[result.winner] += 1;
+        }
+        judgment = {
+          tick: newState.tick,
+          winner: result.winner,
+          reasoning: result.reasoning,
+          scores: { ...newState.scores },
+          source: force_judgment ? 'forced' : 'scheduled',
+        };
+        newState.judgments.push(judgment);
+        if (newState.history?.length > 0) {
+          newState.history[newState.history.length - 1].judgment = judgment;
+        }
+        if (newState.judgments.length > MAX_JUDGMENTS_HISTORY) {
+          newState.judgments = newState.judgments.slice(-MAX_JUDGMENTS_HISTORY);
+        }
+      } catch (err) {
+        console.error('[god/tick] Visual judging failed:', err.message);
+      }
+    }
 
     await saveState(newState);
     recordExternalTick();
@@ -235,9 +322,39 @@ router.post('/tick', async (req, res) => {
       tick: newState.tick,
       weather: newState.weather,
       cellsRemaining: newState.cells.length,
-      weatherSource: hasOverrides && !use_live_weather ? 'manual' : 'live',
+      weatherSource: eventParam ? 'event' : hasManualOverrides && !use_live_weather ? 'manual' : 'random',
       god_edits_applied: godEditsApplied,
+      scores: newState.scores,
+      ...(judgment && { judgment }),
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /god/preview-judgment
+ * Runs AI judgment on current board state without saving results.
+ * Header: X-Api-Key (TICK_ADMIN_KEY)
+ */
+router.post('/preview-judgment', async (req, res) => {
+  const key = req.headers['x-api-key'];
+  if (!key || key !== process.env.TICK_ADMIN_KEY) {
+    return res.status(401).json({ error: 'Invalid or missing X-Api-Key header.' });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.json({ ok: false, error: 'OPENAI_API_KEY not configured' });
+  }
+
+  try {
+    const state = await getState();
+    const [p1Img, p2Img] = await Promise.all([
+      renderBoard(state, { view: 'player1', cellSize: 30 }),
+      renderBoard(state, { view: 'player2', cellSize: 30 }),
+    ]);
+    const result = await judgeCastles(p1Img, p2Img);
+    res.json({ ok: true, judgment: result, tick: state.tick });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
