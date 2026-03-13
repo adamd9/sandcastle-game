@@ -758,6 +758,11 @@
     <div id="suggest-result" style="min-height:1.2em;word-break:break-all;font-size:11px;"></div>
   </div>
 
+  <!-- 3D Isometric View -->
+  <div style="border-top:1px solid #3a2a0a;margin-top:4px;padding-top:6px;">
+    <button onclick="openIsoView()" style="width:100%;padding:9px 0;background:#0a1a1a;border:1px solid #4bc8c8;color:#a3e8d5;font-family:'Courier New',monospace;font-size:13px;font-weight:bold;border-radius:4px;cursor:pointer;">🏰 3D View</button>
+  </div>
+
   <!-- Trigger Review -->
   <div style="border-top:1px solid #3a2a0a;margin-top:4px;padding-top:6px;">
     <button id="review-trigger-btn" style="width:100%;padding:9px 0;background:#1a1a0a;border:1px solid #c8a84b;color:#f5d87a;font-family:'Courier New',monospace;font-size:13px;font-weight:bold;border-radius:4px;cursor:pointer;">🔍 Trigger Review</button>
@@ -1942,6 +1947,185 @@
     });
   }
 
+  // ── Isometric 3D View ─────────────────────────────────────────────────────
+  function drawIsometric(cells, flags) {
+    const canvas = document.getElementById('iso-canvas');
+    const label  = document.getElementById('iso-label');
+
+    const rect = canvas.getBoundingClientRect();
+    canvas.width  = rect.width  * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const W = rect.width, H = rect.height;
+
+    ctx.fillStyle = '#0a1628';
+    ctx.fillRect(0, 0, W, H);
+
+    const GRID = 20;
+    const tileW  = Math.floor(Math.min(W, H) / (GRID * 1.2));
+    const tileH  = Math.floor(tileW / 2);
+    const blockH = Math.floor(tileH * 1.2);
+
+    const originX = W / 2;
+    const originY = tileH * 3;
+
+    function toScreen(gx, gy, level) {
+      const sx = originX + (gx - gy) * (tileW / 2);
+      const sy = originY + (gx + gy) * (tileH / 2) - level * blockH;
+      return { sx, sy };
+    }
+
+    function ownerBaseColour(owner) {
+      if (owner === 'player1') return { h: 220, s: 70 };
+      if (owner === 'player2') return { h: 330, s: 60 };
+      return { h: 220, s: 10 };
+    }
+    function typeL(type) {
+      if (type === 'dry_sand')        return 72;
+      if (type === 'wet_sand')        return 62;
+      if (type === 'packed_sand')     return 52;
+      if (type === 'reinforced_sand') return 42;
+      return 35;
+    }
+    function faceColour(owner, type, face) {
+      const { h, s } = ownerBaseColour(owner);
+      const base = typeL(type);
+      const l = face === 'top' ? base + 15 : face === 'left' ? base - 5 : base - 15;
+      return `hsl(${h},${s}%,${Math.max(10, Math.min(90, l))}%)`;
+    }
+
+    function drawFace(pts, colour, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = colour;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+
+    function drawCube(gx, gy, level, owner, type) {
+      const hw = tileW / 2, hh = tileH / 2;
+      const { sx, sy } = toScreen(gx, gy, level);
+      drawFace([
+        [sx,      sy],
+        [sx + hw, sy + hh],
+        [sx,      sy + tileH],
+        [sx - hw, sy + hh],
+      ], faceColour(owner, type, 'top'), true);
+      drawFace([
+        [sx - hw, sy + hh],
+        [sx,      sy + tileH],
+        [sx,      sy + tileH + blockH],
+        [sx - hw, sy + hh   + blockH],
+      ], faceColour(owner, type, 'left'), true);
+      drawFace([
+        [sx,      sy + tileH],
+        [sx + hw, sy + hh],
+        [sx + hw, sy + hh   + blockH],
+        [sx,      sy + tileH + blockH],
+      ], faceColour(owner, type, 'right'), true);
+    }
+
+    // Water zone (y=0..2) — flat blue plane
+    for (let wy = 0; wy < 3; wy++) {
+      for (let wx = 0; wx < GRID; wx++) {
+        const hw = tileW / 2, hh = tileH / 2;
+        const { sx, sy } = toScreen(wx, wy, 0);
+        const alpha = 0.5 + 0.1 * Math.sin((wx + wy) * 0.8);
+        ctx.globalAlpha = alpha;
+        drawFace([
+          [sx,      sy],
+          [sx + hw, sy + hh],
+          [sx,      sy + tileH],
+          [sx - hw, sy + hh],
+        ], '#1e40af', false);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    const cellMap = {};
+    for (const c of cells) {
+      const key = `${c.x},${c.y}`;
+      if (!cellMap[key]) cellMap[key] = [];
+      cellMap[key].push(c);
+    }
+
+    const flagMap = {};
+    for (const f of (flags || [])) {
+      const key = `${f.x},${f.y}`;
+      if (!flagMap[key] || f.level > flagMap[key].level) flagMap[key] = f;
+    }
+
+    // Draw back-to-front
+    const order = [];
+    for (let sum = 0; sum <= (GRID - 1) * 2; sum++) {
+      for (let gx = 0; gx < GRID; gx++) {
+        const gy = sum - gx;
+        if (gy >= 0 && gy < GRID) order.push([gx, gy]);
+      }
+    }
+
+    for (const [gx, gy] of order) {
+      const key = `${gx},${gy}`;
+      const column = (cellMap[key] || []).sort((a, b) => a.level - b.level);
+      for (const cell of column) {
+        drawCube(gx, gy, cell.level, cell.owner, cell.type);
+      }
+      const flag = flagMap[key];
+      if (flag) {
+        const topLevel = column.length > 0 ? column[column.length - 1].level + 1 : 1;
+        const { sx, sy } = toScreen(gx, gy, topLevel);
+        const poleTop = sy - blockH * 0.8;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, poleTop);
+        ctx.strokeStyle = '#e2c87a';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        const pennantColour = flag.owner === 'player1' ? '#3b82f6' : flag.owner === 'player2' ? '#f472b6' : '#94a3b8';
+        ctx.beginPath();
+        ctx.moveTo(sx, poleTop);
+        ctx.lineTo(sx + tileW * 0.4, poleTop + 4);
+        ctx.lineTo(sx, poleTop + 9);
+        ctx.fillStyle = pennantColour;
+        ctx.fill();
+      }
+    }
+
+    const tickInfo = scrubbingIndex >= 0
+      ? `Tick ${historySnapshots[scrubbingIndex]?.tick ?? '?'} (history)`
+      : `Tick ${lastTick} (live)`;
+    label.textContent = `🏰 Isometric View · ${tickInfo} · ${cells.length} blocks`;
+  }
+
+  function openIsoView() {
+    const modal = document.getElementById('iso-modal');
+    modal.style.display = 'flex';
+    const [cells, flags] = getDisplayCellsAndFlags();
+    requestAnimationFrame(() => drawIsometric(cells, flags));
+  }
+
+  function closeIsoView() {
+    document.getElementById('iso-modal').style.display = 'none';
+  }
+
+  document.getElementById('iso-close').addEventListener('click', closeIsoView);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeIsoView(); });
+
 </script>
+
+<div id="iso-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; flex-direction:column;">
+  <div style="position:relative; width:95vw; height:90vh;">
+    <canvas id="iso-canvas" style="width:100%; height:100%; display:block; border-radius:8px;"></canvas>
+    <button id="iso-close" style="position:absolute; top:8px; right:12px; background:#1a1a1a; color:#fff; border:1px solid #555; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:14px;">✕ Close</button>
+    <div id="iso-label" style="position:absolute; bottom:8px; left:12px; color:#aaa; font-size:12px; font-family:monospace;"></div>
+  </div>
+</div>
 </body>
 </html>
