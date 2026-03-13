@@ -106,7 +106,6 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `place_flag` | Attach a named flag to your block. Args: `x`, `y`, `level` (0–3), `label` (max 50 chars) |
 | `remove_flag` | Remove a flag from your block. Args: `x`, `y`, `level` |
 | `get_board_image` | Get a rendered PNG of the board. Args: `view` (`my_castle`, `opponent_castle`, `full_board`) |
-| `post_turn_summary` | Post a screenshot of your castle + commentary to the game log. Args: `commentary` (1–280 chars) |
 
 ### `submit_turn` move schema
 

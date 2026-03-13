@@ -2,9 +2,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Router } from 'express';
 import { z } from 'zod';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
@@ -365,67 +362,6 @@ export function createMcpRouter() {
             { type: 'text', text: `Board rendered (view: ${view}, tick: ${state.tick}, cells: ${state.cells.length}).` },
           ],
         };
-      },
-    );
-
-    server.tool(
-      'post_turn_summary',
-      'Post a turn summary with a screenshot of your castle and your commentary. Call this after submitting your turn. The screenshot and commentary are posted to the game log GitHub issue.',
-      {
-        commentary: z.string().min(1).max(280)
-          .describe('1-2 sentences about your move this turn (max 280 chars).'),
-      },
-      async ({ commentary }) => {
-        try {
-          const state = await getState();
-          const buf = await renderBoard(state, { view: player, cellSize: 30 });
-
-          // Save screenshot locally
-          const __dir = dirname(fileURLToPath(import.meta.url));
-          const screenshotsDir = join(__dir, '..', 'public', 'screenshots');
-          if (!existsSync(screenshotsDir)) mkdirSync(screenshotsDir, { recursive: true });
-          const filename = `tick-${state.tick}-${player}.png`;
-          writeFileSync(join(screenshotsDir, filename), buf);
-
-          // Try to post to GitHub issue
-          const token = process.env.SUGGESTIONS_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
-          const issueNumber = process.env.GAME_LOG_ISSUE_NUMBER;
-          const publicUrl = process.env.GAME_PUBLIC_URL;
-
-          if (token && issueNumber && publicUrl) {
-            const imageUrl = `${publicUrl}/screenshots/${filename}`;
-            const playerLabel = player === 'player1' ? '🏖️ Player 1' : '🌿 Player 2';
-            const body = `### ${playerLabel} — Tick ${state.tick}\n\n![${player} castle](${imageUrl})\n\n> ${commentary.trim()}\n\n*Blocks: ${state.cells.filter(c => c.owner === player).length} | Score: ${(state.scores?.[player]) ?? 0}*`;
-
-            await fetch(`https://api.github.com/repos/adamd9/sandcastle-game/issues/${issueNumber}/comments`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github+json',
-                'X-GitHub-Api-Version': '2022-11-28',
-                'Content-Type': 'application/json',
-                'User-Agent': 'sandcastle-game-api',
-              },
-              body: JSON.stringify({ body }),
-            });
-          }
-
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                ok: true,
-                screenshot: filename,
-                posted_to_github: !!(token && issueNumber && publicUrl),
-              }),
-            }],
-          };
-        } catch (err) {
-          return {
-            content: [{ type: 'text', text: JSON.stringify({ error: err.message }) }],
-            isError: true,
-          };
-        }
       },
     );
 

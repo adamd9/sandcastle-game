@@ -51,8 +51,7 @@ app.use('/suggest', suggestRouter);
 app.use('/debug', debugRouter);
 app.use('/render', renderRouter);
 
-// Serve screenshots directory for turn summary images
-app.use('/screenshots', express.static(join(__dirname, 'public', 'screenshots')));
+
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
