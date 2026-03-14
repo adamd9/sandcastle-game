@@ -1084,7 +1084,7 @@
             tick: r.tick,
             cells: r.cells_after_weather,
             flags_snapshot: r.flags_snapshot,
-            event_label: r.weather?.event_label ?? '🌤 weather',
+            event_label: (r.weather?.event_emoji ? r.weather.event_emoji + ' ' : '') + (r.weather?.event_name ?? r.weather?.event_label ?? '🌤 weather'),
             weatherEvents: r.weatherEvents,
           });
         }
@@ -1719,7 +1719,7 @@
         : '';
       const p1Blocks = round.player1?.blocks ?? '?';
       const p2Blocks = round.player2?.blocks ?? '?';
-      const eventLabel = w.event_label ?? 'Clear';
+      const eventLabel = w.event_name ?? w.event_label ?? 'Clear';
 
       // --- Weather section ---
       const weatherDesc = w.description ? `<div class="history-weather-detail">${eventLabel} — ${w.description}</div>` : '';
