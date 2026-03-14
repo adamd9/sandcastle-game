@@ -41,12 +41,85 @@ describe('GET /rules', () => {
 // GET /state
 // ---------------------------------------------------------------------------
 describe('GET /state', () => {
-  it('returns initial state', async () => {
+  it('returns initial state without history', async () => {
     const res = await request(app).get('/state');
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('tick', 0);
     expect(res.body).toHaveProperty('cells');
     expect(Array.isArray(res.body.cells)).toBe(true);
+    expect(res.body).not.toHaveProperty('history');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /state/history
+// ---------------------------------------------------------------------------
+describe('GET /state/history', () => {
+  it('returns history array', async () => {
+    const res = await request(app).get('/state/history');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('history');
+    expect(Array.isArray(res.body.history)).toBe(true);
+  });
+
+  it('returns history entries after a tick', async () => {
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+
+    const res = await request(app).get('/state/history');
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBeGreaterThan(0);
+    const lastEntry = res.body.history[res.body.history.length - 1];
+    expect(lastEntry).toHaveProperty('tick');
+    expect(lastEntry).toHaveProperty('timestamp');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /state/:player
+// ---------------------------------------------------------------------------
+describe('GET /state/:player', () => {
+  it('returns player state without recentHistory', async () => {
+    const res = await request(app).get('/state/player1');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('tick', 0);
+    expect(res.body).toHaveProperty('myPlayer', 'player1');
+    expect(res.body).toHaveProperty('cells');
+    expect(res.body).not.toHaveProperty('recentHistory');
+  });
+
+  it('returns 400 for invalid player name', async () => {
+    const res = await request(app).get('/state/unknownplayer');
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /state/:player/history
+// ---------------------------------------------------------------------------
+describe('GET /state/:player/history', () => {
+  it('returns empty history before any ticks', async () => {
+    const res = await request(app).get('/state/player1/history');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('history');
+    expect(Array.isArray(res.body.history)).toBe(true);
+  });
+
+  it('returns player-filtered history after a tick', async () => {
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+
+    const res = await request(app).get('/state/player1/history');
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBeGreaterThan(0);
+    const lastEntry = res.body.history[res.body.history.length - 1];
+    expect(lastEntry).toHaveProperty('myMoves');
+    expect(lastEntry).toHaveProperty('myStats');
+    expect(lastEntry).toHaveProperty('myWeatherEvents');
+    expect(lastEntry).toHaveProperty('opponentStats');
+  });
+
+  it('returns 400 for invalid player name', async () => {
+    const res = await request(app).get('/state/unknownplayer/history');
+    expect(res.status).toBe(400);
   });
 });
 
@@ -248,10 +321,10 @@ describe('POST /tick', () => {
   it('records cells_after_weather in history entry for timeline weather points', async () => {
     await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
 
-    const state = await request(app).get('/state');
-    expect(Array.isArray(state.body.history)).toBe(true);
-    expect(state.body.history.length).toBeGreaterThan(0);
-    const lastEntry = state.body.history[state.body.history.length - 1];
+    const histRes = await request(app).get('/state/history');
+    expect(Array.isArray(histRes.body.history)).toBe(true);
+    expect(histRes.body.history.length).toBeGreaterThan(0);
+    const lastEntry = histRes.body.history[histRes.body.history.length - 1];
     expect(lastEntry).toHaveProperty('cells_after_weather');
     expect(Array.isArray(lastEntry.cells_after_weather)).toBe(true);
   });
@@ -259,10 +332,10 @@ describe('POST /tick', () => {
   it('records blocks_after in history entry player summaries', async () => {
     await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
 
-    const state = await request(app).get('/state');
-    expect(Array.isArray(state.body.history)).toBe(true);
-    expect(state.body.history.length).toBeGreaterThan(0);
-    const lastEntry = state.body.history[state.body.history.length - 1];
+    const histRes = await request(app).get('/state/history');
+    expect(Array.isArray(histRes.body.history)).toBe(true);
+    expect(histRes.body.history.length).toBeGreaterThan(0);
+    const lastEntry = histRes.body.history[histRes.body.history.length - 1];
     expect(lastEntry.player1).toHaveProperty('blocks_after');
     expect(lastEntry.player2).toHaveProperty('blocks_after');
     expect(typeof lastEntry.player1.blocks_after).toBe('number');
@@ -274,10 +347,10 @@ describe('POST /tick', () => {
     await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
     const after = new Date();
 
-    const state = await request(app).get('/state');
-    expect(Array.isArray(state.body.history)).toBe(true);
-    expect(state.body.history.length).toBeGreaterThan(0);
-    const lastEntry = state.body.history[state.body.history.length - 1];
+    const histRes = await request(app).get('/state/history');
+    expect(Array.isArray(histRes.body.history)).toBe(true);
+    expect(histRes.body.history.length).toBeGreaterThan(0);
+    const lastEntry = histRes.body.history[histRes.body.history.length - 1];
     expect(lastEntry).toHaveProperty('timestamp');
     const ts = new Date(lastEntry.timestamp);
     expect(ts.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -301,9 +374,9 @@ describe('POST /god/tick god_edits', () => {
     expect(res.body.god_edits_applied).toHaveLength(1);
     expect(res.body.god_edits_applied[0]).toMatchObject({ action: 'PLACE', x: 5, y: 10, level: 0, type: 'packed_sand' });
 
-    const state = await request(app).get('/state');
+    const histRes = await request(app).get('/state/history');
     // Cell placed with health 100; calm weather applies 0.5× base damage (≈3 hp) — cell survives
-    const lastEntry = state.body.history[state.body.history.length - 1];
+    const lastEntry = histRes.body.history[histRes.body.history.length - 1];
     const placed = lastEntry.cells_after_weather.find(c => c.x === 5 && c.y === 10 && c.level === 0 && c.owner === 'god');
     // With calm event the cell easily survives
     expect(placed).toBeDefined();
