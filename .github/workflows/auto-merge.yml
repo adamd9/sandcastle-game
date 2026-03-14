@@ -15,6 +15,7 @@ env:
 jobs:
   test-and-merge:
     if: |
+      github.event.pull_request.user.login == 'Copilot' ||
       github.event.pull_request.user.login == 'copilot-swe-agent' ||
       github.event.pull_request.user.login == 'app/copilot-swe-agent'
     runs-on: ubuntu-latest
