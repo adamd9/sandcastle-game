@@ -1038,9 +1038,16 @@
 
   async function poll() {
     try {
-      const res = await fetch(`${API_BASE}/state`, { cache: 'no-store' });
+      const [res, histRes] = await Promise.all([
+        fetch(`${API_BASE}/state`, { cache: 'no-store' }),
+        fetch(`${API_BASE}/state/history`, { cache: 'no-store' }),
+      ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const state = await res.json();
+      if (histRes.ok) {
+        const { history } = await histRes.json();
+        state.history = history;
+      }
 
       lastCells = state.cells;
       lastFlags = state.flags || [];
@@ -1214,7 +1221,7 @@
   const godTypeRow  = document.getElementById('god-type-row');
 
   let tickAdminKey  = '';
-  let godSessionKey = sessionStorage.getItem('godSessionKey') || '';
+  let godSessionKey = localStorage.getItem('sandcastle_admin_key') || '';
   if (godSessionKey) tickAdminKey = godSessionKey;
 
   function showGodControls() {
@@ -1236,7 +1243,7 @@
     if (!key) { errEl.textContent = 'Key required.'; errEl.style.display = 'block'; return; }
     godSessionKey = key;
     tickAdminKey  = key;
-    sessionStorage.setItem('godSessionKey', key);
+    localStorage.setItem('sandcastle_admin_key', key);
     errEl.style.display = 'none';
     showGodControls();
   });
@@ -1650,7 +1657,7 @@
       } else if (res.status === 401) {
         godSessionKey = '';
         tickAdminKey = '';
-        sessionStorage.removeItem('godSessionKey');
+        localStorage.removeItem('sandcastle_admin_key');
         showGodAuth();
         resultEl.textContent = '✗ Invalid key';
         resultEl.className = 'err';
@@ -1900,7 +1907,7 @@
         resultEl.className = 'ok';
       } else if (res.status === 401) {
         godSessionKey = '';
-        sessionStorage.removeItem('godSessionKey');
+        localStorage.removeItem('sandcastle_admin_key');
         showGodAuth();
         resultEl.textContent = '✗ Invalid key';
         resultEl.className = 'err';
