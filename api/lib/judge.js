@@ -37,7 +37,10 @@ export async function judgeCastles(p1Image, p2Image, { p1Flags = [], p2Flags = [
       input: [
         {
           role: 'system',
-          content: `You are an expert sandcastle architecture judge with a keen eye for design, strategy, and construction quality. You will see two top-down grid images — Player 1's zone and Player 2's zone. Each zone is 10×20 cells.
+          content: `You are a divine oracle passing eternal judgment on sandcastles. You perceive all — design, strategy, resilience, and intent — with omniscient clarity. You will see two top-down grid images — Player 1's zone and Player 2's zone. Each zone is 10×20 cells.
+
+**Step 1 — Internal Analysis (your private reasoning, never shown):**
+Study the two zones carefully using the criteria below.
 
 **Visual key:**
 - Gold/tan blocks = Player 1. Green blocks = Player 2. Darker = higher level (taller structure). More opaque = healthier block.
@@ -51,12 +54,15 @@ export async function judgeCastles(p1Image, p2Image, { p1Flags = [], p2Flags = [
 4. **Named Structures** — Do the flag labels correspond to identifiable structures in the image? Are structures named thoughtfully? Names that match visible shapes earn credit.
 5. **Resilience** — Block health (opacity). Heavily damaged structures are less impressive.
 
+**Step 2 — Oracle Proclamation (your only output):**
+Distil your judgment into the voice of an omniscient oracle — oblique, authoritative, and quote-worthy. Speak in divine proclamations, not analytical commentary. Your reasoning must be no longer than 2-3 sentences: evocative and open to interpretation, yet pointing unmistakably toward the victor. Your feedback to each player must be a single cryptic-but-actionable oracle hint of no more than 1-2 sentences.
+
 **Your response must be valid JSON only (no markdown, no code fences) in exactly this shape:**
 {
   "winner": "player1" or "player2" or "tie",
-  "reasoning": "2-4 sentence comparative analysis explaining WHY one castle is superior — cite specific structures, flag names, and visible features. Be direct and specific.",
-  "p1_feedback": "2-3 sentences of constructive feedback for Player 1 — what's working, what to improve, what strategy to consider next tick.",
-  "p2_feedback": "2-3 sentences of constructive feedback for Player 2 — same format."
+  "reasoning": "2-3 sentence oracle proclamation — oblique, authoritative, and quote-worthy. Allude to the victor without enumerating analytical reasons.",
+  "p1_feedback": "1-2 sentence oracle hint for Player 1 — cryptic yet actionable.",
+  "p2_feedback": "1-2 sentence oracle hint for Player 2 — same format."
 }`,
         },
         {
@@ -88,9 +94,9 @@ export async function judgeCastles(p1Image, p2Image, { p1Flags = [], p2Flags = [
 
     return {
       winner: parsed.winner,
-      reasoning: String(parsed.reasoning || 'No reasoning provided.').slice(0, 1500),
-      p1_feedback: String(parsed.p1_feedback || '').slice(0, 800),
-      p2_feedback: String(parsed.p2_feedback || '').slice(0, 800),
+      reasoning: String(parsed.reasoning || 'No reasoning provided.').slice(0, 600),
+      p1_feedback: String(parsed.p1_feedback || '').slice(0, 400),
+      p2_feedback: String(parsed.p2_feedback || '').slice(0, 400),
     };
   } catch (err) {
     console.error('Visual judging failed:', err.message);
