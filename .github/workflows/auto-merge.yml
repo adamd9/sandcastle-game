@@ -14,12 +14,15 @@ env:
 
 jobs:
   test-and-merge:
-    if: |
-      github.event.pull_request.user.login == 'Copilot' ||
-      github.event.pull_request.user.login == 'copilot-swe-agent' ||
-      github.event.pull_request.user.login == 'app/copilot-swe-agent'
+    # Accept any login variant for the Copilot SWE agent bot
+    if: >-
+      contains(github.event.pull_request.user.login, 'opilot') ||
+      contains(github.event.pull_request.user.login, 'copilot')
     runs-on: ubuntu-latest
     steps:
+      - name: Debug PR author
+        run: echo "PR author login is '${{ github.event.pull_request.user.login }}' type '${{ github.event.pull_request.user.type }}'"
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
