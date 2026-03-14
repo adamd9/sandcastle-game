@@ -1712,7 +1712,18 @@
   }
 
   function renderHistory(history) {
-    lastHistory = history ?? [];
+    const newHistory = history ?? [];
+    // Skip re-render when history data hasn't changed — preserves expanded/collapsed
+    // state of round items so they don't collapse on every poll cycle.
+    const lastEntry = newHistory.length > 0 ? newHistory[newHistory.length - 1] : null;
+    const prevLastEntry = lastHistory.length > 0 ? lastHistory[lastHistory.length - 1] : null;
+    const judgmentCount = arr => arr.filter(r => r.judgment).length;
+    if (newHistory.length === lastHistory.length &&
+        lastEntry?.tick === prevLastEntry?.tick &&
+        judgmentCount(newHistory) === judgmentCount(lastHistory)) {
+      return;
+    }
+    lastHistory = newHistory;
     const list = document.getElementById('history-list');
     if (lastHistory.length === 0) {
       list.innerHTML = '<div id="history-empty">No history yet.</div>';

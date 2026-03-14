@@ -14,33 +14,55 @@ env:
 
 jobs:
   test-and-merge:
-    if: |
-      github.event.pull_request.user.login == 'copilot-swe-agent' ||
-      github.event.pull_request.user.login == 'app/copilot-swe-agent'
     runs-on: ubuntu-latest
     steps:
+      - name: Debug and check PR author
+        id: author-check
+        run: |
+          LOGIN="${{ github.event.pull_request.user.login }}"
+          echo "PR author login: '$LOGIN'"
+          echo "PR author type: '${{ github.event.pull_request.user.type }}'"
+          # Match Copilot, copilot-swe-agent, app/copilot-swe-agent, etc.
+          if [[ "$LOGIN" == *"opilot"* ]] || [[ "$LOGIN" == *"copilot"* ]]; then
+            echo "is_copilot=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_copilot=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip if not a Copilot PR
+        if: steps.author-check.outputs.is_copilot != 'true'
+        run: |
+          echo "Not a Copilot agent PR (login: ${{ github.event.pull_request.user.login }}), exiting."
+          exit 0
+
       - uses: actions/checkout@v4
+        if: steps.author-check.outputs.is_copilot == 'true'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-node@v4
+        if: steps.author-check.outputs.is_copilot == 'true'
         with:
           node-version: '22'
 
       - name: Run tests
+        if: steps.author-check.outputs.is_copilot == 'true'
         run: cd api && npm ci && npm test
 
       - name: Mark PR ready for review (if draft)
+        if: steps.author-check.outputs.is_copilot == 'true'
         run: gh pr ready ${{ github.event.pull_request.number }} || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auto-merge PR
+        if: steps.author-check.outputs.is_copilot == 'true'
         run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Close linked issues
+        if: steps.author-check.outputs.is_copilot == 'true'
         run: |
           ISSUES=$(gh pr view ${{ github.event.pull_request.number }} \
             --repo ${{ github.repository }} \
