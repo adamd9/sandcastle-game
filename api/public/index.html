@@ -383,6 +383,9 @@
     .history-damaged { color: #f5a442; padding-left: 4px; line-height: 1.6; }
     .history-destroyed { color: #f87171; padding-left: 4px; line-height: 1.6; }
     .history-judgment { color: #c0a030; margin-top: 6px; font-size: 0.75rem; padding: 4px 8px; background: rgba(192,160,48,0.1); border-left: 3px solid #c0a030; border-radius: 3px; }
+    .history-round-header .h-judgment-badge { color: #f5c842; font-size: 0.68rem; background: rgba(192,160,48,0.2); border: 1px solid #c0a030; border-radius: 3px; padding: 1px 5px; flex-shrink: 0; }
+    .history-round.has-judgment > .history-round-header { border-left: 3px solid #c0a030; }
+    .timeline-judgment-marker { position: absolute; top: -5px; width: 10px; height: 10px; background: #c0a030; transform: translateX(-50%) rotate(45deg); cursor: pointer; z-index: 1; border: 1px solid #f5c842; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
 
     /* ── Timeline Scrubber ───────────────────────────────────────────── */
@@ -1084,8 +1087,9 @@
             tick: r.tick,
             cells: r.cells_after_weather,
             flags_snapshot: r.flags_snapshot,
-            event_label: r.weather?.event_label ?? '🌤 weather',
+            event_label: (r.weather?.event_emoji ? r.weather.event_emoji + ' ' : '') + (r.weather?.event_name ?? r.weather?.event_label ?? '🌤 weather'),
             weatherEvents: r.weatherEvents,
+            judgment: r.judgment ?? null,
           });
         }
         return pts;
@@ -1703,6 +1707,10 @@
 
   let lastHistory = [];
 
+  function judgmentWinnerLabel(winner) {
+    return winner === 'tie' ? 'Tie' : winner === 'player1' ? 'P1 wins' : 'P2 wins';
+  }
+
   function renderHistory(history) {
     lastHistory = history ?? [];
     const list = document.getElementById('history-list');
@@ -1719,7 +1727,7 @@
         : '';
       const p1Blocks = round.player1?.blocks ?? '?';
       const p2Blocks = round.player2?.blocks ?? '?';
-      const eventLabel = w.event_label ?? 'Clear';
+      const eventLabel = w.event_name ?? w.event_label ?? 'Clear';
 
       // --- Weather section ---
       const weatherDesc = w.description ? `<div class="history-weather-detail">${eventLabel} — ${w.description}</div>` : '';
@@ -1767,8 +1775,8 @@
         ? `<div class="history-judgment">⚖️ <strong>${round.judgment.winner === 'tie' ? 'Tie' : round.judgment.winner === 'player1' ? 'Player 1 wins' : 'Player 2 wins'}</strong> (P1: ${round.judgment.scores?.player1 ?? 0} | P2: ${round.judgment.scores?.player2 ?? 0})<br>${round.judgment.reasoning ?? ''}${round.judgment.p1_feedback ? `<br><em>P1:</em> ${round.judgment.p1_feedback}` : ''}${round.judgment.p2_feedback ? `<br><em>P2:</em> ${round.judgment.p2_feedback}` : ''}</div>`
         : '';
 
-      return `<div class="history-round">
-        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">Tick #${round.tick}  ${eventLabel}  |  P1: ${p1Blocks} blocks  P2: ${p2Blocks} blocks</span><span class="h-time">${timestampStr}</span></div>
+      return `<div class="history-round${round.judgment ? ' has-judgment' : ''}">
+        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">Tick #${round.tick}  ${eventLabel}  |  P1: ${p1Blocks} blocks  P2: ${p2Blocks} blocks</span>${round.judgment ? `<span class="h-judgment-badge">⚖️ ${judgmentWinnerLabel(round.judgment.winner)}</span>` : ''}<span class="h-time">${timestampStr}</span></div>
         <div class="history-round-body collapsed">
           ${weatherSection}
           ${p1Section}
@@ -1899,6 +1907,15 @@
       dot.title = snap.event_label || '';
       dot.addEventListener('click', () => applyTimelineIndex(idx));
       container.appendChild(dot);
+      if (snap.judgment) {
+        const jWinner = judgmentWinnerLabel(snap.judgment.winner);
+        const judgmentMarker = document.createElement('div');
+        judgmentMarker.className = 'timeline-judgment-marker';
+        judgmentMarker.style.left = `${pct}%`;
+        judgmentMarker.title = `⚖️ Judgment: ${jWinner} (P1: ${snap.judgment.scores?.player1 ?? 0} | P2: ${snap.judgment.scores?.player2 ?? 0})`;
+        judgmentMarker.addEventListener('click', () => applyTimelineIndex(idx));
+        container.appendChild(judgmentMarker);
+      }
     });
   }
 
