@@ -256,6 +256,19 @@ describe('POST /tick', () => {
     expect(Array.isArray(lastEntry.cells_after_weather)).toBe(true);
   });
 
+  it('records blocks_after in history entry player summaries', async () => {
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+
+    const state = await request(app).get('/state');
+    expect(Array.isArray(state.body.history)).toBe(true);
+    expect(state.body.history.length).toBeGreaterThan(0);
+    const lastEntry = state.body.history[state.body.history.length - 1];
+    expect(lastEntry.player1).toHaveProperty('blocks_after');
+    expect(lastEntry.player2).toHaveProperty('blocks_after');
+    expect(typeof lastEntry.player1.blocks_after).toBe('number');
+    expect(typeof lastEntry.player2.blocks_after).toBe('number');
+  });
+
   it('records a timestamp in each history entry', async () => {
     const before = new Date();
     await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
@@ -280,18 +293,19 @@ describe('POST /god/tick god_edits', () => {
     const res = await request(app)
       .post('/god/tick')
       .set('X-Api-Key', 'test-key-tick')
-      .send({ rain_mm: 0, wind_speed_kph: 0, god_edits: [{ action: 'PLACE', x: 5, y: 5, level: 0, type: 'packed_sand' }] });
+      // Use event:'calm' to avoid wave_surge/rogue_wave destroying the test cell.
+      // Place at y=10 (well above wave_surge range y=3-5) for extra safety.
+      .send({ event: 'calm', god_edits: [{ action: 'PLACE', x: 5, y: 10, level: 0, type: 'packed_sand' }] });
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.god_edits_applied).toHaveLength(1);
-    expect(res.body.god_edits_applied[0]).toMatchObject({ action: 'PLACE', x: 5, y: 5, level: 0, type: 'packed_sand' });
+    expect(res.body.god_edits_applied[0]).toMatchObject({ action: 'PLACE', x: 5, y: 10, level: 0, type: 'packed_sand' });
 
     const state = await request(app).get('/state');
-    // Cell may have survived weather (it started at health 100 and rain_mm=0 so base damage=5, still alive)
-    // After weather the cell should still be present unless destroyed; check it appeared in history snapshot
+    // Cell placed with health 100; calm weather applies 0.5× base damage (≈3 hp) — cell survives
     const lastEntry = state.body.history[state.body.history.length - 1];
-    const placed = lastEntry.cells_after_weather.find(c => c.x === 5 && c.y === 5 && c.level === 0 && c.owner === 'god');
-    // At 0 rain, base damage=5, cell health=100 → cell survives
+    const placed = lastEntry.cells_after_weather.find(c => c.x === 5 && c.y === 10 && c.level === 0 && c.owner === 'god');
+    // With calm event the cell easily survives
     expect(placed).toBeDefined();
   });
 

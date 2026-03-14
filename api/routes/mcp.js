@@ -86,13 +86,14 @@ const RULES_DOC = {
   history_format: {
     description: 'state.history contains up to 20 rounds. Each round has:',
     fields: {
-      tick: 'Tick number when this round was recorded',
-      weather: '{ rain_mm, wind_speed_kph, wind_direction }',
-      moves: '{ player1: [{action, x, y, block_type}], player2: [...] } — moves made that tick',
-      player1: '{ actions, committed, blocks } — player1 summary for the round',
-      player2: '{ actions, committed, blocks } — player2 summary for the round',
+      tick: 'Tick number when this round was recorded (the tick that just completed)',
+      weather: '{ rain_mm, wind_speed_kph, wind_direction, event_name, event_type, event_emoji } — weather that fired this tick',
+      moves: '{ player1: [{action, x, y, block_type}], player2: [...] } — moves made BEFORE weather fired',
+      player1: '{ actions, committed, blocks, blocks_after } — player1 summary: blocks=count before weather, blocks_after=count after weather damage',
+      player2: '{ actions, committed, blocks, blocks_after } — player2 summary: blocks=count before weather, blocks_after=count after weather damage',
       weatherEvents: 'Array of damage events: [{ type: "damaged"|"destroyed", x, y, owner, block_type, rain_damage, wind_damage, total_damage, health_before, health_after }]',
     },
+    ordering: 'Within each tick: (1) both players submit moves, (2) weather fires and deals damage, (3) tick counter increments. History captures pre-weather block counts in player.blocks and post-weather counts in player.blocks_after.',
   },
   mcp_tools: {
     get_state: 'Get current game state with recent turn history and weather events, structured for AI consumption.',
