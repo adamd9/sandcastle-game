@@ -165,6 +165,7 @@ router.post('/tick', async (req, res) => {
           event_name:     predefined.name,
           event_emoji:    predefined.emoji,
           event_type:     predefined.event_type,
+          event:          predefined.event_type,  // consumed by applyWeather
         };
       } else {
         // Legacy WEATHER_EVENTS id (calm/normal/storm/wave_surge/rogue_wave)
@@ -177,6 +178,7 @@ router.post('/tick', async (req, res) => {
           event_name:     ev.name,
           event_emoji:    ev.emoji,
           event_type:     eventParam,  // force the damage type
+          event:          eventParam,  // consumed by applyWeather
         };
       }
     } else if (hasManualOverrides && !use_live_weather) {
@@ -197,6 +199,7 @@ router.post('/tick', async (req, res) => {
         event_name:     ev.name,
         event_emoji:    ev.emoji,
         event_type:     ev.event_type,
+        event:          ev.event_type,  // consumed by applyWeather
       };
       // Apply any partial overrides on top
       if (rain_mm !== undefined)        weather.rain_mm        = Number(rain_mm);
@@ -249,6 +252,9 @@ router.post('/tick', async (req, res) => {
       lastEntry.flags_snapshot = JSON.parse(JSON.stringify(newState.flags || []));
       lastEntry.weather = { ...(lastEntry.weather || {}), ...(newState.weather || {}) };
       lastEntry.god_edits_applied = godEditsApplied;
+      // Record post-weather block counts so the UI can show before→after deltas
+      lastEntry.player1.blocks_after = newState.cells.filter(c => c.owner === 'player1').length;
+      lastEntry.player2.blocks_after = newState.cells.filter(c => c.owner === 'player2').length;
     }
     delete newState.weatherEvents;
 

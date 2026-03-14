@@ -36,6 +36,7 @@ router.post('/', authenticate, async (_req, res) => {
       event_name:     ev.name,
       event_emoji:    ev.emoji,
       event_type:     ev.event_type,
+      event:          ev.event_type,  // consumed by applyWeather to select damage behaviour
     };
 
     const state = await getState();
@@ -51,6 +52,9 @@ router.post('/', authenticate, async (_req, res) => {
       lastEntry.cells_after_weather = structuredClone(newState.cells);
       // applyWeather sets event/event_label on state.weather — copy into the history entry
       lastEntry.weather = { ...lastEntry.weather, ...newState.weather };
+      // Record post-weather block counts so the UI can show before→after deltas
+      lastEntry.player1.blocks_after = newState.cells.filter(c => c.owner === 'player1').length;
+      lastEntry.player2.blocks_after = newState.cells.filter(c => c.owner === 'player2').length;
     }
     delete newState.weatherEvents;
 

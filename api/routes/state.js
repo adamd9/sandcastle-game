@@ -32,6 +32,7 @@ router.get('/:player', async (req, res) => {
       myStats: round[player] || {},
       myWeatherEvents: (round.weatherEvents || []).filter(e => e.owner === player),
       opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
+      opponentWeatherEvents: (round.weatherEvents || []).filter(e => e.owner !== player),
       ...(round.judgment && { judgment: round.judgment }),
     }));
 

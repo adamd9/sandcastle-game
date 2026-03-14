@@ -1725,50 +1725,86 @@
       const timestampStr = round.timestamp
         ? new Date(round.timestamp).toLocaleString(undefined, { timeStyle: 'short' })
         : '';
-      const p1Blocks = round.player1?.blocks ?? '?';
-      const p2Blocks = round.player2?.blocks ?? '?';
+
+      // Block counts: show before→after if post-weather count is available
+      function blockCountLabel(playerStats) {
+        const before = playerStats?.blocks ?? '?';
+        const after  = playerStats?.blocks_after;
+        if (after == null || after === before) return `${before}`;
+        const delta = after - before;
+        const sign  = delta > 0 ? '+' : '';
+        return `${before}→${after} (${sign}${delta})`;
+      }
+      const p1BlockLabel = blockCountLabel(round.player1);
+      const p2BlockLabel = blockCountLabel(round.player2);
+
+      const eventEmoji = w.event_emoji ?? '';
       const eventLabel = w.event_name ?? w.event_label ?? 'Clear';
+      const fullEventLabel = (eventEmoji ? eventEmoji + ' ' : '') + eventLabel;
 
-      // --- Weather section ---
-      const weatherDesc = w.description ? `<div class="history-weather-detail">${eventLabel} — ${w.description}</div>` : '';
-      const weatherStats = `<div class="history-weather-detail">Rain: ${w.rain_mm ?? '?'} mm | Wind: ${w.wind_speed_kph ?? '?'} kph (${w.wind_direction ?? '?'})</div>`;
-      const weatherSection = `<div class="history-section">
-        <div class="history-section-header"><span class="h-chevron">▶</span><span class="h-label">🌩️ Weather Event</span></div>
-        <div class="history-section-body collapsed">${weatherDesc}${weatherStats}</div>
-      </div>`;
-
-      // --- Player section helper ---
-      function renderPlayerSection(playerKey, emoji, label) {
+      // --- Player section helper (moves only — damage is in weather section) ---
+      function renderMovesSection(playerKey, emoji, label) {
         const moves = round.moves?.[playerKey] ?? [];
-        const events = (round.weatherEvents ?? []).filter(e => e.owner === playerKey);
-        const damaged = events.filter(e => e.type !== 'destroyed').length;
-        const destroyed = events.filter(e => e.type === 'destroyed').length;
-        const counts = `[${moves.length} moves, ${damaged} damaged, ${destroyed} destroyed]`;
+        const moveCount = `[${moves.length} move${moves.length !== 1 ? 's' : ''}]`;
 
         const movesHtml = moves.length === 0
-          ? '<div class="history-none">(no moves)</div>'
+          ? '<div class="history-none">(no moves this tick)</div>'
           : moves.map(m => {
-              if (m.action === 'PLACE') return `<div class="history-move">▶ PLACE ${m.block_type} at (${m.x},${m.y})</div>`;
-              if (m.action === 'REINFORCE') return `<div class="history-move">▶ REINFORCE at (${m.x},${m.y})</div>`;
-              if (m.action === 'REMOVE') return `<div class="history-move">▶ REMOVE at (${m.x},${m.y})</div>`;
+              if (m.action === 'PLACE') return `<div class="history-move">▶ PLACE ${m.block_type} at (${m.x},${m.y})${m.level > 0 ? ` L${m.level}` : ''}</div>`;
+              if (m.action === 'REINFORCE') return `<div class="history-move">▶ REINFORCE at (${m.x},${m.y})${m.level > 0 ? ` L${m.level}` : ''}</div>`;
+              if (m.action === 'REMOVE') return `<div class="history-move">▶ REMOVE at (${m.x},${m.y})${m.level > 0 ? ` L${m.level}` : ''}</div>`;
               return `<div class="history-move">▶ ${m.action} at (${m.x},${m.y})</div>`;
             }).join('');
 
-        const eventsHtml = events.length === 0
-          ? ''
-          : events.map(e => {
-              if (e.type === 'destroyed') return `<div class="history-destroyed">💀 ${e.block_type} (${e.x},${e.y}) destroyed</div>`;
-              return `<div class="history-damaged">⚠ ${e.block_type} (${e.x},${e.y}) lost ${e.total_damage} hp (${e.health_after} remaining)</div>`;
-            }).join('');
-
         return `<div class="history-section">
-          <div class="history-section-header"><span class="h-chevron">▶</span><span class="h-label">${emoji} ${label}</span><span class="h-counts">${counts}</span></div>
-          <div class="history-section-body collapsed">${movesHtml}${eventsHtml}</div>
+          <div class="history-section-header"><span class="h-chevron">▶</span><span class="h-label">${emoji} ${label} Moves</span><span class="h-counts">${moveCount}</span></div>
+          <div class="history-section-body collapsed">${movesHtml}</div>
         </div>`;
       }
 
-      const p1Section = renderPlayerSection('player1', '🏖️', 'Player 1');
-      const p2Section = renderPlayerSection('player2', '🌿', 'Player 2');
+      // --- Weather + damage section ---
+      function renderWeatherSection() {
+        const allEvents = round.weatherEvents ?? [];
+        const p1Events  = allEvents.filter(e => e.owner === 'player1');
+        const p2Events  = allEvents.filter(e => e.owner === 'player2');
+
+        const p1Destroyed = p1Events.filter(e => e.type === 'destroyed').length;
+        const p1Damaged   = p1Events.filter(e => e.type === 'damaged').length;
+        const p2Destroyed = p2Events.filter(e => e.type === 'destroyed').length;
+        const p2Damaged   = p2Events.filter(e => e.type === 'damaged').length;
+        const totalDestroyed = p1Destroyed + p2Destroyed;
+        const totalDamaged   = p1Damaged   + p2Damaged;
+
+        const damageTag = totalDestroyed > 0
+          ? `<span style="color:#f87171">${totalDestroyed} destroyed</span>${totalDamaged > 0 ? `, ${totalDamaged} damaged` : ''}`
+          : totalDamaged > 0
+            ? `<span style="color:#f5a442">${totalDamaged} damaged</span>`
+            : '<span style="color:#5a9a5a">No damage</span>';
+
+        const weatherStats = `<div class="history-weather-detail">${fullEventLabel} · Rain: ${w.rain_mm ?? '?'} mm | Wind: ${w.wind_speed_kph ?? '?'} kph ${w.wind_direction ?? ''}</div>`;
+
+        function playerDamageHtml(events, playerEmoji, playerLabel) {
+          if (events.length === 0) return `<div class="history-none">${playerEmoji} ${playerLabel}: no damage</div>`;
+          return events.map(e => {
+            const flagNote = e.flag_protected ? ' 🚩' : '';
+            if (e.type === 'destroyed') return `<div class="history-destroyed">💀 ${playerEmoji} ${e.block_type} (${e.x},${e.y}) L${e.level ?? 0} destroyed${flagNote}</div>`;
+            return `<div class="history-damaged">⚠ ${playerEmoji} ${e.block_type} (${e.x},${e.y}) L${e.level ?? 0} −${e.total_damage} hp → ${e.health_after} hp${flagNote}</div>`;
+          }).join('');
+        }
+
+        const damageHtml = allEvents.length === 0
+          ? '<div class="history-none">No blocks damaged this tick.</div>'
+          : playerDamageHtml(p1Events, '🏖️', 'P1') + playerDamageHtml(p2Events, '🌿', 'P2');
+
+        return `<div class="history-section">
+          <div class="history-section-header"><span class="h-chevron">▶</span><span class="h-label">🌩️ Weather Impact</span><span class="h-counts">[${damageTag}]</span></div>
+          <div class="history-section-body collapsed">${weatherStats}${damageHtml}</div>
+        </div>`;
+      }
+
+      const p1Section      = renderMovesSection('player1', '🏖️', 'P1');
+      const p2Section      = renderMovesSection('player2', '🌿', 'P2');
+      const weatherSection = renderWeatherSection();
 
       // --- Judgment ---
       const judgmentHtml = round.judgment
@@ -1776,11 +1812,11 @@
         : '';
 
       return `<div class="history-round${round.judgment ? ' has-judgment' : ''}">
-        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">Tick #${round.tick}  ${eventLabel}  |  P1: ${p1Blocks} blocks  P2: ${p2Blocks} blocks</span>${round.judgment ? `<span class="h-judgment-badge">⚖️ ${judgmentWinnerLabel(round.judgment.winner)}</span>` : ''}<span class="h-time">${timestampStr}</span></div>
+        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">Tick #${round.tick} · ${fullEventLabel} · P1: ${p1BlockLabel} · P2: ${p2BlockLabel}</span>${round.judgment ? `<span class="h-judgment-badge">⚖️ ${judgmentWinnerLabel(round.judgment.winner)}</span>` : ''}<span class="h-time">${timestampStr}</span></div>
         <div class="history-round-body collapsed">
-          ${weatherSection}
           ${p1Section}
           ${p2Section}
+          ${weatherSection}
           ${judgmentHtml}
         </div>
       </div>`;
