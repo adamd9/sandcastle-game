@@ -52,6 +52,41 @@
       image-rendering: pixelated;
     }
 
+    #view-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0;
+    }
+    .view-tab {
+      padding: 6px 16px;
+      background: #110c00;
+      border: 1px solid #5a3e1b;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      color: #7a5c28;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-right: 4px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .view-tab:hover {
+      background: #1e1400;
+      color: #c8a060;
+    }
+    .view-tab.active {
+      background: #1a1000;
+      border-color: #c8903a;
+      border-bottom: 2px solid #1a1000;
+      color: #e8d5a3;
+    }
+    #iso-inline-canvas {
+      width: 600px;
+      height: 600px;
+      image-rendering: auto;
+    }
+
     /* Zone labels overlaid on canvas */
     #zone-labels {
       position: absolute;
@@ -579,8 +614,13 @@
 
 <div id="game-layout">
 <div id="game-main">
+<div id="view-tabs">
+  <button id="tab-iso" class="view-tab active">🏰 Isometric</button>
+  <button id="tab-topdown" class="view-tab">🗺️ Top-down</button>
+</div>
 <div id="canvas-wrap">
-  <canvas id="grid" width="600" height="600"></canvas>
+  <canvas id="iso-inline-canvas" width="600" height="600"></canvas>
+  <canvas id="grid" width="600" height="600" style="display:none;"></canvas>
   <div id="zone-labels">
     <div class="zone-label" id="zone-p1">PLAYER 1</div>
     <div class="zone-label" id="zone-p2">PLAYER 2</div>
@@ -843,10 +883,14 @@
     if (newSize === CELL_SIZE) return;
     CELL_SIZE = newSize;
     applyCanvasSize();
-    drawGrid(lastCells, lastFlags);
-    if (typeof godMode !== 'undefined' && godMode) {
-      drawGodOverlay();
-      drawGodQueue();
+    if (activeView === 'topdown') {
+      drawGrid(lastCells, lastFlags);
+      if (typeof godMode !== 'undefined' && godMode) {
+        drawGodOverlay();
+        drawGodQueue();
+      }
+    } else if (lastCells.length > 0) {
+      requestAnimationFrame(() => drawIsometricInline(lastCells, lastFlags));
     }
   });
 
@@ -1035,6 +1079,7 @@
   let lastFlags = [];
   let historySnapshots = [];  // array of { tick, cells } from state.history
   let scrubbingIndex = -1;    // -1 = showing live; >= 0 = showing history[scrubbingIndex]
+  let activeView = 'iso';     // 'iso' | 'topdown'
 
   async function poll() {
     try {
@@ -1052,7 +1097,11 @@
       lastCells = state.cells;
       lastFlags = state.flags || [];
       if (scrubbingIndex === -1) {
-        drawGrid(state.cells, lastFlags);
+        if (activeView === 'topdown') {
+          drawGrid(state.cells, lastFlags);
+        } else {
+          requestAnimationFrame(() => drawIsometricInline(state.cells, lastFlags));
+        }
       }
 
       // Status bar
@@ -1146,7 +1195,11 @@
     timelineScrubber.value = String(isNow ? totalPositions - 1 : idx);
     if (isNow) {
       scrubbingIndex = -1;
-      drawGrid(lastCells, lastFlags);
+      if (activeView === 'topdown') {
+        drawGrid(lastCells, lastFlags);
+      } else {
+        requestAnimationFrame(() => drawIsometricInline(lastCells, lastFlags));
+      }
       timelineLabel.textContent = 'now';
       timelineResetBtn.classList.remove('visible');
       document.getElementById('weather-summary').style.display = 'none';
@@ -1155,7 +1208,11 @@
       const snap = historySnapshots[idx];
       const snapFlags = snap ? (snap.flags_snapshot || []) : [];
       if (snap && snap.cells) {
-        drawGrid(snap.cells, snapFlags);
+        if (activeView === 'topdown') {
+          drawGrid(snap.cells, snapFlags);
+        } else {
+          requestAnimationFrame(() => drawIsometricInline(snap.cells, snapFlags));
+        }
       } else if (snap) {
         // Snapshot exists but no cell data (recorded before cell snapshotting was added)
         drawGrid(lastCells, snapFlags);
@@ -1182,7 +1239,7 @@
     }
     timelinePrev.disabled = idx <= 0;
     timelineNext.disabled = isNow;
-    // Keep iso view in sync when scrubbing
+    // Keep iso modal in sync when scrubbing
     if (document.getElementById('iso-modal').style.display !== 'none') {
       const [cells, flags] = getDisplayCellsAndFlags();
       requestAnimationFrame(() => drawIsometric(cells, flags));
@@ -1261,7 +1318,8 @@
     if (!godMode) {
       godHoverCell = null;
       godQueue = [];
-      drawGrid(lastCells, lastFlags);
+      if (activeView === 'topdown') drawGrid(lastCells, lastFlags);
+      else requestAnimationFrame(() => drawIsometricInline(lastCells, lastFlags));
     }
   });
 
@@ -1974,9 +2032,9 @@
   }
 
   // ── Isometric 3D View ─────────────────────────────────────────────────────
-  function drawIsometric(cells, flags) {
-    const canvas = document.getElementById('iso-canvas');
-    const label  = document.getElementById('iso-label');
+  function drawIsometric(cells, flags, canvasEl) {
+    const canvas = canvasEl || document.getElementById('iso-canvas');
+    const label  = canvasEl ? null : document.getElementById('iso-label');
 
     const rect = canvas.getBoundingClientRect();
     canvas.width  = rect.width  * window.devicePixelRatio;
@@ -2158,7 +2216,12 @@
     const tickInfo = scrubbingIndex >= 0
       ? `Tick ${historySnapshots[scrubbingIndex]?.tick ?? '?'} (history)`
       : `Tick ${lastTick} (live)`;
-    label.textContent = `🏰 Isometric View · ${tickInfo} · ${cells.length} blocks`;
+    if (label) label.textContent = `🏰 Isometric View · ${tickInfo} · ${cells.length} blocks`;
+  }
+
+  function drawIsometricInline(cells, flags) {
+    const canvas = document.getElementById('iso-inline-canvas');
+    drawIsometric(cells, flags, canvas);
   }
 
   function openIsoView() {
@@ -2179,7 +2242,42 @@
       const [cells, flags] = getDisplayCellsAndFlags();
       drawIsometric(cells, flags);
     }
+    if (activeView === 'iso' && lastCells.length > 0) {
+      const [cells, flags] = getDisplayCellsAndFlags();
+      requestAnimationFrame(() => drawIsometricInline(cells, flags));
+    }
   });
+
+  // ── View tab switching ────────────────────────────────────────────────────
+  function setActiveView(view) {
+    activeView = view;
+    const gridCanvas = document.getElementById('grid');
+    const isoCanvas  = document.getElementById('iso-inline-canvas');
+    const tabIso     = document.getElementById('tab-iso');
+    const tabTopdown = document.getElementById('tab-topdown');
+    if (view === 'iso') {
+      isoCanvas.style.display  = 'block';
+      gridCanvas.style.display = 'none';
+      tabIso.classList.add('active');
+      tabTopdown.classList.remove('active');
+      if (lastCells.length > 0) {
+        const [cells, flags] = getDisplayCellsAndFlags();
+        requestAnimationFrame(() => drawIsometricInline(cells, flags));
+      }
+    } else {
+      isoCanvas.style.display  = 'none';
+      gridCanvas.style.display = 'block';
+      tabIso.classList.remove('active');
+      tabTopdown.classList.add('active');
+      if (lastCells.length > 0) {
+        const [cells, flags] = getDisplayCellsAndFlags();
+        drawGrid(cells, flags);
+      }
+    }
+  }
+
+  document.getElementById('tab-iso').addEventListener('click', () => setActiveView('iso'));
+  document.getElementById('tab-topdown').addEventListener('click', () => setActiveView('topdown'));
 
 </script>
 
