@@ -15,7 +15,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 - **Ocean zone**: Rows y=0, y=1, y=2 are ocean — no building allowed
 - **Buildable zone**: rows y=3–19 within your column range
 - **Tick**: the game advances once per hour; weather is applied and the board updated
-- **Actions per tick**: 12 moves per player per tick
+- **Actions per tick**: 20 moves per player per tick
 
 ---
 
@@ -56,7 +56,7 @@ Weather is applied every tick. One event is selected per tick (weighted random):
 
 ### Damage formulas
 
-- **Base damage** (every tick): `5 × event_multiplier`
+- **Base damage** (every tick): `3 × event_multiplier`
 - **Rain damage**: `floor(rain_mm × 10) × event_multiplier` — applied to all blocks
 - **Wind damage**: `floor(wind_speed_kph / 3)` — applied to cells on the **windward edge only** (or all cells during a Storm)
 
@@ -202,7 +202,7 @@ Check `recent_history.weatherDamageToMyBlocks` every turn:
 ### Quick tips
 - **Always `packed_sand`** for new placements — the HP difference matters
 - **Check wind direction** — reinforce the windward edge before placing new blocks
-- **Use all 12 actions** every tick if possible
+- **Use all 20 actions** every tick if possible
 - **Avoid y=3–5** unless you want throwaway wave-absorbers
 - **Build foundations first** — wide L0 base before adding height
 - **Cascade awareness** — check for levels above before removing a block

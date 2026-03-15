@@ -99,7 +99,7 @@ describe('validateMove', () => {
 
   it('rejects when action budget exhausted', () => {
     const state = freshState();
-    state.players.player1.actionsThisTick = 12;
+    state.players.player1.actionsThisTick = 20;
     const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'dry_sand' });
     expect(r.valid).toBe(false);
     expect(r.reason).toMatch(/budget/i);
@@ -161,8 +161,8 @@ describe('applyWeather', () => {
     state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
-    // rainDamage(1) = BASE_DAMAGE(5) + floor(1*10) = 15
-    expect(next.cells[0].health).toBe(25);
+    // rainDamage(1) = BASE_DAMAGE(3) + floor(1*10) = 13
+    expect(next.cells[0].health).toBe(27);
   });
 
   it('removes cells reduced to 0 health', () => {
@@ -170,7 +170,7 @@ describe('applyWeather', () => {
     state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 10, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 10, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
-    // rainDamage(10) = BASE_DAMAGE(5) + floor(10*10) = 105 > 10 → cell destroyed
+    // rainDamage(10) = BASE_DAMAGE(3) + floor(10*10) = 103 > 10 → cell destroyed
     expect(next.cells).toHaveLength(0);
   });
 
@@ -180,8 +180,8 @@ describe('applyWeather', () => {
     state.cells.push({ x: 5, y: 19, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'S', event: 'normal' };
     const next = applyWeather(structuredClone(state));
-    // rainDamage(0) = BASE_DAMAGE(5) + 0 = 5; windDamage(50) = floor(50/3) = 16; total = 21
-    expect(next.cells[0].health).toBe(19);
+    // rainDamage(0) = BASE_DAMAGE(3) + 0 = 3; windDamage(50) = floor(50/3) = 16; total = 19
+    expect(next.cells[0].health).toBe(21);
   });
 
   it('does not apply wind damage to sheltered cells', () => {
@@ -189,8 +189,8 @@ describe('applyWeather', () => {
     state.cells.push({ x: 5, y: 10, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });
     state.weather = { rain_mm: 0, wind_speed_kph: 50, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
-    // sheltered from wind but still takes BASE_DAMAGE(5)
-    expect(next.cells[0].health).toBe(35);
+    // sheltered from wind but still takes BASE_DAMAGE(3)
+    expect(next.cells[0].health).toBe(37);
   });
 
   it('only damages top level block (sheltered levels survive)', () => {
@@ -199,11 +199,11 @@ describe('applyWeather', () => {
     state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
     state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
     const next = applyWeather(structuredClone(state));
-    // rainDamage(1) = 15; only L1 (top) takes damage; L0 sheltered
+    // rainDamage(1) = 13; only L1 (top) takes damage; L0 sheltered
     const l0 = next.cells.find(c => c.level === 0);
     const l1 = next.cells.find(c => c.level === 1);
     expect(l0.health).toBe(60);
-    expect(l1.health).toBe(45);
+    expect(l1.health).toBe(47);
   });
 
   it('increments tick and resets actionsThisTick', () => {
@@ -224,8 +224,8 @@ describe('applyWeather', () => {
       state.flags = [{ x: 5, y: 10, level: 0, owner: 'player1', label: 'Keep' }];
       state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
       const next = applyWeather(structuredClone(state));
-      // rainDamage(1) = 15, with 50% reduction → floor(15 * 0.5) = 7
-      expect(next.cells[0].health).toBe(53);
+      // rainDamage(1) = 13, with 50% reduction → floor(13 * 0.5) = 6
+      expect(next.cells[0].health).toBe(54);
     });
 
     it('a block NOT in a flagged component takes full damage', () => {
@@ -234,8 +234,8 @@ describe('applyWeather', () => {
       state.flags = [];
       state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
       const next = applyWeather(structuredClone(state));
-      // rainDamage(1) = 15, no reduction
-      expect(next.cells[0].health).toBe(45);
+      // rainDamage(1) = 13, no reduction
+      expect(next.cells[0].health).toBe(47);
     });
 
     it('two separate structures: only flagged one gets reduction', () => {
@@ -249,10 +249,10 @@ describe('applyWeather', () => {
       const next = applyWeather(structuredClone(state));
       const flagged = next.cells.find(c => c.x === 3);
       const unflagged = next.cells.find(c => c.x === 8);
-      // flagged: 60 - floor(15 * 0.5) = 60 - 7 = 53
-      expect(flagged.health).toBe(53);
-      // unflagged: 60 - 15 = 45
-      expect(unflagged.health).toBe(45);
+      // flagged: 60 - floor(13 * 0.5) = 60 - 6 = 54
+      expect(flagged.health).toBe(54);
+      // unflagged: 60 - 13 = 47
+      expect(unflagged.health).toBe(47);
     });
 
     it('a flagged structure spanning multiple cells — all cells get reduction', () => {
@@ -266,7 +266,7 @@ describe('applyWeather', () => {
       state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
       const next = applyWeather(structuredClone(state));
       for (const cell of next.cells) {
-        expect(cell.health).toBe(53);
+        expect(cell.health).toBe(54);
       }
     });
 

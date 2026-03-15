@@ -32,7 +32,7 @@ describe('GET /rules', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('grid');
     expect(res.body).toHaveProperty('zones');
-    expect(res.body).toHaveProperty('actions_per_tick', 12);
+    expect(res.body).toHaveProperty('actions_per_tick', 20);
     expect(res.body).toHaveProperty('block_types');
   });
 });

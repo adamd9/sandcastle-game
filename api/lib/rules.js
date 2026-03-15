@@ -8,7 +8,7 @@ export const ZONES = {
   player2: { x_min: 10, x_max: 19 },
 };
 
-export const ACTIONS_PER_TICK = 12;
+export const ACTIONS_PER_TICK = 20;
 
 export const WATER_ROWS = 3;   // rows y=0,1,2 are ocean — no building allowed
 export const MAX_LEVEL  = 3;   // levels 0 (ground) through 3 (spire)
@@ -28,7 +28,7 @@ export const FLAG_MIN_SPACING = 4; // flags must be >= 4 grid units apart (Eucli
 export const FLAG_DAMAGE_REDUCTION = 0.5; // flagged structures take 50% damage
 
 // Weather damage formulae
-export const BASE_DAMAGE = 5;  // minimum damage every tick regardless of weather
+export const BASE_DAMAGE = 3;  // minimum damage every tick regardless of weather
 export const rainDamage  = (rain_mm)        => BASE_DAMAGE + Math.floor(rain_mm * 10);
 export const windDamage  = (wind_speed_kph) => Math.floor(wind_speed_kph / 3);
 
