@@ -36,19 +36,16 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(422).json({ error: 'Turn already committed this tick.' });
     }
 
-    // Validate all moves up-front before applying any
+    // Validate and apply moves sequentially so each move sees the updated state
+    // from all previous moves in the batch (enables stacking multiple levels in one turn).
+    let newState = structuredClone(state);
     for (let i = 0; i < moves.length; i++) {
-      const { action, x, y, block_type } = moves[i];
-      const result = validateMove(state, req.player, { action, x, y, type: block_type });
+      const { action, x, y, block_type, level } = moves[i];
+      const result = validateMove(newState, req.player, { action, x, y, type: block_type, level });
       if (!result.valid) {
         return res.status(422).json({ error: `Move ${i + 1} rejected: ${result.reason}` });
       }
-    }
-
-    // Apply all moves
-    let newState = structuredClone(state);
-    for (const { action, x, y, block_type } of moves) {
-      newState = applyMove(newState, req.player, { action, x, y, type: block_type });
+      newState = applyMove(newState, req.player, { action, x, y, type: block_type, level });
     }
 
     // Auto-commit the turn
