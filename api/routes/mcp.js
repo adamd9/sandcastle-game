@@ -9,6 +9,7 @@ import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
   WATER_ROWS, MAX_LEVEL, FLAGS_MAX_LABEL_LENGTH, FLAG_MIN_SPACING,
+  FLAG_DAMAGE_REDUCTION,
   rainDamage, windDamage,
 } from '../lib/rules.js';
 
@@ -54,6 +55,16 @@ const RULES_DOC = {
   water_zone: {
     rows: `y=0 to y=${WATER_ROWS - 1}`,
     description: 'Ocean — no building. Wave events surge from here.',
+  },
+  flag_mechanics: {
+    description: 'Flags label your structures and grant weather damage protection to the entire connected group of blocks the flag is placed on.',
+    protection_model: 'A flag protects its entire connected component: all blocks belonging to the same owner that are physically adjacent (horizontally, vertically, or stacked at the same (x,y) position) to the flagged block. One flag covers the whole connected cluster — you do not need one flag per block.',
+    damage_reduction: FLAG_DAMAGE_REDUCTION,
+    damage_reduction_description: `Blocks in a flagged connected component take ${FLAG_DAMAGE_REDUCTION * 100}% of normal weather damage (half damage).`,
+    min_spacing: FLAG_MIN_SPACING,
+    min_spacing_description: `Flags must be at least ${FLAG_MIN_SPACING} grid units apart (Euclidean distance). Exception: if the two flag positions are separated by empty (no-block) space the spacing limit does not apply, since a gap means they mark distinct structures.`,
+    max_label_length: FLAGS_MAX_LABEL_LENGTH,
+    strategy: 'One flag per distinct connected structure is sufficient for full protection of that structure. Place flags on well-defended foundation blocks (L0) so they survive as long as the structure does.',
   },
   levels: {
     max_level: MAX_LEVEL,
