@@ -1228,10 +1228,17 @@
       const snap = historySnapshots[idx];
       const snapFlags = snap ? (snap.flags_snapshot || []) : [];
       if (snap && snap.cells) {
+        const prevSnap = idx > 0 ? historySnapshots[idx - 1] : null;
+        const diff = computeSnapDiff(snap.cells, prevSnap?.cells);
+        diff.snapType = snap.type;
         if (activeView === 'topdown') {
           drawGrid(snap.cells, snapFlags);
         } else {
-          requestAnimationFrame(() => drawIsometricInline(snap.cells, snapFlags));
+          requestAnimationFrame(() => drawIsometricInline(snap.cells, snapFlags, diff));
+        }
+        // Keep iso modal in sync
+        if (document.getElementById('iso-modal').style.display !== 'none') {
+          requestAnimationFrame(() => drawIsometric(snap.cells, snapFlags, null, diff));
         }
       } else if (snap) {
         // Snapshot exists but no cell data (recorded before cell snapshotting was added)
@@ -1259,8 +1266,8 @@
     }
     timelinePrev.disabled = idx <= 0;
     timelineNext.disabled = isNow;
-    // Keep iso modal in sync when scrubbing
-    if (document.getElementById('iso-modal').style.display !== 'none') {
+    // Modal sync for live view or no-cell snapshots (snap-with-cells handles modal sync above)
+    if (document.getElementById('iso-modal').style.display !== 'none' && (isNow || (scrubbingIndex >= 0 && !historySnapshots[scrubbingIndex]?.cells))) {
       const [cells, flags] = getDisplayCellsAndFlags();
       requestAnimationFrame(() => drawIsometric(cells, flags));
     }
@@ -2052,7 +2059,34 @@
   }
 
   // ── Isometric 3D View ─────────────────────────────────────────────────────
-  function drawIsometric(cells, flags, canvasEl) {
+  function computeSnapDiff(currentCells, prevCells) {
+    const prevMap = {};
+    for (const c of (prevCells || [])) prevMap[`${c.x},${c.y},${c.level}`] = c;
+    const currMap = {};
+    for (const c of (currentCells || [])) currMap[`${c.x},${c.y},${c.level}`] = c;
+
+    const added = [];
+    const removed = [];
+    const reinforced = [];
+    const damaged = [];
+
+    for (const [key, cell] of Object.entries(currMap)) {
+      if (!prevMap[key]) {
+        added.push(cell);
+      } else {
+        const prev = prevMap[key];
+        const types = ['dry_sand', 'wet_sand', 'packed_sand', 'reinforced_sand'];
+        if (types.indexOf(cell.type) > types.indexOf(prev.type)) reinforced.push(cell);
+        else if (cell.health < prev.health - 5) damaged.push(cell);
+      }
+    }
+    for (const [key, cell] of Object.entries(prevMap)) {
+      if (!currMap[key]) removed.push(cell);
+    }
+    return { added, removed, reinforced, damaged };
+  }
+
+  function drawIsometric(cells, flags, canvasEl, diff) {
     const canvas = canvasEl || document.getElementById('iso-canvas');
     const label  = canvasEl ? null : document.getElementById('iso-label');
 
@@ -2176,10 +2210,55 @@
       cellMap[key].push(c);
     }
 
+    // Build lookup maps for diff overlays
+    const addedSet     = new Set(diff ? diff.added.map(c => `${c.x},${c.y},${c.level}`) : []);
+    const reinforcedSet = new Set(diff ? diff.reinforced.map(c => `${c.x},${c.y},${c.level}`) : []);
+    const damagedSet   = new Set(diff ? diff.damaged.map(c => `${c.x},${c.y},${c.level}`) : []);
+
+    // Ghost map: keyed by xy position, value is array of removed cells
+    const ghostMap = {};
+    if (diff) {
+      for (const c of diff.removed) {
+        const key = `${c.x},${c.y}`;
+        if (!ghostMap[key]) ghostMap[key] = [];
+        ghostMap[key].push(c);
+      }
+    }
+
     const flagMap = {};
     for (const f of (flags || [])) {
       const key = `${f.x},${f.y}`;
       if (!flagMap[key] || f.level > flagMap[key].level) flagMap[key] = f;
+    }
+
+    function drawTopFaceOverlay(gx, gy, level, colour) {
+      const hw = tileW / 2, hh = tileH / 2;
+      const { sx, sy } = toScreen(gx, gy, level);
+      ctx.beginPath();
+      ctx.moveTo(sx,      sy);
+      ctx.lineTo(sx + hw, sy + hh);
+      ctx.lineTo(sx,      sy + tileH);
+      ctx.lineTo(sx - hw, sy + hh);
+      ctx.closePath();
+      ctx.fillStyle = colour;
+      ctx.fill();
+    }
+
+    function drawAllFacesOverlay(gx, gy, level, colour) {
+      const hw = tileW / 2, hh = tileH / 2;
+      const { sx, sy } = toScreen(gx, gy, level);
+      // top
+      ctx.beginPath();
+      ctx.moveTo(sx, sy); ctx.lineTo(sx+hw, sy+hh); ctx.lineTo(sx, sy+tileH); ctx.lineTo(sx-hw, sy+hh);
+      ctx.closePath(); ctx.fillStyle = colour; ctx.fill();
+      // left
+      ctx.beginPath();
+      ctx.moveTo(sx-hw, sy+hh); ctx.lineTo(sx, sy+tileH); ctx.lineTo(sx, sy+tileH+blockH); ctx.lineTo(sx-hw, sy+hh+blockH);
+      ctx.closePath(); ctx.fillStyle = colour; ctx.fill();
+      // right
+      ctx.beginPath();
+      ctx.moveTo(sx, sy+tileH); ctx.lineTo(sx+hw, sy+hh); ctx.lineTo(sx+hw, sy+hh+blockH); ctx.lineTo(sx, sy+tileH+blockH);
+      ctx.closePath(); ctx.fillStyle = colour; ctx.fill();
     }
 
     // Draw back-to-front
@@ -2193,10 +2272,40 @@
 
     for (const [gx, gy] of order) {
       const key = `${gx},${gy}`;
+
+      // Ghost blocks (destroyed in weather) — drawn before live blocks so they appear behind
+      if (ghostMap[key]) {
+        const ghosts = ghostMap[key].slice().sort((a, b) => a.level - b.level);
+        ctx.globalAlpha = 0.25;
+        for (const g of ghosts) {
+          drawCube(gx, gy, g.level, g.owner || 'neutral', 'dry_sand');
+        }
+        ctx.globalAlpha = 1;
+        // Tint ghost faces grey
+        for (const g of ghosts) {
+          drawAllFacesOverlay(gx, gy, g.level, 'hsl(0,0%,55%)');
+        }
+        ctx.globalAlpha = 1;
+      }
+
       const column = (cellMap[key] || []).sort((a, b) => a.level - b.level);
       for (const cell of column) {
         drawCube(gx, gy, cell.level, cell.owner, cell.type);
+
+        const cellKey = `${cell.x},${cell.y},${cell.level}`;
+        if (diff && diff.snapType === 'moves') {
+          if (addedSet.has(cellKey)) {
+            drawTopFaceOverlay(gx, gy, cell.level, 'rgba(255,220,50,0.45)');
+          } else if (reinforcedSet.has(cellKey)) {
+            drawTopFaceOverlay(gx, gy, cell.level, 'rgba(80,220,200,0.4)');
+          }
+        } else if (diff && diff.snapType === 'weather') {
+          if (damagedSet.has(cellKey)) {
+            drawAllFacesOverlay(gx, gy, cell.level, 'rgba(220,60,20,0.3)');
+          }
+        }
       }
+
       const flag = flagMap[key];
       if (flag) {
         const topLevel = column.length > 0 ? column[column.length - 1].level + 1 : 1;
@@ -2233,15 +2342,35 @@
       }
     }
 
+    // Diff summary badge (top-left)
+    if (diff) {
+      let badge = '';
+      if (diff.snapType === 'moves') {
+        badge = `🏗 +${diff.added.length} built${diff.reinforced.length ? ` · ${diff.reinforced.length} reinforced` : ''}`;
+      } else if (diff.snapType === 'weather') {
+        badge = `🌊 ${diff.removed.length} destroyed · ${diff.damaged.length} damaged`;
+      }
+      if (badge) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(badge, 12, 24);
+        ctx.shadowBlur = 0;
+      }
+    }
+
     const tickInfo = scrubbingIndex >= 0
       ? `Tick ${historySnapshots[scrubbingIndex]?.tick ?? '?'} (history)`
       : `Tick ${lastTick} (live)`;
     if (label) label.textContent = `🏰 Isometric View · ${tickInfo} · ${cells.length} blocks`;
   }
 
-  function drawIsometricInline(cells, flags) {
+  function drawIsometricInline(cells, flags, diff) {
     const canvas = document.getElementById('iso-inline-canvas');
-    drawIsometric(cells, flags, canvas);
+    drawIsometric(cells, flags, canvas, diff);
   }
 
   function openIsoView() {
