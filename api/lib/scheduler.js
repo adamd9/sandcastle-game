@@ -2,6 +2,9 @@ import cron from 'node-cron';
 import { getState, saveState } from './db.js';
 import { applyWeather, recordRound } from './gameLogic.js';
 import { fetchWeather } from './weather.js';
+import { JUDGE_INTERVAL, MAX_JUDGMENTS_HISTORY } from './rules.js';
+import { renderBoard } from './renderer.js';
+import { judgeCastles } from './judge.js';
 
 const DEFAULT_CRON = '0 * * * *';
 const MIN_TICK_INTERVAL_MS = 50 * 60 * 1000; // 50 minutes
@@ -57,6 +60,44 @@ async function runTick() {
     lastTickAt = new Date();
 
     console.log(`[scheduler] tick ${newState.tick} fired at ${lastTickAt.toISOString()}`);
+
+    // Visual judging — every JUDGE_INTERVAL ticks
+    if (newState.tick > 0 && newState.tick % JUDGE_INTERVAL === 0 && process.env.OPENAI_API_KEY) {
+      try {
+        const [p1Img, p2Img] = await Promise.all([
+          renderBoard(newState, { view: 'player1', cellSize: 30 }),
+          renderBoard(newState, { view: 'player2', cellSize: 30 }),
+        ]);
+        const flags = newState.flags || [];
+        const result = await judgeCastles(p1Img, p2Img, {
+          p1Flags: flags.filter(f => f.owner === 'player1'),
+          p2Flags: flags.filter(f => f.owner === 'player2'),
+          tick: newState.tick,
+        });
+        if (!newState.scores) newState.scores = { player1: 0, player2: 0 };
+        if (!newState.judgments) newState.judgments = [];
+        if (result.winner !== 'tie') newState.scores[result.winner] += 1;
+        const judgment = {
+          tick: newState.tick,
+          winner: result.winner,
+          reasoning: result.reasoning,
+          p1_feedback: result.p1_feedback,
+          p2_feedback: result.p2_feedback,
+          scores: { ...newState.scores },
+        };
+        newState.judgments.push(judgment);
+        if (newState.history?.length > 0) {
+          newState.history[newState.history.length - 1].judgment = judgment;
+        }
+        if (newState.judgments.length > MAX_JUDGMENTS_HISTORY) {
+          newState.judgments = newState.judgments.slice(-MAX_JUDGMENTS_HISTORY);
+        }
+        await saveState(newState);
+        console.log(`[scheduler] judgment tick ${newState.tick}: ${result.winner}`);
+      } catch (err) {
+        console.error('[scheduler] Visual judging failed:', err.message);
+      }
+    }
 
     // Fire post-tick hooks if available
     await loadHooks();
