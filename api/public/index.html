@@ -444,8 +444,14 @@
       z-index: 1002;
       box-sizing: border-box;
     }
-    #timeline-scrubber {
+    #timeline-scrubber-wrap {
       flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #timeline-scrubber {
+      width: 100%;
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
@@ -471,9 +477,19 @@
       cursor: pointer;
       border: 2px solid #1a1000;
     }
+    #timeline-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 200px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
     #timeline-label {
       white-space: nowrap;
-      min-width: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
       text-align: right;
     }
     #timeline-reset-btn {
@@ -629,11 +645,15 @@
 
 <div id="timeline-bar">
   <button class="timeline-arrow-btn" id="timeline-prev" title="Previous tick">◀</button>
-  <input type="range" id="timeline-scrubber" min="0" max="0" value="0" step="1">
-  <div id="timeline-markers" style="position:relative;height:8px;margin-top:2px;"></div>
+  <div id="timeline-scrubber-wrap">
+    <input type="range" id="timeline-scrubber" min="0" max="0" value="0" step="1">
+    <div id="timeline-markers" style="position:relative;height:8px;margin-top:2px;"></div>
+  </div>
   <button class="timeline-arrow-btn" id="timeline-next" title="Next tick / live">▶</button>
-  <span id="timeline-label">now</span>
-  <button id="timeline-reset-btn">↩ now</button>
+  <div id="timeline-info">
+    <span id="timeline-label">now</span>
+    <button id="timeline-reset-btn">↩ now</button>
+  </div>
 </div>
 
 <div id="weather-summary" style="display:none;background:#1a1a0a;border:1px solid #3a2a0a;border-radius:6px;padding:10px 12px;margin-top:6px;font-family:'Courier New',monospace;font-size:12px;">
