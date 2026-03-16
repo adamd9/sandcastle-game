@@ -124,6 +124,56 @@ describe('GET /state/:player/history', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /state/:player/my_blocks
+// ---------------------------------------------------------------------------
+describe('GET /state/:player/my_blocks', () => {
+  it('returns empty blocks array when player has no blocks', async () => {
+    const res = await request(app).get('/state/player1/my_blocks');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('player', 'player1');
+    expect(res.body).toHaveProperty('blocks');
+    expect(Array.isArray(res.body.blocks)).toBe(true);
+    expect(res.body.blocks).toHaveLength(0);
+  });
+
+  it('returns only the requesting player\'s blocks with minimal fields', async () => {
+    // Place a block for player1
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ action: 'PLACE', x: 3, y: 3, type: 'packed_sand' });
+
+    // Place a block for player2
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p2')
+      .send({ action: 'PLACE', x: 15, y: 5, type: 'wet_sand' });
+
+    const res = await request(app).get('/state/player1/my_blocks');
+    expect(res.status).toBe(200);
+    expect(res.body.player).toBe('player1');
+    expect(res.body.blocks.length).toBeGreaterThan(0);
+
+    const block = res.body.blocks[0];
+    expect(block).toHaveProperty('x');
+    expect(block).toHaveProperty('y');
+    expect(block).toHaveProperty('level');
+    expect(block).toHaveProperty('type');
+    expect(block).toHaveProperty('health');
+    expect(block).not.toHaveProperty('owner');
+
+    // Should not include player2's block
+    const p2Block = res.body.blocks.find(b => b.x === 15 && b.y === 5);
+    expect(p2Block).toBeUndefined();
+  });
+
+  it('returns 400 for invalid player name', async () => {
+    const res = await request(app).get('/state/unknownplayer/my_blocks');
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /move
 // ---------------------------------------------------------------------------
 describe('POST /move', () => {
