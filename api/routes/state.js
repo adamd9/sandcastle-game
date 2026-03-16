@@ -26,6 +26,23 @@ router.get('/history', async (_req, res) => {
   }
 });
 
+router.get('/:player/my_blocks', async (req, res) => {
+  const { player } = req.params;
+  if (player !== 'player1' && player !== 'player2') {
+    return res.status(400).json({ error: 'player must be player1 or player2' });
+  }
+  try {
+    const state = await getState();
+    const blocks = (state.cells || [])
+      .filter(c => c.owner === player)
+      .map(({ x, y, level, type, health }) => ({ x, y, level, type, health }));
+    res.set('Cache-Control', 'no-store');
+    res.json({ player, blocks });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:player', async (req, res) => {
   const { player } = req.params;
   if (player !== 'player1' && player !== 'player2') {
