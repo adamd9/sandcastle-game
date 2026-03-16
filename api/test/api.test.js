@@ -433,6 +433,104 @@ describe('POST /god/tick god_edits', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// POST /turn
+// ---------------------------------------------------------------------------
+describe('POST /turn', () => {
+  it('rejects request with no API key', async () => {
+    const res = await request(app).post('/turn').send({ moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand' }] });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects empty moves array', async () => {
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it('applies a single move and auto-commits turn', async () => {
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand' }] });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.applied).toBe(1);
+    expect(res.body.turnCommitted).toBe(true);
+  });
+
+  it('rejects a batch where a move is invalid against the initial state', async () => {
+    // Trying to place at level 1 with no foundation — should fail
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand', level: 1 }] });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/Move 1 rejected/);
+  });
+
+  it('processes moves sequentially — later move can use foundation placed by earlier move in same batch', async () => {
+    // Move 1: place level 0 foundation; Move 2: place level 1 on top — both in same batch
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        moves: [
+          { action: 'PLACE', x: 5, y: 5, block_type: 'packed_sand', level: 0 },
+          { action: 'PLACE', x: 5, y: 5, block_type: 'packed_sand', level: 1 },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.applied).toBe(2);
+
+    const state = await request(app).get('/state');
+    const l0 = state.body.cells.find(c => c.x === 5 && c.y === 5 && c.level === 0);
+    const l1 = state.body.cells.find(c => c.x === 5 && c.y === 5 && c.level === 1);
+    expect(l0).toBeDefined();
+    expect(l1).toBeDefined();
+  });
+
+  it('allows stacking all 4 levels (0–3) in a single batch', async () => {
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        moves: [
+          { action: 'PLACE', x: 4, y: 4, block_type: 'packed_sand', level: 0 },
+          { action: 'PLACE', x: 4, y: 4, block_type: 'packed_sand', level: 1 },
+          { action: 'PLACE', x: 4, y: 4, block_type: 'packed_sand', level: 2 },
+          { action: 'PLACE', x: 4, y: 4, block_type: 'packed_sand', level: 3 },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.applied).toBe(4);
+
+    const state = await request(app).get('/state');
+    for (let lvl = 0; lvl <= 3; lvl++) {
+      const cell = state.body.cells.find(c => c.x === 4 && c.y === 4 && c.level === lvl);
+      expect(cell).toBeDefined();
+    }
+  });
+
+  it('rejects the second move when it is invalid given the state after the first', async () => {
+    // Move 1 places at (5,5) level 0; Move 2 tries to place at (5,5) level 0 again — occupied
+    const res = await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        moves: [
+          { action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand', level: 0 },
+          { action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand', level: 0 },
+        ],
+      });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatch(/Move 2 rejected/);
+  });
+});
+
 /* ── Render endpoint tests ──────────────────────────── */
 
 describe('GET /render', () => {

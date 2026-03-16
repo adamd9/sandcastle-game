@@ -214,21 +214,18 @@ export function createMcpRouter() {
           };
         }
 
-        // Validate all moves up-front
+        // Validate and apply moves sequentially so each move sees the updated state
+        // from all previous moves in the batch (enables stacking multiple levels in one turn).
+        let newState = structuredClone(state);
         for (let i = 0; i < moves.length; i++) {
           const { action, x, y, block_type, level } = moves[i];
-          const result = validateMove(state, player, { action, x, y, type: block_type, level });
+          const result = validateMove(newState, player, { action, x, y, type: block_type, level });
           if (!result.valid) {
             return {
               content: [{ type: 'text', text: `Move ${i + 1} rejected: ${result.reason}` }],
               isError: true,
             };
           }
-        }
-
-        // Apply all moves then auto-commit
-        let newState = structuredClone(state);
-        for (const { action, x, y, block_type, level } of moves) {
           newState = applyMove(newState, player, { action, x, y, type: block_type, level });
         }
         newState = commitTurn(newState, player);
