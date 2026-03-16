@@ -31,6 +31,26 @@ describe('POST /mcp', () => {
     expect(names).toContain('submit_turn');
   });
 
+  it('get_rules includes flag mechanics', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_rules', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const text = res.body.result?.content?.[0]?.text;
+    expect(text).toBeDefined();
+    const rules = JSON.parse(text);
+    expect(rules).toHaveProperty('flag_mechanics');
+    expect(rules.flag_mechanics).toHaveProperty('damage_reduction', 0.5);
+    expect(rules.flag_mechanics).toHaveProperty('min_spacing', 4);
+    expect(rules.flag_mechanics).toHaveProperty('protection_model');
+    expect(rules.flag_mechanics).toHaveProperty('strategy');
+  });
+
   it('get_state returns game state', async () => {
     const res = await request(app)
       .post('/mcp')
