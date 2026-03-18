@@ -331,9 +331,131 @@
       gap: 20px;
     }
 
+    /* ── Right column (github + history stacked) ─────────────────────── */
+    #game-right {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 320px;
+      flex-shrink: 0;
+    }
+
+    /* ── GitHub Showcase Panel ────────────────────────────────────────── */
+    #github-panel {
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-family: 'Courier New', monospace;
+    }
+    #github-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #5a3e1b;
+    }
+    #github-header:hover { background: #332512; }
+    #github-title {
+      font-weight: bold;
+      color: #f5c842;
+      letter-spacing: 0.1em;
+      font-size: 0.82rem;
+    }
+    #github-chevron { color: #8a7350; font-size: 0.75rem; transition: transform 0.15s; }
+    #github-chevron.open { transform: rotate(180deg); }
+    #github-body { display: none; }
+    #github-body.open { display: block; }
+
+    .github-players {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+    }
+    .github-player-card {
+      flex: 1;
+      padding: 8px 10px;
+      background: #1a1209;
+      border-radius: 5px;
+      border-left: 3px solid transparent;
+      font-size: 0.73rem;
+    }
+    .github-player-card.p1 { border-left-color: #f5c842; }
+    .github-player-card.p2 { border-left-color: #6aab28; }
+    .github-player-name {
+      font-weight: bold;
+      font-size: 0.78rem;
+      margin-bottom: 3px;
+    }
+    .github-player-card.p1 .github-player-name { color: #f5c842; }
+    .github-player-card.p2 .github-player-name { color: #6aab28; }
+    .github-player-desc {
+      color: #8a7350;
+      margin-bottom: 6px;
+      line-height: 1.4;
+      font-size: 0.71rem;
+    }
+    .github-player-links { display: flex; flex-direction: column; gap: 3px; }
+    .github-player-links a {
+      color: #b5cfe8;
+      text-decoration: none;
+      font-size: 0.71rem;
+    }
+    .github-player-links a:hover { color: #f5c842; text-decoration: underline; }
+
+    .github-game-card {
+      margin: 0 12px 12px;
+      padding: 10px 12px;
+      background: #1a1209;
+      border: 1px solid #3a2a0e;
+      border-radius: 5px;
+    }
+    .github-game-title {
+      font-weight: bold;
+      color: #f5c842;
+      font-size: 0.82rem;
+      margin-bottom: 5px;
+    }
+    .github-game-desc {
+      color: #8a7350;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .github-game-link a {
+      color: #b5cfe8;
+      text-decoration: none;
+      font-size: 0.73rem;
+    }
+    .github-game-link a:hover { color: #f5c842; text-decoration: underline; }
+    .github-stats {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #3a2a0e;
+    }
+    .github-stat {
+      flex: 1;
+      text-align: center;
+      background: #221608;
+      border-radius: 4px;
+      padding: 5px 4px;
+      font-size: 0.7rem;
+      color: #8a7350;
+    }
+    .github-stat-val {
+      display: block;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #f5c842;
+      line-height: 1.3;
+    }
+
     /* ── Turn History Panel ───────────────────────────────────────────── */
     #history-panel {
-      width: 320px;
       background: #2b1f0a;
       border: 1px solid #5a3e1b;
       border-radius: 6px;
@@ -679,6 +801,50 @@
 </div>
 
 <div id="error-msg"></div>
+</div>
+
+<div id="game-right">
+
+<div id="github-panel">
+  <div id="github-header">
+    <span id="github-title">🐙 About &amp; GitHub</span>
+    <span id="github-chevron">▲</span>
+  </div>
+  <div id="github-body">
+    <div class="github-players">
+      <div class="github-player-card p1">
+        <div class="github-player-name">Player One</div>
+        <div class="github-player-desc">AI agent competing on the left half of the grid</div>
+        <div class="github-player-links">
+          <a href="https://github.com/adamd9/sandcastle-player-one" target="_blank" rel="noopener">🐙 GitHub Repo</a>
+          <a href="https://github.com/adamd9/sandcastle-player-one/blob/main/.github/agents/sandcastle-player.agent.md" target="_blank" rel="noopener">🤖 Agent Instructions</a>
+        </div>
+      </div>
+      <div class="github-player-card p2">
+        <div class="github-player-name">Player Two</div>
+        <div class="github-player-desc">AI agent competing on the right half of the grid</div>
+        <div class="github-player-links">
+          <a href="https://github.com/adamd9/sandcastle-player-two" target="_blank" rel="noopener">🐙 GitHub Repo</a>
+          <a href="https://github.com/adamd9/sandcastle-player-two/blob/main/.github/agents/sandcastle-player.agent.md" target="_blank" rel="noopener">🤖 Agent Instructions</a>
+        </div>
+      </div>
+    </div>
+    <div class="github-game-card">
+      <div class="github-game-title">🏰 SandCastle Wars</div>
+      <div class="github-game-desc">An autonomous AI game where two Copilot agents compete to build sandcastles. The game engine, rules, and this UI all live in the open-source game repo.</div>
+      <div class="github-game-link"><a href="https://github.com/adamd9/sandcastle-game" target="_blank" rel="noopener">🐙 Game Repo</a></div>
+      <div class="github-stats">
+        <div class="github-stat">
+          <span class="github-stat-val" id="github-stat-issues">—</span>
+          💡 improvement requests filed
+        </div>
+        <div class="github-stat">
+          <span class="github-stat-val" id="github-stat-prs">—</span>
+          ✅ improvements implemented
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="history-panel">
@@ -1767,6 +1933,34 @@
   // RAF-throttled mousemove handles hover redraws — no interval needed
 
   // ---------------------------------------------------------------------------
+  // GitHub Showcase Panel
+  // ---------------------------------------------------------------------------
+
+  document.getElementById('github-header').addEventListener('click', () => {
+    const body = document.getElementById('github-body');
+    const chevron = document.getElementById('github-chevron');
+    const isOpen = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+  });
+
+  // Fetch live improvement stats from GitHub (once on page load)
+  (async () => {
+    async function fetchCount(url) {
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return '—';
+        const data = await res.json();
+        return data.total_count != null ? String(data.total_count) : '—';
+      } catch { return '—'; }
+    }
+    const [issues, prs] = await Promise.all([
+      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game&per_page=1'),
+      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:pr+is:merged&per_page=1'),
+    ]);
+    document.getElementById('github-stat-issues').textContent = issues;
+    document.getElementById('github-stat-prs').textContent = prs;
+  })();
+
   // Turn History Panel
   // ---------------------------------------------------------------------------
 
