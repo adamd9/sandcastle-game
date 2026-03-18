@@ -453,6 +453,15 @@
       color: #f5c842;
       line-height: 1.3;
     }
+    .github-stat-link {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+    }
+    .github-stat-link:hover .github-stat-val {
+      text-decoration: underline;
+      color: #ffd96b;
+    }
 
     /* ── Turn History Panel ───────────────────────────────────────────── */
     #history-panel {
@@ -835,12 +844,16 @@
       <div class="github-game-link"><a href="https://github.com/adamd9/sandcastle-game" target="_blank" rel="noopener">🐙 Game Repo</a></div>
       <div class="github-stats">
         <div class="github-stat">
-          <span class="github-stat-val" id="github-stat-issues">—</span>
-          💡 improvement requests filed
+          <a class="github-stat-link" id="github-stat-issues-link" href="https://github.com/adamd9/sandcastle-game/issues?q=label%3Agame-improvement" target="_blank" rel="noopener">
+            <span class="github-stat-val" id="github-stat-issues">—</span>
+            💡 improvement requests filed
+          </a>
         </div>
         <div class="github-stat">
-          <span class="github-stat-val" id="github-stat-prs">—</span>
-          ✅ improvements implemented
+          <a class="github-stat-link" id="github-stat-prs-link" href="https://github.com/adamd9/sandcastle-game/issues?q=label%3Agame-improvement+is%3Aclosed" target="_blank" rel="noopener">
+            <span class="github-stat-val" id="github-stat-prs">—</span>
+            ✅ improvements implemented
+          </a>
         </div>
       </div>
     </div>
@@ -1954,8 +1967,8 @@
       } catch { return '—'; }
     }
     const [issues, prs] = await Promise.all([
-      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game&per_page=1'),
-      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:pr+is:merged&per_page=1'),
+      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:issue+label:game-improvement&per_page=1'),
+      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:issue+label:game-improvement+is:closed&per_page=1'),
     ]);
     document.getElementById('github-stat-issues').textContent = issues;
     document.getElementById('github-stat-prs').textContent = prs;
