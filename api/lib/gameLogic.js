@@ -282,7 +282,7 @@ export function recordRound(state) {
     flags_snapshot: structuredClone(state.flags || []),
   };
   state.history.push(round);
-  if (state.history.length > 20) state.history = state.history.slice(-20);
+  // No cap — all history is retained. Endpoints slice as needed for consumers.
   return state;
 }
 

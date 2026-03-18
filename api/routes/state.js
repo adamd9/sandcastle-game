@@ -15,12 +15,15 @@ router.get('/', async (_req, res) => {
 });
 
 // Must be defined before /:player to avoid being captured as player='history'
-router.get('/history', async (_req, res) => {
+router.get('/history', async (req, res) => {
   try {
     const state = await getState();
-    const history = (state.history || []).slice(-20);
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
+    const history = limit > 0
+      ? (state.history || []).slice(-limit)
+      : (state.history || []);
     res.set('Cache-Control', 'no-store');
-    res.json({ history });
+    res.json({ history, total: (state.history || []).length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
