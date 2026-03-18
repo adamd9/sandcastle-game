@@ -283,3 +283,82 @@ describe('applyWeather', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// computeStructureScore
+// ---------------------------------------------------------------------------
+
+import { computeStructureScore } from '../lib/gameLogic.js';
+
+describe('computeStructureScore', () => {
+  it('returns all zeros for empty board', () => {
+    const score = computeStructureScore([], 'player1');
+    expect(score).toEqual({ total_hp: 0, max_height: 0, footprint: 0, courtyard_bonus: 0 });
+  });
+
+  it('calculates total_hp as sum of all block health', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'dry_sand',    health: 25, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.total_hp).toBe(85);
+  });
+
+  it('only counts cells belonging to the specified player', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 15, y: 5, level: 0, type: 'dry_sand',    health: 25, owner: 'player2' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.total_hp).toBe(60);
+    expect(score.footprint).toBe(1);
+  });
+
+  it('calculates max_height as highest level + 1', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.max_height).toBe(3);
+  });
+
+  it('calculates footprint as distinct (x,y) positions', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.footprint).toBe(3); // (3,5), (4,5), (5,6)
+  });
+
+  it('detects enclosed courtyard cells', () => {
+    // Build a 3x3 ring of blocks in player1 zone (columns 0-9) to enclose (4,10)
+    // Ring: positions (3,9),(4,9),(5,9),(3,10),(5,10),(3,11),(4,11),(5,11)
+    const ring = [
+      [3, 9], [4, 9], [5, 9],
+      [3, 10],        [5, 10],
+      [3, 11], [4, 11], [5, 11],
+    ];
+    const cells = ring.map(([x, y]) => ({
+      x, y, level: 0, type: 'packed_sand', health: 60, owner: 'player1',
+    }));
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.courtyard_bonus).toBe(1); // (4,10) is enclosed
+  });
+
+  it('returns zero courtyard_bonus for open structures without enclosure', () => {
+    // Just a straight line — nothing enclosed
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.courtyard_bonus).toBe(0);
+  });
+});
