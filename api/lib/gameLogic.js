@@ -279,6 +279,7 @@ export function recordRound(state) {
     },
     weatherEvents: [],
     cells: structuredClone(state.cells),
+    flags_snapshot: structuredClone(state.flags || []),
   };
   state.history.push(round);
   if (state.history.length > 20) state.history = state.history.slice(-20);
