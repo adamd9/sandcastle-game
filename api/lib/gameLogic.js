@@ -2,8 +2,10 @@ import {
   ZONES,
   ACTIONS_PER_TICK,
   BLOCK_TYPES,
+  VALID_ACTIONS,
   REINFORCE_AMOUNT,
   MAX_HEALTH,
+  REPAIR_KIT_COOLDOWN,
   GRID_WIDTH,
   GRID_HEIGHT,
   WATER_ROWS,
@@ -301,8 +303,26 @@ export function validateMove(state, player, action) {
       return { valid: true };
     }
 
+    case 'REPAIR_KIT': {
+      if (!cell) {
+        return { valid: false, reason: `No block at (${x},${y}).` };
+      }
+      if (cell.owner !== player) {
+        return { valid: false, reason: `Cell (${x},${y}) belongs to ${cell.owner}.` };
+      }
+      if (cell.type === 'moat') {
+        return { valid: false, reason: 'Moat blocks are permanent and cannot be repaired.' };
+      }
+      const lastUsed = playerState.repairKitLastUsedTick;
+      if (lastUsed !== undefined && lastUsed !== null && state.tick - lastUsed < REPAIR_KIT_COOLDOWN) {
+        const ticksRemaining = REPAIR_KIT_COOLDOWN - (state.tick - lastUsed);
+        return { valid: false, reason: `Repair Kit is on cooldown. Available in ${ticksRemaining} more tick(s).` };
+      }
+      return { valid: true };
+    }
+
     default:
-      return { valid: false, reason: `Unknown action "${type}". Valid actions: PLACE, REMOVE, REINFORCE.` };
+      return { valid: false, reason: `Unknown action "${type}". Valid actions: ${VALID_ACTIONS.join(', ')}.` };
   }
 }
 
@@ -339,6 +359,12 @@ export function applyMove(state, player, action) {
     case 'REINFORCE': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
       cell.health = Math.min(cell.health + REINFORCE_AMOUNT, MAX_HEALTH);
+      break;
+    }
+    case 'REPAIR_KIT': {
+      const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
+      cell.health = MAX_HEALTH;
+      state.players[player].repairKitLastUsedTick = state.tick;
       break;
     }
   }
