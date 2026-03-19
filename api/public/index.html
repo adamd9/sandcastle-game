@@ -554,6 +554,63 @@
     .timeline-judgment-marker { position: absolute; top: -5px; width: 10px; height: 10px; background: #c0a030; transform: translateX(-50%) rotate(45deg); cursor: pointer; z-index: 1; border: 1px solid #f5c842; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
 
+    /* ── Structure Scores Panel ───────────────────────────────────────── */
+    #structure-panel {
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-family: 'Courier New', monospace;
+    }
+    #structure-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #5a3e1b;
+    }
+    #structure-header:hover { background: #332512; }
+    #structure-title {
+      font-weight: bold;
+      color: #f5c842;
+      letter-spacing: 0.1em;
+      font-size: 0.82rem;
+    }
+    #structure-chevron { color: #8a7350; font-size: 0.75rem; transition: transform 0.15s; }
+    #structure-chevron.open { transform: rotate(180deg); }
+    #structure-body { display: block; }
+    #structure-body.collapsed { display: none; }
+    #structure-table {
+      padding: 10px 12px;
+    }
+    #structure-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #structure-table th {
+      color: #8a7350;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: right;
+      padding: 4px 8px;
+      border-bottom: 1px solid #3a2a0e;
+      font-weight: normal;
+    }
+    #structure-table th:first-child { text-align: left; }
+    #structure-table td {
+      padding: 5px 8px;
+      text-align: right;
+      border-bottom: 1px solid #221508;
+      color: #e8d5a3;
+    }
+    #structure-table td:first-child { text-align: left; color: #8a7350; }
+    #structure-table tr:last-child td { border-bottom: none; }
+    .struct-val-p1 { color: #6bc5f8; font-weight: bold; }
+    .struct-val-p2 { color: #f87171; font-weight: bold; }
+
     /* ── Timeline Scrubber ───────────────────────────────────────────── */
     #timeline-bar {
       display: flex;
@@ -856,6 +913,48 @@
           </a>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="structure-panel">
+  <div id="structure-header">
+    <span id="structure-title">📐 Structure Scores</span>
+    <span id="structure-chevron" class="open">▲</span>
+  </div>
+  <div id="structure-body">
+    <div id="structure-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th style="color:#6bc5f8">Player 1</th>
+            <th style="color:#f87171">Player 2</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Total HP</td>
+            <td class="struct-val-p1" id="struct-p1-hp">—</td>
+            <td class="struct-val-p2" id="struct-p2-hp">—</td>
+          </tr>
+          <tr>
+            <td>Max Height</td>
+            <td class="struct-val-p1" id="struct-p1-height">—</td>
+            <td class="struct-val-p2" id="struct-p2-height">—</td>
+          </tr>
+          <tr>
+            <td>Footprint</td>
+            <td class="struct-val-p1" id="struct-p1-footprint">—</td>
+            <td class="struct-val-p2" id="struct-p2-footprint">—</td>
+          </tr>
+          <tr>
+            <td>Courtyard</td>
+            <td class="struct-val-p1" id="struct-p1-courtyard">—</td>
+            <td class="struct-val-p2" id="struct-p2-courtyard">—</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1328,6 +1427,19 @@
       // Visual scores
       document.getElementById('stat-p1-score').textContent = state.scores?.player1 ?? 0;
       document.getElementById('stat-p2-score').textContent = state.scores?.player2 ?? 0;
+
+      // Structure scores
+      const ss = state.structure_scores;
+      if (ss) {
+        document.getElementById('struct-p1-hp').textContent        = ss.player1.total_hp;
+        document.getElementById('struct-p2-hp').textContent        = ss.player2.total_hp;
+        document.getElementById('struct-p1-height').textContent    = ss.player1.max_height;
+        document.getElementById('struct-p2-height').textContent    = ss.player2.max_height;
+        document.getElementById('struct-p1-footprint').textContent = ss.player1.footprint;
+        document.getElementById('struct-p2-footprint').textContent = ss.player2.footprint;
+        document.getElementById('struct-p1-courtyard').textContent = ss.player1.courtyard_bonus;
+        document.getElementById('struct-p2-courtyard').textContent = ss.player2.courtyard_bonus;
+      }
 
       document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
       renderHistory(state.history);
@@ -1981,6 +2093,13 @@
   document.getElementById('history-header').addEventListener('click', () => {
     const body = document.getElementById('history-body');
     const chevron = document.getElementById('history-chevron');
+    const collapsed = body.classList.toggle('collapsed');
+    chevron.classList.toggle('open', !collapsed);
+  });
+
+  document.getElementById('structure-header').addEventListener('click', () => {
+    const body = document.getElementById('structure-body');
+    const chevron = document.getElementById('structure-chevron');
     const collapsed = body.classList.toggle('collapsed');
     chevron.classList.toggle('open', !collapsed);
   });

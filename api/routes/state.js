@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getState } from '../lib/db.js';
+import { computeStructureScore } from '../lib/gameLogic.js';
 
 const router = Router();
 
@@ -7,6 +8,10 @@ router.get('/', async (_req, res) => {
   try {
     const state = await getState();
     const { history: _history, ...response } = state;
+    response.structure_scores = {
+      player1: computeStructureScore(state.cells || [], 'player1'),
+      player2: computeStructureScore(state.cells || [], 'player2'),
+    };
     res.set('Cache-Control', 'no-store');
     res.json(response);
   } catch (err) {
