@@ -16,6 +16,78 @@ import {
 } from './rules.js';
 
 // ---------------------------------------------------------------------------
+// computeStructureScore — live score formula for a player's current structure
+// ---------------------------------------------------------------------------
+
+export function computeStructureScore(cells, player) {
+  const playerCells = cells.filter(c => c.owner === player);
+
+  // (1) Total block HP remaining (resilience)
+  const total_hp = playerCells.reduce((sum, c) => sum + c.health, 0);
+
+  // (2) Max height achieved (highest level + 1; level 0 = height 1)
+  const max_height = playerCells.length > 0
+    ? Math.max(...playerCells.map(c => c.level)) + 1
+    : 0;
+
+  // (3) Footprint: number of distinct (x,y) cells with at least one block
+  const occupiedSet = new Set(playerCells.map(c => `${c.x},${c.y}`));
+  const footprint = occupiedSet.size;
+
+  // (4) Courtyard bonus: empty cells fully enclosed within the player's structure.
+  //     Uses a flood-fill from the zone boundary — any empty cell in the zone that
+  //     is NOT reachable from the boundary counts as an enclosed courtyard cell.
+  const zone = ZONES[player];
+  const DX = [-1, 0, 1, 0];
+  const DY = [0, -1, 0, 1];
+
+  const visited = new Set();
+  const queue = [];
+
+  // Seed the flood fill with all empty boundary cells of the player's zone
+  for (let x = zone.x_min; x <= zone.x_max; x++) {
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      if (x === zone.x_min || x === zone.x_max || y === 0 || y === GRID_HEIGHT - 1) {
+        const key = `${x},${y}`;
+        if (!occupiedSet.has(key) && !visited.has(key)) {
+          visited.add(key);
+          queue.push([x, y]);
+        }
+      }
+    }
+  }
+
+  // BFS through empty cells inside the zone
+  let head = 0;
+  while (head < queue.length) {
+    const [cx, cy] = queue[head++];
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DX[d];
+      const ny = cy + DY[d];
+      if (nx < zone.x_min || nx > zone.x_max || ny < 0 || ny >= GRID_HEIGHT) continue;
+      const key = `${nx},${ny}`;
+      if (!occupiedSet.has(key) && !visited.has(key)) {
+        visited.add(key);
+        queue.push([nx, ny]);
+      }
+    }
+  }
+
+  // Any empty cell in the zone that was not reached = enclosed courtyard
+  let courtyard_bonus = 0;
+  for (let x = zone.x_min; x <= zone.x_max; x++) {
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      const key = `${x},${y}`;
+      if (!occupiedSet.has(key) && !visited.has(key)) {
+        courtyard_bonus++;
+      }
+    }
+  }
+
+  return { total_hp, max_height, footprint, courtyard_bonus };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

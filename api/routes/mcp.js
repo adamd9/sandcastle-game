@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove, commitTurn } from '../lib/gameLogic.js';
+import { validateMove, applyMove, commitTurn, computeStructureScore } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
@@ -169,6 +169,8 @@ export function createMcpRouter() {
             opponent_blocks: state.cells.filter(c => c.owner !== player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
             scores: state.scores ?? { player1: 0, player2: 0 },
             last_judgment: lastJudgment,
+            my_structure_score: computeStructureScore(state.cells, player),
+            opponent_structure_score: computeStructureScore(state.cells, player === 'player1' ? 'player2' : 'player1'),
           },
           recent_history: recentHistory,
         };
