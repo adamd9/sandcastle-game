@@ -13,6 +13,7 @@ import {
   selectWeatherEvent,
   WEATHER_EVENTS,
   FLAG_DAMAGE_REDUCTION,
+  MOAT_DAMAGE_REDUCTION,
 } from './rules.js';
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,36 @@ function buildFlagProtectedSet(cells, flags) {
 }
 
 // ---------------------------------------------------------------------------
+// Moat protection — returns Set of "x,y" positions adjacent to a same-owner moat
+// ---------------------------------------------------------------------------
+
+function buildMoatProtectedPositions(cells) {
+  const moatPositions = new Map(); // "x,y" -> owner
+  for (const cell of cells) {
+    if (cell.type === 'moat') {
+      moatPositions.set(`${cell.x},${cell.y}`, cell.owner);
+    }
+  }
+
+  const DX = [-1, 0, 1, 0];
+  const DY = [0, -1, 0, 1];
+  const moatProtected = new Set();
+
+  for (const cell of cells) {
+    if (cell.type === 'moat') continue;
+    for (let d = 0; d < 4; d++) {
+      const nk = `${cell.x + DX[d]},${cell.y + DY[d]}`;
+      if (moatPositions.has(nk) && moatPositions.get(nk) === cell.owner) {
+        moatProtected.add(`${cell.x},${cell.y}`);
+        break;
+      }
+    }
+  }
+
+  return moatProtected;
+}
+
+// ---------------------------------------------------------------------------
 // validateMove — returns { valid: true } or { valid: false, reason: string }
 // ---------------------------------------------------------------------------
 
@@ -235,6 +266,9 @@ export function validateMove(state, player, action) {
           reason: `Unknown block type "${blockType}". Valid types: ${Object.keys(BLOCK_TYPES).join(', ')}.`,
         };
       }
+      if (blockType === 'moat' && level > 0) {
+        return { valid: false, reason: 'Moat blocks cannot be stacked — they can only be placed at level 0.' };
+      }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
         if (!foundation) {
@@ -260,6 +294,9 @@ export function validateMove(state, player, action) {
       }
       if (cell.owner !== player) {
         return { valid: false, reason: `Cell (${x},${y}) belongs to ${cell.owner}.` };
+      }
+      if (cell.type === 'moat') {
+        return { valid: false, reason: 'Moat blocks are permanent and cannot be reinforced.' };
       }
       return { valid: true };
     }
@@ -392,13 +429,20 @@ export function applyWeather(state) {
   // Determine which blocks are protected by flags (connected component analysis)
   const protectedSet = buildFlagProtectedSet(state.cells, state.flags || []);
 
+  // Determine which positions are adjacent to a same-owner moat (25% damage reduction)
+  const moatProtectedPositions = buildMoatProtectedPositions(state.cells);
+
+  // Moat cells are permanent and immune to all weather — separate them before processing
+  const moatCells = state.cells.filter(c => c.type === 'moat');
+  const regularCells = state.cells.filter(c => c.type !== 'moat');
+
   const events = [];
   let survivingCells;
 
   if (weatherEvent.specialEffect === 'wave_surge') {
     // Build top-block map for "other rows" standard damage
     const topBlocks = new Map();
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       const key = `${cell.x},${cell.y}`;
       if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
         topBlocks.set(key, cell);
@@ -411,7 +455,7 @@ export function applyWeather(state) {
     const waveSurgeDirectZone = new Set();
 
     // Rows WATER_ROWS to WATER_ROWS+2: direct wipe (unless flag-protected)
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
         waveSurgeDirectZone.add(`${cell.x},${cell.y}`);
         const cellKey = `${cell.x},${cell.y},${cell.level}`;
@@ -422,11 +466,13 @@ export function applyWeather(state) {
     }
 
     // Rows WATER_ROWS+3 to WATER_ROWS+5: 40 damage (reduced if protected) to L0; if L0 dies → cascade
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
         const cellKey = `${cell.x},${cell.y},${cell.level}`;
         const isProtected = protectedSet.has(cellKey);
-        const dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+        const isMoatProtected = moatProtectedPositions.has(`${cell.x},${cell.y}`);
+        let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+        if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
         if (cell.health - dmg <= 0) {
           cascadePositions.add(`${cell.x},${cell.y}`);
         }
@@ -434,10 +480,11 @@ export function applyWeather(state) {
     }
 
     survivingCells = [];
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       const posKey = `${cell.x},${cell.y}`;
       const cellKey = `${cell.x},${cell.y},${cell.level}`;
       const isProtected = protectedSet.has(cellKey);
+      const isMoatProtected = moatProtectedPositions.has(posKey);
       const healthBefore = cell.health;
 
       if (cascadePositions.has(posKey)) {
@@ -451,7 +498,8 @@ export function applyWeather(state) {
         });
       } else if (waveSurgeDirectZone.has(posKey) && isProtected) {
         // Flag-protected block in direct wipe zone — heavy damage instead of instant destroy
-        const dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
+        let dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
+        if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
         const healthAfter = healthBefore - dmg;
         events.push({
           type: healthAfter <= 0 ? 'destroyed' : 'damaged',
@@ -460,11 +508,13 @@ export function applyWeather(state) {
           health_before: healthBefore, health_after: Math.max(0, healthAfter),
           event: weatherEvent.id,
           flag_protected: true,
+          ...(isMoatProtected ? { moat_protected: true } : {}),
         });
         if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
         // L0 survived the damage
-        const dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+        let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+        if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
         const healthAfter = cell.health - dmg;
         events.push({
           type: 'damaged',
@@ -473,6 +523,7 @@ export function applyWeather(state) {
           health_before: healthBefore, health_after: healthAfter,
           event: weatherEvent.id,
           ...(isProtected ? { flag_protected: true } : {}),
+          ...(isMoatProtected ? { moat_protected: true } : {}),
         });
         survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level > 0) {
@@ -484,6 +535,7 @@ export function applyWeather(state) {
         if (isTop) {
           let rainDmg = Math.round(baseRain * mult);
           if (isProtected) rainDmg = Math.floor(rainDmg * FLAG_DAMAGE_REDUCTION);
+          if (isMoatProtected) rainDmg = Math.floor(rainDmg * (1 - MOAT_DAMAGE_REDUCTION));
           const healthAfter = healthBefore - rainDmg;
           if (rainDmg > 0) {
             events.push({
@@ -493,6 +545,7 @@ export function applyWeather(state) {
               health_before: healthBefore, health_after: healthAfter,
               event: weatherEvent.id,
               ...(isProtected ? { flag_protected: true } : {}),
+              ...(isMoatProtected ? { moat_protected: true } : {}),
             });
           }
           if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -510,7 +563,7 @@ export function applyWeather(state) {
 
     // Top-block map for unaffected columns
     const topBlocks = new Map();
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       if (!cols.has(cell.x)) {
         const key = `${cell.x},${cell.y}`;
         if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
@@ -520,10 +573,11 @@ export function applyWeather(state) {
     }
 
     survivingCells = [];
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       const healthBefore = cell.health;
       const cellKey = `${cell.x},${cell.y},${cell.level}`;
       const isProtected = protectedSet.has(cellKey);
+      const isMoatProtected = moatProtectedPositions.has(`${cell.x},${cell.y}`);
       if (cols.has(cell.x)) {
         events.push({
           type: 'destroyed',
@@ -539,6 +593,7 @@ export function applyWeather(state) {
         if (isTop) {
           let rainDmg = Math.round(baseRain * mult);
           if (isProtected) rainDmg = Math.floor(rainDmg * FLAG_DAMAGE_REDUCTION);
+          if (isMoatProtected) rainDmg = Math.floor(rainDmg * (1 - MOAT_DAMAGE_REDUCTION));
           const healthAfter = healthBefore - rainDmg;
           if (rainDmg > 0) {
             events.push({
@@ -549,6 +604,7 @@ export function applyWeather(state) {
               event: weatherEvent.id,
               rogue_cols: [...cols],
               ...(isProtected ? { flag_protected: true } : {}),
+              ...(isMoatProtected ? { moat_protected: true } : {}),
             });
           }
           if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -561,7 +617,7 @@ export function applyWeather(state) {
   } else {
     // Normal / calm / storm — only the TOP block per (x,y) is exposed to weather
     const topBlocks = new Map();
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       const key = `${cell.x},${cell.y}`;
       if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
         topBlocks.set(key, cell);
@@ -569,19 +625,21 @@ export function applyWeather(state) {
     }
 
     survivingCells = [];
-    for (const cell of state.cells) {
+    for (const cell of regularCells) {
       const key = `${cell.x},${cell.y}`;
       const isTop = topBlocks.get(key) === cell;
 
       if (isTop) {
         const cellKey = `${cell.x},${cell.y},${cell.level}`;
         const isProtected = protectedSet.has(cellKey);
+        const isMoatProtected = moatProtectedPositions.has(key);
         const rainDmg = Math.round(baseRain * mult);
         const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
           ? baseWind : 0;
         const windDmg = Math.round(rawWind * mult);
         let totalDamage = rainDmg + windDmg;
         if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
+        if (isMoatProtected) totalDamage = Math.floor(totalDamage * (1 - MOAT_DAMAGE_REDUCTION));
         const healthBefore = cell.health;
         const healthAfter = cell.health - totalDamage;
         if (totalDamage > 0) {
@@ -592,6 +650,7 @@ export function applyWeather(state) {
             health_before: healthBefore, health_after: healthAfter,
             event: weatherEvent.id,
             ...(isProtected ? { flag_protected: true } : {}),
+            ...(isMoatProtected ? { moat_protected: true } : {}),
           });
         }
         if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -602,7 +661,8 @@ export function applyWeather(state) {
     }
   }
 
-  state.cells = survivingCells;
+  // Moat cells are permanent — add them back after weather processing
+  state.cells = [...survivingCells, ...moatCells];
   state.weatherEvents = events;
 
   // Remove flags whose host block was destroyed this tick

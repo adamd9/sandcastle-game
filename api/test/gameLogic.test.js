@@ -110,6 +110,29 @@ describe('validateMove', () => {
     expect(r.valid).toBe(false);
     expect(r.reason).toMatch(/unknown action/i);
   });
+
+  describe('moat validation', () => {
+    it('allows PLACE moat at level 0', () => {
+      const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'moat' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects PLACE moat at level > 0', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'moat', level: 1 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/moat/i);
+    });
+
+    it('rejects REINFORCE on a moat block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/moat/i);
+    });
+  });
 });
 
 describe('applyMove', () => {
@@ -280,6 +303,77 @@ describe('applyWeather', () => {
       // Flag-protected: takes floor(40 * 0.5) = 20 damage instead of instant destroy
       expect(next.cells).toHaveLength(1);
       expect(next.cells[0].health).toBe(40);
+    });
+  });
+
+  describe('moat mechanic', () => {
+    it('moat block is immune to weather damage', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 10, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // Moat block survives with health 0 (permanent)
+      const moat = next.cells.find(c => c.type === 'moat');
+      expect(moat).toBeDefined();
+      expect(moat.health).toBe(0);
+    });
+
+    it('moat block survives wave_surge event', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 4, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      const moat = next.cells.find(c => c.type === 'moat');
+      expect(moat).toBeDefined();
+    });
+
+    it('adjacent same-owner block gets 25% damage reduction from moat', () => {
+      const state = freshState();
+      // Moat at (4, 10), castle block at (5, 10) — adjacent, same owner
+      state.cells.push({ x: 4, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, with 25% moat reduction → floor(13 * 0.75) = 9
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(51); // 60 - 9 = 51
+    });
+
+    it('non-adjacent block does not get moat reduction', () => {
+      const state = freshState();
+      // Moat at (4, 10), castle block at (7, 10) — not adjacent
+      state.cells.push({ x: 4, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      state.cells.push({ x: 7, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, no moat reduction
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(47); // 60 - 13 = 47
+    });
+
+    it('moat does not protect blocks owned by a different player', () => {
+      const state = freshState();
+      // Player1 moat at (9, 10), player2 castle block at (10, 10) — adjacent but different owner
+      state.cells.push({ x: 9, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      state.cells.push({ x: 10, y: 10, type: 'packed_sand', health: 60, owner: 'player2', level: 0 });
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, no moat reduction (different owner)
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(47); // 60 - 13 = 47
+    });
+
+    it('moat and flag protection stack multiplicatively', () => {
+      const state = freshState();
+      // Moat at (4, 10), flagged castle block at (5, 10)
+      state.cells.push({ x: 4, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.flags = [{ x: 5, y: 10, level: 0, owner: 'player1', label: 'Keep' }];
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, flag: floor(13 * 0.5) = 6, moat: floor(6 * 0.75) = 4
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(56); // 60 - 4 = 56
     });
   });
 });

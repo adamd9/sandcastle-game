@@ -5,6 +5,7 @@ const BLOCK_DRAW_COLORS = {
   packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
   wet_sand:    { player1: '#c49a28', player2: '#6aab28' },
   dry_sand:    { player1: '#e8d5a3', player2: '#a3e8a3' },
+  moat:        { player1: '#1a6dbf', player2: '#1a6dbf' }, // blue water channel
 };
 
 const FLAG_COLORS = { player1: '#4fc3f7', player2: '#ef9a9a', god: '#f5d87a' };
@@ -126,12 +127,28 @@ export async function renderBoard(state, options = {}) {
       const oy = gy * CS + (CS - sz) / 2;
 
       const maxHp = (BLOCK_TYPES[type] && BLOCK_TYPES[type].initial_health) || 25;
-      const hpFrac = Math.max(0, health / maxHp);
+      // Moat is permanent (health=0) — render at full opacity to distinguish from damaged blocks
+      const hpFrac = type === 'moat' ? 1 : Math.max(0, health / maxHp);
       ctx.globalAlpha = 0.4 + hpFrac * 0.6;
 
       const colors = BLOCK_DRAW_COLORS[type];
       ctx.fillStyle = (colors && colors[owner]) || '#888888';
       ctx.fillRect(ox, oy, sz, sz);
+
+      // Moat: add a ripple overlay to suggest water
+      if (type === 'moat') {
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = 'rgba(180,230,255,0.8)';
+        ctx.lineWidth = 0.8;
+        for (let ri = 0; ri < 3; ri++) {
+          const ry = oy + sz * (0.3 + ri * 0.2);
+          ctx.beginPath();
+          ctx.moveTo(ox, ry);
+          ctx.bezierCurveTo(ox + sz * 0.33, ry - 2, ox + sz * 0.66, ry + 2, ox + sz, ry);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
 
       ctx.globalAlpha = 1;
       ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';

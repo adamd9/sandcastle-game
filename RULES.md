@@ -26,8 +26,22 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `packed_sand` | 60 | Best durability — use for walls and load-bearing structures |
 | `wet_sand` | 40 | Good mid-tier filler |
 | `dry_sand` | 25 | Fragile — avoid unless necessary |
+| `moat` | — | Permanent; immune to weather; grants 25% damage reduction to adjacent same-owner blocks |
 
-Blocks can be **reinforced** (+15 HP per action, up to max 60 HP). Health reaches 0 → block is destroyed.
+Blocks can be **reinforced** (+15 HP per action, up to max 60 HP). Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced.
+
+---
+
+## Moat
+
+A `moat` is a special ground-level (level 0 only) block that represents a water channel dug into the sand.
+
+- **Permanent**: moat blocks are immune to all weather damage and never destroyed by erosion, wave surges, or rogue waves.
+- **Level 0 only**: moat blocks cannot be stacked — only one per (x, y) position.
+- **Adjacent defense**: every same-owner block orthogonally adjacent to a moat tile takes **25% less weather damage** each tick.
+- **No score contribution**: moat tiles have zero health and are not counted as structural blocks for scoring purposes.
+- **Cannot be reinforced**: moat blocks are permanent and do not accept REINFORCE actions.
+- **Visual**: moat tiles appear as blue water channels on the board.
 
 ---
 
@@ -117,7 +131,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `action` | `PLACE` \| `REMOVE` \| `REINFORCE` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
-| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` | Required for PLACE only |
+| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` | Required for PLACE only |
 | `level` | 0–3 | Must place L0 before L1; cascade on removal |
 
 ```json
@@ -206,6 +220,7 @@ Check `recent_history.weatherDamageToMyBlocks` every turn:
 - **Avoid y=3–5** unless you want throwaway wave-absorbers
 - **Build foundations first** — wide L0 base before adding height
 - **Cascade awareness** — check for levels above before removing a block
+- **Moat strategy** — place `moat` tiles along the outer perimeter of your castle; each adjacent `packed_sand` wall block takes 25% less weather damage, making your defences significantly more resilient for the cost of 1 action per moat tile
 
 ---
 
