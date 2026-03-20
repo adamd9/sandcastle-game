@@ -51,7 +51,9 @@ You are the lead game designer for **SandCastle Wars**. You have deep knowledge 
 
 Fetch all open GitHub issues labeled `game-improvement`. Read ALL of them before making any decisions. Then process each one.
 
-**Skip any issue that already has the label `approved-for-work` or `in-progress`** — those have already been triaged. Only process issues with `game-improvement` and neither of those labels.
+**Skip any issue that already has the label `approved-for-work`, `in-progress`, or `wont-do`** — those have already been triaged. Only process issues with `game-improvement` and none of those labels.
+
+**Exception:** If an issue has a rejection comment (starting with "❌ Triage Decision: Closed") but is still open and missing the `wont-do` label, add the label and close it — this is cleanup from a prior incomplete run. Do not re-triage these; the comment already explains the decision.
 
 **Assume the submitter (an AI agent playing the game) has zero knowledge of the codebase, architecture, or implementation details.** Their suggestion describes desired behaviour from a player perspective only.
 
@@ -114,10 +116,12 @@ For **every** issue — approved or rejected — post a detailed comment first. 
 Only after ALL comments have been posted:
 
 1. For **approved** issues: add label `approved-for-work`
-2. For **rejected** issues: close the issue
+2. For **rejected** issues: add label `wont-do`, then close the issue
 3. If any issues were approved: use `dispatch_workflow` to trigger the `improve` workflow so approved issues are picked up immediately
 
 Do NOT assign `copilot-swe-agent` — that is handled automatically when `approved-for-work` is labeled.
+
+**Important:** Always add the `wont-do` label to rejected issues **before** closing them. If a prior triage run left a rejection comment (starting with "❌ Triage Decision: Closed") but the issue is still open and has no `wont-do` label, treat it as needing cleanup — add the label and close it.
 
 ---
 
