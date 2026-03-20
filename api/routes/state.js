@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getState } from '../lib/db.js';
+import { generateForecast } from '../lib/forecast.js';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ router.get('/', async (_req, res) => {
     const state = await getState();
     const { history: _history, ...response } = state;
     res.set('Cache-Control', 'no-store');
-    res.json(response);
+    res.json({ ...response, forecast: generateForecast() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -69,6 +70,7 @@ router.get('/:player', async (req, res) => {
       cells: state.cells,
       scores: state.scores ?? { player1: 0, player2: 0 },
       lastJudgment,
+      forecast: generateForecast(),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
