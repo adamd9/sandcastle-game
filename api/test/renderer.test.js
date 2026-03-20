@@ -68,6 +68,25 @@ describe('renderBoard', () => {
     expect(buf.length).toBeGreaterThan(100);
   });
 
+  it('protected blocks (flag-connected) render a different PNG than unprotected', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+
+    // Without flag: no protection indicator
+    const bufNoFlag = await renderBoard(freshState(cells, []));
+
+    // With flag on a connected block: protection indicator drawn
+    const flags = [{ x: 3, y: 5, level: 0, owner: 'player1', label: 'Shield' }];
+    const bufWithFlag = await renderBoard(freshState(cells, flags));
+
+    expect(bufWithFlag).toBeInstanceOf(Buffer);
+    expect(bufWithFlag[0]).toBe(0x89); // valid PNG
+    // The rendered bytes should differ because of the protection overlay
+    expect(bufWithFlag.equals(bufNoFlag)).toBe(false);
+  });
+
   it('all block type/owner combos render without error', async () => {
     const types = ['dry_sand', 'wet_sand', 'packed_sand'];
     const owners = ['player1', 'player2'];
