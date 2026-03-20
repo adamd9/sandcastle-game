@@ -1,5 +1,6 @@
 import { createCanvas } from '@napi-rs/canvas';
 import { GRID_WIDTH, GRID_HEIGHT, WATER_ROWS, BLOCK_TYPES, MAX_LEVEL } from './rules.js';
+import { buildFlagProtectedSet } from './gameLogic.js';
 
 const BLOCK_DRAW_COLORS = {
   packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
@@ -107,6 +108,7 @@ export async function renderBoard(state, options = {}) {
 
   // --- 5. Blocks ---
   const cells = state.cells || [];
+  const protectedSet = buildFlagProtectedSet(cells, state.flags || []);
   const levelSizes = [CS, Math.round(CS * 0.73), Math.round(CS * 0.53), Math.round(CS * 0.33)];
 
   // Group by (x,y) and sort by level ascending
@@ -154,6 +156,16 @@ export async function renderBoard(state, options = {}) {
       ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';
       ctx.lineWidth = level === 0 ? 0.5 : 1;
       ctx.strokeRect(ox + 0.5, oy + 0.5, sz - 1, sz - 1);
+
+      // Flag-protection indicator: bright colored border overlay
+      if (protectedSet.has(`${gx},${gy},${level}`)) {
+        const shieldColor = FLAG_COLORS[owner] || FLAG_COLORS.god;
+        ctx.globalAlpha = 0.75;
+        ctx.strokeStyle = shieldColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ox + 1, oy + 1, sz - 2, sz - 2);
+        ctx.globalAlpha = 1;
+      }
     }
   }
 
