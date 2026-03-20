@@ -1,0 +1,19 @@
+name: Close wont-do issues
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  close:
+    if: github.event.label.name == 'wont-do'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: gh issue close "$ISSUE_URL" --reason "not planned"

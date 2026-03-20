@@ -21,8 +21,6 @@ safe-outputs:
     max: 50
   add-labels:
     max: 20
-  update-issue:
-    max: 20
   dispatch-workflow:
     workflows:
       - improve
@@ -116,12 +114,12 @@ For **every** issue — approved or rejected — post a detailed comment first. 
 Only after ALL comments have been posted:
 
 1. For **approved** issues: add label `approved-for-work`
-2. For **rejected** issues: add label `wont-do`, then close the issue
+2. For **rejected** issues: add label `wont-do` (a separate workflow will automatically close issues when this label is added)
 3. If any issues were approved: use `dispatch_workflow` to trigger the `improve` workflow so approved issues are picked up immediately
 
 Do NOT assign `copilot-swe-agent` — that is handled automatically when `approved-for-work` is labeled.
 
-**Important:** Always add the `wont-do` label to rejected issues **before** closing them. If a prior triage run left a rejection comment (starting with "❌ Triage Decision: Closed") but the issue is still open and has no `wont-do` label, treat it as needing cleanup — add the label and close it.
+**Important:** Do NOT attempt to close issues directly — `update_issue` is not available in this workflow's scheduled context. Adding the `wont-do` label is sufficient; closure is handled automatically. If a prior triage run left a rejection comment (starting with "❌ Triage Decision: Closed") but the issue is still open and has no `wont-do` label, add the `wont-do` label to trigger automatic closure.
 
 ---
 
