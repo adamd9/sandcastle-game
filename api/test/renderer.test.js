@@ -68,6 +68,41 @@ describe('renderBoard', () => {
     expect(buf.length).toBeGreaterThan(100);
   });
 
+  it('renders flag-protected connected component tint without error', async () => {
+    // Two adjacent blocks owned by player1 with a flag on one — both should get tinted
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'wet_sand',    health: 40, owner: 'player1' },
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'Fort' },
+    ];
+    const buf = await renderBoard(freshState(cells, flags));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders critical HP warning icon for blocks with health ≤ 15', async () => {
+    const cells = [
+      { x: 2, y: 6, level: 0, type: 'dry_sand',    health: 10, owner: 'player1' },
+      { x: 3, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // healthy — no icon
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('does not render critical HP icon for moat blocks', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'moat', health: 0, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+  });
+
   it('all block type/owner combos render without error', async () => {
     const types = ['dry_sand', 'wet_sand', 'packed_sand'];
     const owners = ['player1', 'player2'];

@@ -1,5 +1,6 @@
 import { createCanvas } from '@napi-rs/canvas';
-import { GRID_WIDTH, GRID_HEIGHT, WATER_ROWS, BLOCK_TYPES, MAX_LEVEL } from './rules.js';
+import { GRID_WIDTH, GRID_HEIGHT, WATER_ROWS, BLOCK_TYPES, MAX_LEVEL, REINFORCE_AMOUNT } from './rules.js';
+import { buildFlagProtectedSet } from './gameLogic.js';
 
 const BLOCK_DRAW_COLORS = {
   packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
@@ -107,7 +108,11 @@ export async function renderBoard(state, options = {}) {
 
   // --- 5. Blocks ---
   const cells = state.cells || [];
+  const flags = state.flags || [];
   const levelSizes = [CS, Math.round(CS * 0.73), Math.round(CS * 0.53), Math.round(CS * 0.33)];
+
+  // Compute which cells are in a flag-protected connected component
+  const flagProtectedSet = buildFlagProtectedSet(cells, flags);
 
   // Group by (x,y) and sort by level ascending
   const cellMap = new Map();
@@ -154,12 +159,41 @@ export async function renderBoard(state, options = {}) {
       ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';
       ctx.lineWidth = level === 0 ? 0.5 : 1;
       ctx.strokeRect(ox + 0.5, oy + 0.5, sz - 1, sz - 1);
+
+      // Flag-protected component overlay: faint tint matching flag colour
+      if (flagProtectedSet.has(`${gx},${gy},${level}`)) {
+        const tintColor = FLAG_COLORS[owner] || FLAG_COLORS.god;
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = tintColor;
+        ctx.fillRect(ox, oy, sz, sz);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // --- 5b. Critical HP indicators ---
+  // Draw a small red warning triangle in the top-left corner of each cell
+  // whose topmost block has HP ≤ REINFORCE_AMOUNT (≤15) — signalling urgent need.
+  for (const group of cellMap.values()) {
+    const topCell = group[group.length - 1]; // sorted ascending by level
+    const { x: gx, y: gy, type, health } = topCell;
+    if (type !== 'moat' && health <= REINFORCE_AMOUNT) {
+      const iconSize = Math.max(5, Math.round(CS * 0.2));
+      const iconX = px(gx) + 2;
+      const iconY = gy * CS + 2;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = '#ff4444';
+      ctx.beginPath();
+      ctx.moveTo(iconX, iconY);
+      ctx.lineTo(iconX + iconSize, iconY);
+      ctx.lineTo(iconX + iconSize / 2, iconY + iconSize);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
     }
   }
 
   // --- 6. Flags ---
-  const flags = state.flags || [];
-
   // Pick highest-level flag per (x,y)
   const flagMap = new Map();
   for (const f of flags) {

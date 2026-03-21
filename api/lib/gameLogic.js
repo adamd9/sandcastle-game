@@ -113,7 +113,7 @@ function inGrid(x, y) {
 // Flag protection — connected component analysis via union-find
 // ---------------------------------------------------------------------------
 
-function buildFlagProtectedSet(cells, flags) {
+export function buildFlagProtectedSet(cells, flags) {
   if (!flags || flags.length === 0) return new Set();
 
   // Index cells by owner for per-owner component analysis
