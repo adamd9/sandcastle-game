@@ -22,7 +22,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"32dec9c980ec807a9d0103575ef5c224d9c2a5618823427943af33ef94e3f0c1","compiler_version":"v0.57.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"9748f544acdd3e5177ad86aa09bbab8132a07c743d7f4d8503f6b475f6f55c51","compiler_version":"v0.57.0","strict":true}
 
 name: "Review Game Improvement Suggestions"
 "on":
@@ -124,7 +124,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, update_issue, add_labels, dispatch_workflow, missing_tool, missing_data, noop
+          Tools: add_comment, add_labels, dispatch_workflow, missing_tool, missing_data, noop
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -309,7 +309,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":50},"add_labels":{"max":20},"dispatch_workflow":{"max":1,"workflow_files":{"improve":".yml"},"workflows":["improve"]},"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_issue":{"max":20}}
+          {"add_comment":{"max":50},"add_labels":{"max":20},"dispatch_workflow":{"max":1,"workflow_files":{"improve":".yml"},"workflows":["improve"]},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -378,78 +378,6 @@ jobs:
                 "type": "object"
               },
               "name": "add_labels"
-            },
-            {
-              "description": "Update an existing GitHub issue's title, body, labels, assignees, or milestone WITHOUT closing it. This tool is primarily for editing issue metadata and content. While it supports changing status between 'open' and 'closed', use close_issue instead when you want to close an issue with a closing comment. Body updates support replacing, appending to, prepending content, or updating a per-run \"island\" section. CONSTRAINTS: Maximum 20 issue(s) can be updated.",
-              "inputSchema": {
-                "additionalProperties": false,
-                "properties": {
-                  "assignees": {
-                    "description": "Replace the issue assignees with this list of GitHub usernames (e.g., ['octocat', 'mona']).",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "body": {
-                    "description": "Issue body content in Markdown. For 'replace', this becomes the entire body. For 'append'/'prepend', this content is added with a separator and an attribution footer. For 'replace-island', only the run-specific section is updated.",
-                    "type": "string"
-                  },
-                  "integrity": {
-                    "description": "Trustworthiness level of the message source (e.g., \"low\", \"medium\", \"high\").",
-                    "type": "string"
-                  },
-                  "issue_number": {
-                    "description": "Issue number to update. This is the numeric ID from the GitHub URL (e.g., 789 in github.com/owner/repo/issues/789). Required when the workflow target is '*' (any issue).",
-                    "type": [
-                      "number",
-                      "string"
-                    ]
-                  },
-                  "labels": {
-                    "description": "Replace the issue labels with this list (e.g., ['bug', 'tracking:foo']). Labels must exist in the repository.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "milestone": {
-                    "description": "Milestone number to assign (e.g., 1). Use null to clear.",
-                    "type": [
-                      "number",
-                      "string"
-                    ]
-                  },
-                  "operation": {
-                    "description": "How to update the issue body: 'append' (default - add to end with separator), 'prepend' (add to start with separator), 'replace' (overwrite entire body), or 'replace-island' (update a run-specific section).",
-                    "enum": [
-                      "replace",
-                      "append",
-                      "prepend",
-                      "replace-island"
-                    ],
-                    "type": "string"
-                  },
-                  "secrecy": {
-                    "description": "Confidentiality level of the message content (e.g., \"public\", \"internal\", \"private\").",
-                    "type": "string"
-                  },
-                  "status": {
-                    "description": "New issue status: 'open' to reopen a closed issue, 'closed' to close an open issue.",
-                    "enum": [
-                      "open",
-                      "closed"
-                    ],
-                    "type": "string"
-                  },
-                  "title": {
-                    "description": "New issue title to replace the existing title.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "name": "update_issue"
             },
             {
               "description": "Report that a tool or capability needed to complete the task is not available, or share any information you deem important about missing functionality or limitations. Use this when you cannot accomplish what was requested because the required functionality is missing or access is restricted.",
@@ -651,60 +579,6 @@ jobs:
                   "maxLength": 65000
                 }
               }
-            },
-            "update_issue": {
-              "defaultMax": 1,
-              "fields": {
-                "assignees": {
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 39
-                },
-                "body": {
-                  "type": "string",
-                  "sanitize": true,
-                  "maxLength": 65000
-                },
-                "issue_number": {
-                  "issueOrPRNumber": true
-                },
-                "labels": {
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 128
-                },
-                "milestone": {
-                  "optionalPositiveInteger": true
-                },
-                "operation": {
-                  "type": "string",
-                  "enum": [
-                    "replace",
-                    "append",
-                    "prepend",
-                    "replace-island"
-                  ]
-                },
-                "repo": {
-                  "type": "string",
-                  "maxLength": 256
-                },
-                "status": {
-                  "type": "string",
-                  "enum": [
-                    "open",
-                    "closed"
-                  ]
-                },
-                "title": {
-                  "type": "string",
-                  "sanitize": true,
-                  "maxLength": 128
-                }
-              },
-              "customValidation": "requiresOneOf:status,title,body"
             }
           }
           GH_AW_SAFE_OUTPUTS_VALIDATION_EOF
@@ -1261,7 +1135,7 @@ jobs:
           GH_AW_ALLOWED_DOMAINS: "api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,api.snapcraft.io,archive.ubuntu.com,azure.archive.ubuntu.com,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,github.com,host.docker.internal,json-schema.org,json.schemastore.org,keyserver.ubuntu.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,packagecloud.io,packages.cloud.google.com,packages.microsoft.com,ppa.launchpad.net,raw.githubusercontent.com,registry.npmjs.org,s.symcb.com,s.symcd.com,security.ubuntu.com,telemetry.enterprise.githubcopilot.com,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com"
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_API_URL: ${{ github.api_url }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":50},\"add_labels\":{\"max\":20},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"improve\":\".yml\"},\"workflows\":[\"improve\"]},\"missing_data\":{},\"missing_tool\":{},\"update_issue\":{\"allow_body\":true,\"max\":20}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":50},\"add_labels\":{\"max\":20},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"improve\":\".yml\"},\"workflows\":[\"improve\"]},\"missing_data\":{},\"missing_tool\":{}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
