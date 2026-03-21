@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove, commitTurn, computeStructureScore } from '../lib/gameLogic.js';
+import { validateMove, applyMove, commitTurn, computeStructureScore, computeScoreBreakdown } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
@@ -156,6 +156,8 @@ export function createMcpRouter() {
           ? state.judgments[state.judgments.length - 1]
           : null;
 
+        const otherPlayer = player === 'player1' ? 'player2' : 'player1';
+        const flags = state.flags || [];
         const response = {
           current_state: {
             tick: state.tick,
@@ -164,13 +166,15 @@ export function createMcpRouter() {
             my_actions_used: state.players[player].actionsThisTick,
             my_actions_remaining: 12 - state.players[player].actionsThisTick,
             my_turn_committed: state.players[player].turnCommitted,
-            opponent_turn_committed: state.players[player === 'player1' ? 'player2' : 'player1'].turnCommitted,
+            opponent_turn_committed: state.players[otherPlayer].turnCommitted,
             my_blocks: state.cells.filter(c => c.owner === player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
             opponent_blocks: state.cells.filter(c => c.owner !== player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
             scores: state.scores ?? { player1: 0, player2: 0 },
             last_judgment: lastJudgment,
             my_structure_score: computeStructureScore(state.cells, player),
-            opponent_structure_score: computeStructureScore(state.cells, player === 'player1' ? 'player2' : 'player1'),
+            opponent_structure_score: computeStructureScore(state.cells, otherPlayer),
+            my_score_breakdown: computeScoreBreakdown(state.cells, player, flags),
+            opponent_score_breakdown: computeScoreBreakdown(state.cells, otherPlayer, flags),
           },
           recent_history: recentHistory,
         };
