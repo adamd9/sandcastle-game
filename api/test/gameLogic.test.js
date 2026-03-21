@@ -456,3 +456,124 @@ describe('computeStructureScore', () => {
     expect(score.courtyard_bonus).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// computeScoreBreakdown
+// ---------------------------------------------------------------------------
+
+import { computeScoreBreakdown } from '../lib/gameLogic.js';
+
+describe('computeScoreBreakdown', () => {
+  it('returns all zeros for empty board', () => {
+    const breakdown = computeScoreBreakdown([], 'player1');
+    expect(breakdown).toEqual({
+      total_blocks: 0,
+      max_height: 0,
+      avg_health: 0,
+      perimeter_integrity: 0,
+      architectural_complexity: 0,
+      flagged_structures: 0,
+    });
+  });
+
+  it('counts total_blocks correctly', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'dry_sand',    health: 25, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.total_blocks).toBe(3);
+  });
+
+  it('only counts blocks for the specified player', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 15, y: 5, level: 0, type: 'dry_sand',   health: 25, owner: 'player2' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.total_blocks).toBe(1);
+  });
+
+  it('calculates avg_health correctly', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'dry_sand',    health: 20, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.avg_health).toBe(40);
+  });
+
+  it('calculates max_height as highest level + 1', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.max_height).toBe(3);
+  });
+
+  it('counts architectural_complexity as multi-level columns', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.architectural_complexity).toBe(1); // only (3,5) has 2 levels
+  });
+
+  it('calculates perimeter_integrity > 0 when perimeter cells are occupied', () => {
+    // Place a block on a zone boundary cell for player1 (x=0 is the left edge)
+    const cells = [
+      { x: 0, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.perimeter_integrity).toBeGreaterThan(0);
+  });
+
+  it('returns perimeter_integrity 0 when no perimeter cells occupied', () => {
+    // Interior cell — not on zone boundary
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1');
+    expect(breakdown.perimeter_integrity).toBe(0);
+  });
+
+  it('counts flagged_structures correctly', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 7, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    // Two disconnected groups, each flagged
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1' },
+      { x: 7, y: 5, level: 0, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1', flags);
+    expect(breakdown.flagged_structures).toBe(2);
+  });
+
+  it('counts one flagged_structure when two flags are on the same connected component', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1' },
+      { x: 4, y: 5, level: 0, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1', flags);
+    expect(breakdown.flagged_structures).toBe(1);
+  });
+
+  it('returns flagged_structures 0 when no flags present', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const breakdown = computeScoreBreakdown(cells, 'player1', []);
+    expect(breakdown.flagged_structures).toBe(0);
+  });
+});

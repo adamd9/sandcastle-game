@@ -87,6 +87,21 @@ describe('GET /state/:player', () => {
     expect(res.body).not.toHaveProperty('recentHistory');
   });
 
+  it('includes score_breakdown with metrics for both players', async () => {
+    const res = await request(app).get('/state/player1');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('score_breakdown');
+    expect(res.body.score_breakdown).toHaveProperty('player1');
+    expect(res.body.score_breakdown).toHaveProperty('player2');
+    const bd = res.body.score_breakdown.player1;
+    expect(bd).toHaveProperty('total_blocks');
+    expect(bd).toHaveProperty('max_height');
+    expect(bd).toHaveProperty('avg_health');
+    expect(bd).toHaveProperty('perimeter_integrity');
+    expect(bd).toHaveProperty('architectural_complexity');
+    expect(bd).toHaveProperty('flagged_structures');
+  });
+
   it('returns 400 for invalid player name', async () => {
     const res = await request(app).get('/state/unknownplayer');
     expect(res.status).toBe(400);

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getState } from '../lib/db.js';
+import { computeScoreBreakdown } from '../lib/gameLogic.js';
 
 const router = Router();
 
@@ -54,10 +55,14 @@ router.get('/:player', async (req, res) => {
   try {
     const state = await getState();
 
+    const otherPlayer = player === 'player1' ? 'player2' : 'player1';
+
     // Latest judgment (if any)
     const lastJudgment = (state.judgments || []).length > 0
       ? state.judgments[state.judgments.length - 1]
       : null;
+
+    const flags = state.flags || [];
 
     res.set('Cache-Control', 'no-store');
     res.json({
@@ -65,10 +70,14 @@ router.get('/:player', async (req, res) => {
       weather: state.weather,
       myPlayer: player,
       myState: state.players[player],
-      opponentState: state.players[player === 'player1' ? 'player2' : 'player1'],
+      opponentState: state.players[otherPlayer],
       cells: state.cells,
       scores: state.scores ?? { player1: 0, player2: 0 },
       lastJudgment,
+      score_breakdown: {
+        [player]: computeScoreBreakdown(state.cells, player, flags),
+        [otherPlayer]: computeScoreBreakdown(state.cells, otherPlayer, flags),
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -89,6 +89,114 @@ export function computeStructureScore(cells, player) {
 }
 
 // ---------------------------------------------------------------------------
+// computeScoreBreakdown — detailed per-metric breakdown for a player's structure
+// ---------------------------------------------------------------------------
+
+export function computeScoreBreakdown(cells, player, flags = []) {
+  const playerCells = cells.filter(c => c.owner === player);
+  const total_blocks = playerCells.length;
+
+  // avg_health: mean block health rounded to 1 decimal place (0 if no blocks)
+  const avg_health = total_blocks > 0
+    ? Math.round((playerCells.reduce((s, c) => s + c.health, 0) / total_blocks) * 10) / 10
+    : 0;
+
+  // max_height: highest level + 1 (level 0 = height 1)
+  const max_height = total_blocks > 0
+    ? Math.max(...playerCells.map(c => c.level)) + 1
+    : 0;
+
+  // architectural_complexity: number of (x,y) positions with more than one stacked block
+  const byPos = new Map();
+  for (const c of playerCells) {
+    const key = `${c.x},${c.y}`;
+    byPos.set(key, (byPos.get(key) || 0) + 1);
+  }
+  const architectural_complexity = [...byPos.values()].filter(count => count > 1).length;
+
+  // perimeter_integrity: percentage (0–100, 1 decimal) of the buildable zone boundary
+  // positions that have at least one block. Calculated as (occupied / total) * 100.
+  const zone = ZONES[player];
+  const buildableYMin = WATER_ROWS;
+  const buildableYMax = GRID_HEIGHT - 1;
+  const perimeterSet = new Set();
+  for (let x = zone.x_min; x <= zone.x_max; x++) {
+    perimeterSet.add(`${x},${buildableYMin}`);
+    perimeterSet.add(`${x},${buildableYMax}`);
+  }
+  for (let y = buildableYMin + 1; y < buildableYMax; y++) {
+    perimeterSet.add(`${zone.x_min},${y}`);
+    perimeterSet.add(`${zone.x_max},${y}`);
+  }
+  const occupiedSet = new Set(playerCells.map(c => `${c.x},${c.y}`));
+  let occupiedPerimeterCount = 0;
+  for (const key of perimeterSet) {
+    if (occupiedSet.has(key)) occupiedPerimeterCount++;
+  }
+  const perimeter_integrity = perimeterSet.size > 0
+    ? Math.round((occupiedPerimeterCount / perimeterSet.size) * 1000) / 10
+    : 0;
+
+  // flagged_structures: number of distinct connected components that contain a flag
+  const playerFlags = (flags || []).filter(f => f.owner === player);
+  let flagged_structures = 0;
+  if (playerFlags.length > 0 && total_blocks > 0) {
+    const keyToIdx = new Map();
+    for (let i = 0; i < playerCells.length; i++) {
+      const c = playerCells[i];
+      keyToIdx.set(`${c.x},${c.y},${c.level}`, i);
+    }
+    const parent = playerCells.map((_, i) => i);
+    const rank = new Array(playerCells.length).fill(0);
+    function find(a) {
+      while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+      return a;
+    }
+    function union(a, b) {
+      a = find(a); b = find(b);
+      if (a === b) return;
+      if (rank[a] < rank[b]) [a, b] = [b, a];
+      parent[b] = a;
+      if (rank[a] === rank[b]) rank[a]++;
+    }
+    const byPosForFlags = new Map();
+    for (let i = 0; i < playerCells.length; i++) {
+      const c = playerCells[i];
+      const posKey = `${c.x},${c.y}`;
+      if (!byPosForFlags.has(posKey)) byPosForFlags.set(posKey, []);
+      byPosForFlags.get(posKey).push(i);
+    }
+    for (const indices of byPosForFlags.values()) {
+      for (let j = 1; j < indices.length; j++) union(indices[0], indices[j]);
+    }
+    const DX = [-1, 0, 1, 0];
+    const DY = [0, -1, 0, 1];
+    for (let i = 0; i < playerCells.length; i++) {
+      const c = playerCells[i];
+      for (let d = 0; d < 4; d++) {
+        const nk = `${c.x + DX[d]},${c.y + DY[d]},${c.level}`;
+        if (keyToIdx.has(nk)) union(i, keyToIdx.get(nk));
+      }
+    }
+    const flaggedRoots = new Set();
+    for (const f of playerFlags) {
+      const idx = keyToIdx.get(`${f.x},${f.y},${f.level}`);
+      if (idx !== undefined) flaggedRoots.add(find(idx));
+    }
+    flagged_structures = flaggedRoots.size;
+  }
+
+  return {
+    total_blocks,
+    max_height,
+    avg_health,
+    perimeter_integrity,
+    architectural_complexity,
+    flagged_structures,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

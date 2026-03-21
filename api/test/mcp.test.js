@@ -76,6 +76,15 @@ describe('POST /mcp', () => {
     expect(parsed.current_state.my_structure_score).toHaveProperty('max_height');
     expect(parsed.current_state.my_structure_score).toHaveProperty('footprint');
     expect(parsed.current_state.my_structure_score).toHaveProperty('courtyard_bonus');
+    // Score breakdown should always be present
+    expect(parsed.current_state).toHaveProperty('my_score_breakdown');
+    expect(parsed.current_state).toHaveProperty('opponent_score_breakdown');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('total_blocks');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('max_height');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('avg_health');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('perimeter_integrity');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('architectural_complexity');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('flagged_structures');
   });
 
   it('submit_turn places multiple blocks and auto-commits', async () => {
