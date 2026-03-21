@@ -20,7 +20,7 @@ import {
 // computeStructureScore — live score formula for a player's current structure
 // ---------------------------------------------------------------------------
 
-export function computeStructureScore(cells, player) {
+export function computeStructureScore(cells, player, flags = []) {
   const playerCells = cells.filter(c => c.owner === player);
 
   // (1) Total block HP remaining (resilience)
@@ -35,12 +35,34 @@ export function computeStructureScore(cells, player) {
   const occupiedSet = new Set(playerCells.map(c => `${c.x},${c.y}`));
   const footprint = occupiedSet.size;
 
-  // (4) Courtyard bonus: empty cells fully enclosed within the player's structure.
+  // (4) Perimeter: number of exposed outer edges of the 2D footprint.
+  //     A wider, more spread-out castle scores higher than a simple column.
+  const DX = [-1, 0, 1, 0];
+  const DY = [0, -1, 0, 1];
+  let perimeter = 0;
+  for (const key of occupiedSet) {
+    const [px, py] = key.split(',').map(Number);
+    for (let d = 0; d < 4; d++) {
+      if (!occupiedSet.has(`${px + DX[d]},${py + DY[d]}`)) {
+        perimeter++;
+      }
+    }
+  }
+
+  // (5) Height variety: number of distinct building levels in use.
+  //     Having blocks at L0 walls + L2 towers + L3 spires scores more than
+  //     uniform stacking.
+  const height_variety = new Set(playerCells.map(c => c.level)).size;
+
+  // (6) Flag diversity: number of distinct named structures (flags).
+  //     Each flag must be spatially separated (enforced by FLAG_MIN_SPACING),
+  //     so more flags indicate a richer, multi-part castle design.
+  const flag_diversity = flags.filter(f => f.owner === player).length;
+
+  // (7) Courtyard bonus: empty cells fully enclosed within the player's structure.
   //     Uses a flood-fill from the zone boundary — any empty cell in the zone that
   //     is NOT reachable from the boundary counts as an enclosed courtyard cell.
   const zone = ZONES[player];
-  const DX = [-1, 0, 1, 0];
-  const DY = [0, -1, 0, 1];
 
   const visited = new Set();
   const queue = [];
@@ -85,7 +107,7 @@ export function computeStructureScore(cells, player) {
     }
   }
 
-  return { total_hp, max_height, footprint, courtyard_bonus };
+  return { total_hp, max_height, footprint, perimeter, height_variety, flag_diversity, courtyard_bonus };
 }
 
 // ---------------------------------------------------------------------------
