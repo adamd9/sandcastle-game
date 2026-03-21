@@ -387,7 +387,7 @@ import { computeStructureScore } from '../lib/gameLogic.js';
 describe('computeStructureScore', () => {
   it('returns all zeros for empty board', () => {
     const score = computeStructureScore([], 'player1');
-    expect(score).toEqual({ total_hp: 0, max_height: 0, footprint: 0, courtyard_bonus: 0 });
+    expect(score).toEqual({ total_hp: 0, max_height: 0, footprint: 0, perimeter: 0, height_variety: 0, flag_diversity: 0, courtyard_bonus: 0 });
   });
 
   it('calculates total_hp as sum of all block health', () => {
@@ -454,5 +454,85 @@ describe('computeStructureScore', () => {
     ];
     const score = computeStructureScore(cells, 'player1');
     expect(score.courtyard_bonus).toBe(0);
+  });
+
+  it('calculates perimeter as exposed outer edges of the footprint', () => {
+    // Single block: 4 exposed sides
+    const single = [{ x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }];
+    expect(computeStructureScore(single, 'player1').perimeter).toBe(4);
+
+    // Horizontal line of 3: 2*3 + 2*1 = 8 exposed sides
+    const line = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    expect(computeStructureScore(line, 'player1').perimeter).toBe(8);
+
+    // 2x2 square: 4*4 - 2*4 = 8 exposed sides
+    const square = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    expect(computeStructureScore(square, 'player1').perimeter).toBe(8);
+  });
+
+  it('perimeter only counts the 2D footprint (not per-level)', () => {
+    // Stacking 3 levels at the same (x,y) should not increase perimeter
+    const tower = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    expect(computeStructureScore(tower, 'player1').perimeter).toBe(4);
+  });
+
+  it('calculates height_variety as number of distinct levels in use', () => {
+    // Uniform: only level 0 — variety = 1
+    const uniform = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    expect(computeStructureScore(uniform, 'player1').height_variety).toBe(1);
+
+    // Mixed levels 0 and 2 — variety = 2
+    const mixed = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    expect(computeStructureScore(mixed, 'player1').height_variety).toBe(2);
+
+    // All four levels — variety = 4
+    const allLevels = [0, 1, 2, 3].map(level => ({
+      x: 5, y: 5, level, type: 'packed_sand', health: 60, owner: 'player1',
+    }));
+    expect(computeStructureScore(allLevels, 'player1').height_variety).toBe(4);
+  });
+
+  it('returns height_variety 0 for empty board', () => {
+    expect(computeStructureScore([], 'player1').height_variety).toBe(0);
+  });
+
+  it('calculates flag_diversity as count of player flags', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 8, y: 15, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const flags = [
+      { id: 'f1', x: 3, y: 5, level: 0, owner: 'player1', label: 'Gate' },
+      { id: 'f2', x: 8, y: 15, level: 0, owner: 'player1', label: 'Tower' },
+      { id: 'f3', x: 15, y: 5, level: 0, owner: 'player2', label: 'Bastion' },
+    ];
+    const score = computeStructureScore(cells, 'player1', flags);
+    expect(score.flag_diversity).toBe(2); // only player1's 2 flags counted
+  });
+
+  it('returns flag_diversity 0 when no flags provided', () => {
+    const cells = [{ x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }];
+    expect(computeStructureScore(cells, 'player1').flag_diversity).toBe(0);
+    expect(computeStructureScore(cells, 'player1', []).flag_diversity).toBe(0);
   });
 });
