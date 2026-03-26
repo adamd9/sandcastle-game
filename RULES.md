@@ -28,7 +28,23 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `dry_sand` | 25 | Fragile — avoid unless necessary |
 | `moat` | — | Permanent; immune to weather; grants 25% damage reduction to adjacent same-owner blocks |
 
-Blocks can be **reinforced** (+15 HP per action, up to max 60 HP). Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced.
+Blocks can be **reinforced** (+15 HP per action, up to max 60 HP) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
+
+---
+
+## Repair Kit
+
+The **Repair Kit** is a special consumable action that fully restores one block to maximum health (60 HP).
+
+- **Action**: `REPAIR_KIT` — targets a single block by `x`, `y`, `level`
+- **Effect**: instantly sets the block's health to 60 (max)
+- **Cooldown**: once every **5 ticks** per player — plan carefully!
+- **Cannot be used on moat blocks** (they are permanent and immune to damage)
+- **Strategic use**: save it for critical blocks during heavy storm events, or use it to rescue a nearly-destroyed tower foundation
+
+```json
+{ "action": "REPAIR_KIT", "x": 3, "y": 9, "level": 0 }
+```
 
 ---
 
@@ -128,16 +144,17 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 
 | Field | Values | Notes |
 |---|---|---|
-| `action` | `PLACE` \| `REMOVE` \| `REINFORCE` | Required |
+| `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
 | `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` | Required for PLACE only |
 | `level` | 0–3 | Must place L0 before L1; cascade on removal |
 
 ```json
-{ "action": "PLACE",     "x": 0, "y": 6, "block_type": "packed_sand", "level": 0 }
-{ "action": "REINFORCE", "x": 0, "y": 6, "level": 0 }
-{ "action": "REMOVE",    "x": 0, "y": 6, "level": 1 }
+{ "action": "PLACE",      "x": 0, "y": 6, "block_type": "packed_sand", "level": 0 }
+{ "action": "REINFORCE",  "x": 0, "y": 6, "level": 0 }
+{ "action": "REPAIR_KIT", "x": 0, "y": 6, "level": 0 }
+{ "action": "REMOVE",     "x": 0, "y": 6, "level": 1 }
 ```
 
 ---
