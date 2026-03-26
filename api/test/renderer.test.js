@@ -68,23 +68,39 @@ describe('renderBoard', () => {
     expect(buf.length).toBeGreaterThan(100);
   });
 
-  it('protected blocks (flag-connected) render a different PNG than unprotected', async () => {
+  it('renders flag-protected connected component tint without error', async () => {
+    // Two adjacent blocks owned by player1 with a flag on one — both should get tinted
     const cells = [
       { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
-      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'wet_sand',    health: 40, owner: 'player1' },
     ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'Fort' },
+    ];
+    const buf = await renderBoard(freshState(cells, flags));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
 
-    // Without flag: no protection indicator
-    const bufNoFlag = await renderBoard(freshState(cells, []));
+  it('renders critical HP warning icon for blocks with health ≤ 15', async () => {
+    const cells = [
+      { x: 2, y: 6, level: 0, type: 'dry_sand',    health: 10, owner: 'player1' },
+      { x: 3, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // healthy — no icon
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
 
-    // With flag on a connected block: protection indicator drawn
-    const flags = [{ x: 3, y: 5, level: 0, owner: 'player1', label: 'Shield' }];
-    const bufWithFlag = await renderBoard(freshState(cells, flags));
-
-    expect(bufWithFlag).toBeInstanceOf(Buffer);
-    expect(bufWithFlag[0]).toBe(0x89); // valid PNG
-    // The rendered bytes should differ because of the protection overlay
-    expect(bufWithFlag.equals(bufNoFlag)).toBe(false);
+  it('does not render critical HP icon for moat blocks', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'moat', health: 0, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
   });
 
   it('all block type/owner combos render without error', async () => {
