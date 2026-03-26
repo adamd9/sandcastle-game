@@ -47,23 +47,28 @@ jobs:
           node-version: '22'
 
       - name: Run tests
-        if: steps.author-check.outputs.is_copilot == 'true'
+        # Skip on opened+draft: we just mark ready and let ready_for_review re-trigger
+        if: steps.author-check.outputs.is_copilot == 'true' && (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false)
         run: cd api && npm ci && npm test
 
-      - name: Mark PR ready for review (if draft)
-        if: steps.author-check.outputs.is_copilot == 'true'
-        run: gh pr ready ${{ github.event.pull_request.number }} || true
+      - name: Mark PR ready for review (if draft on opened event)
+        # Use COPILOT_TOKEN (a PAT) so GitHub fires the ready_for_review event,
+        # which will re-trigger this workflow to run the full test + merge flow.
+        # GITHUB_TOKEN actions do NOT fire new workflow events (GitHub prevents loops).
+        if: steps.author-check.outputs.is_copilot == 'true' && github.event.action == 'opened' && github.event.pull_request.draft == true
+        run: gh pr ready ${{ github.event.pull_request.number }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
 
       - name: Auto-merge PR
-        if: steps.author-check.outputs.is_copilot == 'true'
+        # Only merge on ready_for_review event, or when PR was opened as non-draft
+        if: steps.author-check.outputs.is_copilot == 'true' && (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false)
         run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Close linked issues
-        if: steps.author-check.outputs.is_copilot == 'true'
+        if: steps.author-check.outputs.is_copilot == 'true' && (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false)
         run: |
           ISSUES=$(gh pr view ${{ github.event.pull_request.number }} \
             --repo ${{ github.repository }} \
