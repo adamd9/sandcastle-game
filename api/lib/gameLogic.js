@@ -391,7 +391,7 @@ export function recordRound(state) {
     flags_snapshot: structuredClone(state.flags || []),
   };
   state.history.push(round);
-  // No cap — all history is retained. Endpoints slice as needed for consumers.
+  // In-memory history is unbounded; cosmos.js trims to MAX_HISTORY_IN_STORE on every save.
   return state;
 }
 

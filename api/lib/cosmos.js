@@ -3,6 +3,7 @@
 // Implements the same getState() / saveState() interface as store.js.
 
 import { CosmosClient } from '@azure/cosmos';
+import { MAX_HISTORY_IN_STORE } from './rules.js';
 
 const client = new CosmosClient({
   endpoint: process.env.COSMOS_ENDPOINT,
@@ -48,5 +49,11 @@ export async function getState() {
 
 export async function saveState(newState) {
   newState.lastUpdated = new Date().toISOString();
+  // Trim history to avoid exceeding Cosmos DB's 2 MB document size limit.
+  // Each history entry contains two full cell snapshots, so unbounded growth
+  // quickly causes 413 "Request size is too large" errors from the SDK.
+  if (Array.isArray(newState.history) && newState.history.length > MAX_HISTORY_IN_STORE) {
+    newState.history = newState.history.slice(-MAX_HISTORY_IN_STORE);
+  }
   await container.items.upsert(newState);
 }
