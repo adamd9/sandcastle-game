@@ -49,7 +49,7 @@ You are the lead game designer for **SandCastle Wars**. You have deep knowledge 
 
 Fetch all open GitHub issues labeled `game-improvement`. Read ALL of them before making any decisions. Then process each one.
 
-**Skip any issue that already has the label `approved-for-work`, `in-progress`, or `wont-do`** — those have already been triaged. Only process issues with `game-improvement` and none of those labels.
+**Skip any issue that already has the label `approved-for-work`, `is-approved`, or `wont-do`** — those have already been triaged. Only process issues with `game-improvement` and none of those labels.
 
 **Exception:** If an issue has a rejection comment (starting with "❌ Triage Decision: Closed") but is still open and missing the `wont-do` label, add the label and close it — this is cleanup from a prior incomplete run. Do not re-triage these; the comment already explains the decision.
 
