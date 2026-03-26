@@ -94,9 +94,20 @@ describe('POST /mcp', () => {
     expect(parsed.current_state).toHaveProperty('my_structure_score');
     expect(parsed.current_state).toHaveProperty('opponent_structure_score');
     expect(parsed.current_state.my_structure_score).toHaveProperty('total_hp');
+    expect(parsed.current_state.my_structure_score).toHaveProperty('total_blocks');
+    expect(parsed.current_state.my_structure_score).toHaveProperty('avg_health');
     expect(parsed.current_state.my_structure_score).toHaveProperty('max_height');
     expect(parsed.current_state.my_structure_score).toHaveProperty('footprint');
+    expect(parsed.current_state.my_structure_score).toHaveProperty('perimeter_integrity');
+    expect(parsed.current_state.my_structure_score).toHaveProperty('architectural_complexity');
     expect(parsed.current_state.my_structure_score).toHaveProperty('courtyard_bonus');
+    // Score breakdown mirrors structure score for AI discoverability
+    expect(parsed.current_state).toHaveProperty('my_score_breakdown');
+    expect(parsed.current_state).toHaveProperty('opponent_score_breakdown');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('total_blocks');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('avg_health');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('perimeter_integrity');
+    expect(parsed.current_state.my_score_breakdown).toHaveProperty('architectural_complexity');
   });
 
   it('submit_turn places multiple blocks and auto-commits', async () => {

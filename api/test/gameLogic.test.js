@@ -470,7 +470,12 @@ import { computeStructureScore } from '../lib/gameLogic.js';
 describe('computeStructureScore', () => {
   it('returns all zeros for empty board', () => {
     const score = computeStructureScore([], 'player1');
-    expect(score).toEqual({ total_hp: 0, max_height: 0, footprint: 0, perimeter: 0, height_variety: 0, flag_diversity: 0, courtyard_bonus: 0 });
+    expect(score).toEqual({
+      total_blocks: 0, total_hp: 0, avg_health: 0, max_height: 0,
+      footprint: 0, perimeter: 0, perimeter_integrity: 0,
+      height_variety: 0, architectural_complexity: 0,
+      flag_diversity: 0, courtyard_bonus: 0,
+    });
   });
 
   it('calculates total_hp as sum of all block health', () => {
@@ -617,5 +622,68 @@ describe('computeStructureScore', () => {
     const cells = [{ x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }];
     expect(computeStructureScore(cells, 'player1').flag_diversity).toBe(0);
     expect(computeStructureScore(cells, 'player1', []).flag_diversity).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — new breakdown fields (total_blocks, avg_health, etc.)
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — breakdown fields', () => {
+  it('counts total_blocks as raw block count (not footprint)', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'dry_sand',    health: 25, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.total_blocks).toBe(3);
+    expect(score.footprint).toBe(2); // only 2 distinct (x,y) positions
+  });
+
+  it('only counts blocks for the specified player', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 15, y: 5, level: 0, type: 'dry_sand',   health: 25, owner: 'player2' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.total_blocks).toBe(1);
+  });
+
+  it('calculates avg_health correctly', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'dry_sand',    health: 20, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.avg_health).toBe(40);
+  });
+
+  it('counts architectural_complexity as multi-level columns', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.architectural_complexity).toBe(1); // only (3,5) has 2 levels
+  });
+
+  it('calculates perimeter_integrity > 0 when perimeter cells are occupied', () => {
+    // Place a block on a zone boundary cell for player1 (x=0 is the left edge)
+    const cells = [
+      { x: 0, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.perimeter_integrity).toBeGreaterThan(0);
+  });
+
+  it('returns perimeter_integrity 0 when no perimeter cells occupied', () => {
+    // Interior cell — not on zone boundary
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.perimeter_integrity).toBe(0);
   });
 });

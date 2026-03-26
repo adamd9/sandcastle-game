@@ -25,19 +25,27 @@ import {
 export function computeStructureScore(cells, player, flags = []) {
   const playerCells = cells.filter(c => c.owner === player);
 
-  // (1) Total block HP remaining (resilience)
+  // (1) Total block count
+  const total_blocks = playerCells.length;
+
+  // (2) Total block HP remaining (resilience)
   const total_hp = playerCells.reduce((sum, c) => sum + c.health, 0);
 
-  // (2) Max height achieved (highest level + 1; level 0 = height 1)
-  const max_height = playerCells.length > 0
+  // (3) Average health per block, rounded to 1 decimal place (0 if no blocks)
+  const avg_health = total_blocks > 0
+    ? Math.round((total_hp / total_blocks) * 10) / 10
+    : 0;
+
+  // (4) Max height achieved (highest level + 1; level 0 = height 1)
+  const max_height = total_blocks > 0
     ? Math.max(...playerCells.map(c => c.level)) + 1
     : 0;
 
-  // (3) Footprint: number of distinct (x,y) cells with at least one block
+  // (5) Footprint: number of distinct (x,y) cells with at least one block
   const occupiedSet = new Set(playerCells.map(c => `${c.x},${c.y}`));
   const footprint = occupiedSet.size;
 
-  // (4) Perimeter: number of exposed outer edges of the 2D footprint.
+  // (6) Perimeter: number of exposed outer edges of the 2D footprint.
   //     A wider, more spread-out castle scores higher than a simple column.
   const DX = [-1, 0, 1, 0];
   const DY = [0, -1, 0, 1];
@@ -51,20 +59,50 @@ export function computeStructureScore(cells, player, flags = []) {
     }
   }
 
-  // (5) Height variety: number of distinct building levels in use.
+  // (7) Height variety: number of distinct building levels in use.
   //     Having blocks at L0 walls + L2 towers + L3 spires scores more than
   //     uniform stacking.
   const height_variety = new Set(playerCells.map(c => c.level)).size;
 
-  // (6) Flag diversity: number of distinct named structures (flags).
-  //     Each flag must be spatially separated (enforced by FLAG_MIN_SPACING),
-  //     so more flags indicate a richer, multi-part castle design.
+  // (8) Architectural complexity: number of (x,y) positions with 2+ stacked blocks.
+  //     Rewards multi-level towers over single-level spreading.
+  const byPos = new Map();
+  for (const c of playerCells) {
+    const posKey = `${c.x},${c.y}`;
+    byPos.set(posKey, (byPos.get(posKey) || 0) + 1);
+  }
+  const architectural_complexity = [...byPos.values()].filter(count => count > 1).length;
+
+  // (9) Perimeter integrity: percentage (0–100, 1 decimal) of the buildable zone
+  //     boundary positions that have at least one block.
+  const zone = ZONES[player];
+  const buildableYMin = WATER_ROWS;
+  const buildableYMax = GRID_HEIGHT - 1;
+  const perimeterSet = new Set();
+  for (let x = zone.x_min; x <= zone.x_max; x++) {
+    perimeterSet.add(`${x},${buildableYMin}`);
+    perimeterSet.add(`${x},${buildableYMax}`);
+  }
+  for (let y = buildableYMin + 1; y < buildableYMax; y++) {
+    perimeterSet.add(`${zone.x_min},${y}`);
+    perimeterSet.add(`${zone.x_max},${y}`);
+  }
+  let occupiedPerimeterCount = 0;
+  for (const key of perimeterSet) {
+    if (occupiedSet.has(key)) occupiedPerimeterCount++;
+  }
+  const perimeter_integrity = perimeterSet.size > 0
+    ? Math.round((occupiedPerimeterCount / perimeterSet.size) * 1000) / 10
+    : 0;
+
+  // (10) Flag diversity: number of distinct named structures (flags).
+  //      Each flag must be spatially separated (enforced by FLAG_MIN_SPACING),
+  //      so more flags indicate a richer, multi-part castle design.
   const flag_diversity = flags.filter(f => f.owner === player).length;
 
-  // (7) Courtyard bonus: empty cells fully enclosed within the player's structure.
-  //     Uses a flood-fill from the zone boundary — any empty cell in the zone that
-  //     is NOT reachable from the boundary counts as an enclosed courtyard cell.
-  const zone = ZONES[player];
+  // (11) Courtyard bonus: empty cells fully enclosed within the player's structure.
+  //      Uses a flood-fill from the zone boundary — any empty cell in the zone that
+  //      is NOT reachable from the boundary counts as an enclosed courtyard cell.
 
   const visited = new Set();
   const queue = [];
@@ -109,7 +147,12 @@ export function computeStructureScore(cells, player, flags = []) {
     }
   }
 
-  return { total_hp, max_height, footprint, perimeter, height_variety, flag_diversity, courtyard_bonus };
+  return {
+    total_blocks, total_hp, avg_health, max_height,
+    footprint, perimeter, perimeter_integrity,
+    height_variety, architectural_complexity,
+    flag_diversity, courtyard_bonus,
+  };
 }
 
 // ---------------------------------------------------------------------------
