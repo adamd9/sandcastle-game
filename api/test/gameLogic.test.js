@@ -133,6 +133,65 @@ describe('validateMove', () => {
       expect(r.reason).toMatch(/moat/i);
     });
   });
+
+  describe('REPAIR_KIT validation', () => {
+    it('allows REPAIR_KIT on own cell when no cooldown', () => {
+      const state = freshState();
+      state.cells.push({ x: 3, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 3, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects REPAIR_KIT on empty cell', () => {
+      const r = validateMove(freshState(), 'player1', { action: 'REPAIR_KIT', x: 3, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/no block/i);
+    });
+
+    it("rejects REPAIR_KIT on opponent's cell", () => {
+      const state = freshState();
+      state.cells.push({ x: 3, y: 5, type: 'packed_sand', health: 10, owner: 'player2', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 3, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/belongs to/i);
+    });
+
+    it('rejects REPAIR_KIT on a moat block', () => {
+      const state = freshState();
+      state.cells.push({ x: 3, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 3, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/moat/i);
+    });
+
+    it('rejects REPAIR_KIT when on cooldown (used 2 ticks ago)', () => {
+      const state = freshState();
+      state.tick = 5;
+      state.players.player1.repairKitLastUsedTick = 3; // 5 - 3 = 2 < 5 cooldown
+      state.cells.push({ x: 3, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 3, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/cooldown/i);
+    });
+
+    it('allows REPAIR_KIT exactly when cooldown expires (5 ticks later)', () => {
+      const state = freshState();
+      state.tick = 8;
+      state.players.player1.repairKitLastUsedTick = 3; // 8 - 3 = 5 >= 5 cooldown
+      state.cells.push({ x: 3, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 3, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('cooldown is per-player: player2 can use while player1 is on cooldown', () => {
+      const state = freshState();
+      state.tick = 5;
+      state.players.player1.repairKitLastUsedTick = 3; // on cooldown
+      state.cells.push({ x: 15, y: 5, type: 'packed_sand', health: 10, owner: 'player2', level: 0 });
+      const r = validateMove(state, 'player2', { action: 'REPAIR_KIT', x: 15, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+  });
 });
 
 describe('applyMove', () => {
@@ -175,6 +234,30 @@ describe('applyMove', () => {
     const next = applyMove(structuredClone(state), 'player1', { action: 'REMOVE', x: 5, y: 5, level: 1 });
     expect(next.cells).toHaveLength(1);
     expect(next.cells[0].level).toBe(0);
+  });
+
+  describe('REPAIR_KIT', () => {
+    it('REPAIR_KIT restores block to MAX_HEALTH', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(next.cells[0].health).toBe(60);
+    });
+
+    it('REPAIR_KIT records repairKitLastUsedTick on player state', () => {
+      const state = freshState();
+      state.tick = 3;
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(next.players.player1.repairKitLastUsedTick).toBe(3);
+    });
+
+    it('REPAIR_KIT increments actionsThisTick', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 30, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(next.players.player1.actionsThisTick).toBe(1);
+    });
   });
 });
 
