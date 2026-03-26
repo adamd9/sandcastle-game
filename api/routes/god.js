@@ -10,16 +10,8 @@ import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
 
-let cachedEventsByType = null;
 function selectWeatherEventByType(eventType) {
-  if (!cachedEventsByType) {
-    cachedEventsByType = getAllWeatherEvents().reduce((acc, event) => {
-      if (!acc[event.event_type]) acc[event.event_type] = [];
-      acc[event.event_type].push(event);
-      return acc;
-    }, {});
-  }
-  const events = cachedEventsByType[eventType] ?? [];
+  const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
   if (events.length === 0) return null;
   const total = events.reduce((sum, event) => sum + event.weight, 0);
   let roll = Math.random() * total;
@@ -27,7 +19,7 @@ function selectWeatherEventByType(eventType) {
     roll -= event.weight;
     if (roll <= 0) return { ...event };
   }
-  return { ...events[0] };
+  return { ...events[events.length - 1] };
 }
 
 function devOnly(req, res, next) {
@@ -198,7 +190,7 @@ router.post('/tick', async (req, res) => {
           event_id:       ev.id,
           event_name:     ev.name,
           event_emoji:    ev.emoji,
-          event_type:     typedEvent ? ev.event_type : eventParam,  // force damage type if no match
+          event_type:     typedEvent ? ev.event_type : eventParam,  // fall back to forced damage type
           event:          eventParam,  // consumed by applyWeather
         };
       }
