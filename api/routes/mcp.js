@@ -9,7 +9,7 @@ import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
   BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
   WATER_ROWS, MAX_LEVEL, FLAGS_MAX_LABEL_LENGTH, FLAG_MIN_SPACING,
-  FLAG_DAMAGE_REDUCTION,
+  FLAG_DAMAGE_REDUCTION, MOAT_DAMAGE_REDUCTION,
   rainDamage, windDamage,
 } from '../lib/rules.js';
 
@@ -66,6 +66,17 @@ const RULES_DOC = {
     max_label_length: FLAGS_MAX_LABEL_LENGTH,
     strategy: 'One flag per distinct connected structure is sufficient for full protection of that structure. Place flags on well-defended foundation blocks (L0) so they survive as long as the structure does.',
   },
+  moat_mechanics: {
+    description: 'Moat blocks (block_type: "moat") are permanent ground-level water channels dug into the sand. They are a powerful defensive tool — use them to protect adjacent castle blocks from weather damage.',
+    placement: 'Moat blocks can only be placed at level 0 (ground level). They cannot be stacked and cannot have blocks placed on top of them.',
+    permanence: 'Moat blocks are permanent — they are completely immune to ALL weather damage including rain, wind, storms, wave surges, and rogue waves. They never need to be reinforced.',
+    adjacency_protection: `Every same-owner block that is orthogonally adjacent (up, down, left, right — not diagonal) to a moat tile takes ${MOAT_DAMAGE_REDUCTION * 100}% less weather damage each tick.`,
+    damage_reduction: MOAT_DAMAGE_REDUCTION,
+    stacking_with_flags: 'Moat protection and flag protection stack multiplicatively. A block adjacent to a moat AND in a flagged structure takes further reduced damage: flag_reduction × moat_reduction applied sequentially.',
+    score: 'Moat blocks do not contribute to structural score (health = 0). Their value is purely defensive.',
+    cannot_reinforce: 'Moat blocks cannot be reinforced — they are already permanent.',
+    strategy: 'Dig a moat around the perimeter of your castle to permanently protect your outer walls. Even a single row of moat blocks adjacent to your packed_sand walls reduces incoming weather damage significantly. Moats are especially valuable near the ocean edge (y=3) where wave damage is most severe.',
+  },
   levels: {
     max_level: MAX_LEVEL,
     description: 'Each (x,y) cell can stack up to 4 blocks (levels 0–3). Must place L0 before L1. Removing a level destroys all levels above (cascade).',
@@ -93,6 +104,7 @@ const RULES_DOC = {
     wind_protection: 'Wind only damages cells on the grid edge facing the wind direction. Interior blocks are shielded. Outer walls act as sacrificial protection.',
     zone: 'Your zone is columns {x_min} to {x_max}, rows 0 to 19. You have 200 cells to work with.',
     recommended_pattern: 'Consider: outer ring of packed_sand walls (rows 0,19 and your zone boundary columns), then inner structures. A thick outer wall absorbs weather while your castle grows inside.',
+    moat_usage: 'Dig moat blocks (block_type: "moat") at level 0 around your castle perimeter. Moat blocks are PERMANENT (never destroyed by weather) and grant 25% damage reduction to every adjacent same-owner block. They cost one action each and require no maintenance — an excellent investment for long-term castle defense.',
   },
   history_format: {
     description: 'state.history contains up to 20 rounds. Each round has:',
@@ -162,7 +174,7 @@ export function createMcpRouter() {
             weather: state.weather,
             my_player: player,
             my_actions_used: state.players[player].actionsThisTick,
-            my_actions_remaining: 12 - state.players[player].actionsThisTick,
+            my_actions_remaining: ACTIONS_PER_TICK - state.players[player].actionsThisTick,
             my_turn_committed: state.players[player].turnCommitted,
             opponent_turn_committed: state.players[player === 'player1' ? 'player2' : 'player1'].turnCommitted,
             my_blocks: state.cells.filter(c => c.owner === player).map(c => ({ x: c.x, y: c.y, level: c.level, type: c.type, health: c.health })),
@@ -190,7 +202,7 @@ export function createMcpRouter() {
 
     server.tool(
       'submit_turn',
-      'Submit all your moves for this tick in a single call. Accepts up to 12 moves as an array. Auto-commits your turn — no separate end_turn call needed.',
+      `Submit all your moves for this tick in a single call. Accepts up to ${ACTIONS_PER_TICK} moves as an array. Auto-commits your turn — no separate end_turn call needed.`,
       {
         moves: z.array(z.object({
           action: z.enum(['PLACE', 'REMOVE', 'REINFORCE'])
@@ -199,12 +211,12 @@ export function createMcpRouter() {
             .describe('Grid x coordinate (0–19). You must stay within your zone.'),
           y: z.number().int().min(0).max(19)
             .describe('Grid y coordinate (0–19).'),
-          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand']).optional()
-            .describe('Block type — required for PLACE. packed_sand has the highest health (60).'),
+          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand', 'moat']).optional()
+            .describe('Block type — required for PLACE. packed_sand has the highest health (60). moat is permanent, immune to weather, and grants 25% damage reduction to adjacent same-owner blocks (level 0 only).'),
           level: z.number().int().min(0).max(3).optional().default(0)
             .describe('Vertical level to act on: 0=ground, 1=first floor, 2=tower, 3=spire. Default: 0 for PLACE. Must place L0 before L1, etc.'),
         })).min(1).max(ACTIONS_PER_TICK)
-          .describe('Array of moves to apply this tick, in order. Max 12.'),
+          .describe(`Array of moves to apply this tick, in order. Max ${ACTIONS_PER_TICK}.`),
       },
       async ({ moves }) => {
         let state = await getState();

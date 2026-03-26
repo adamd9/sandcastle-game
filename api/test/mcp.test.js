@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import app from '../server.js';
 import { resetState } from '../lib/store.js';
+import { ACTIONS_PER_TICK } from '../lib/rules.js';
 
 process.env.PLAYER1_API_KEY = 'test-key-p1';
 process.env.PLAYER2_API_KEY = 'test-key-p2';
@@ -49,6 +50,26 @@ describe('POST /mcp', () => {
     expect(rules.flag_mechanics).toHaveProperty('min_spacing', 4);
     expect(rules.flag_mechanics).toHaveProperty('protection_model');
     expect(rules.flag_mechanics).toHaveProperty('strategy');
+  });
+
+  it('get_rules includes moat mechanics', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_rules', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const text = res.body.result?.content?.[0]?.text;
+    expect(text).toBeDefined();
+    const rules = JSON.parse(text);
+    expect(rules).toHaveProperty('moat_mechanics');
+    expect(rules.moat_mechanics).toHaveProperty('damage_reduction', 0.25);
+    expect(rules.moat_mechanics).toHaveProperty('permanence');
+    expect(rules.moat_mechanics).toHaveProperty('adjacency_protection');
+    expect(rules.moat_mechanics).toHaveProperty('strategy');
   });
 
   it('get_state returns game state', async () => {
@@ -101,6 +122,64 @@ describe('POST /mcp', () => {
     expect(result.ok).toBe(true);
     expect(result.applied).toBe(2);
     expect(result.turnCommitted).toBe(true);
+  });
+
+  it('submit_turn can place a moat block', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: {
+            moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'moat', level: 0 }],
+          },
+        },
+      });
+    expect(res.status).toBe(200);
+    const text = res.body.result?.content?.[0]?.text;
+    const result = JSON.parse(text);
+    expect(result.ok).toBe(true);
+    expect(result.applied).toBe(1);
+    expect(result.turnCommitted).toBe(true);
+  });
+
+  it('submit_turn rejects moat block at level > 0', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: {
+            moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'moat', level: 1 }],
+          },
+        },
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.result?.isError).toBe(true);
+    expect(res.body.result?.content?.[0]?.text).toMatch(/moat/i);
+  });
+
+  it('get_state returns correct my_actions_remaining based on ACTIONS_PER_TICK', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const text = res.body.result?.content?.[0]?.text;
+    const parsed = JSON.parse(text);
+    const { my_actions_used, my_actions_remaining } = parsed.current_state;
+    // Total should always equal ACTIONS_PER_TICK (20), not 12
+    expect(my_actions_used + my_actions_remaining).toBe(ACTIONS_PER_TICK);
   });
 
   it('submit_turn rejects move in wrong zone', async () => {
