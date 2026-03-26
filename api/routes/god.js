@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
-import { selectRandomWeatherEvent, getWeatherEventById } from '../lib/weather.js';
+import { getAllWeatherEvents, getWeatherEventById, selectRandomWeatherEvent } from '../lib/weather.js';
 import { getSchedulerStatus, recordExternalTick } from '../lib/scheduler.js';
 import { triggerHookByName, firePostTickHooks } from '../lib/hooks.js';
 import { WATER_ROWS, JUDGE_INTERVAL, MAX_JUDGMENTS_HISTORY } from '../lib/rules.js';
@@ -9,6 +9,18 @@ import { renderBoard } from '../lib/renderer.js';
 import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
+
+function selectWeatherEventByType(eventType) {
+  const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
+  if (events.length === 0) return null;
+  const total = events.reduce((sum, event) => sum + event.weight, 0);
+  let roll = Math.random() * total;
+  for (const event of events) {
+    roll -= event.weight;
+    if (roll <= 0) return { ...event };
+  }
+  return { ...events[0] };
+}
 
 function devOnly(req, res, next) {
   if (process.env.COSMOS_ENDPOINT) {
@@ -168,8 +180,9 @@ router.post('/tick', async (req, res) => {
           event:          predefined.event_type,  // consumed by applyWeather
         };
       } else {
-        // Legacy WEATHER_EVENTS id (calm/normal/storm/wave_surge/rogue_wave)
-        const ev = selectRandomWeatherEvent();
+        // Legacy WEATHER_EVENTS type (calm/normal/storm/wave_surge/rogue_wave)
+        const typedEvent = selectWeatherEventByType(eventParam);
+        const ev = typedEvent ?? selectRandomWeatherEvent();
         weather = {
           rain_mm:        ev.rain_mm,
           wind_speed_kph: ev.wind_speed_kph,
@@ -177,7 +190,7 @@ router.post('/tick', async (req, res) => {
           event_id:       ev.id,
           event_name:     ev.name,
           event_emoji:    ev.emoji,
-          event_type:     eventParam,  // force the damage type
+          event_type:     typedEvent ? ev.event_type : eventParam,  // force damage type if no match
           event:          eventParam,  // consumed by applyWeather
         };
       }
