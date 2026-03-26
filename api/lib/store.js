@@ -10,6 +10,7 @@ import { MAX_HISTORY_IN_STORE } from './rules.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(__dirname, '..', 'state.json');
+const HISTORY_ARCHIVE_FILE = join(__dirname, '..', 'history-archive.json');
 
 const INITIAL_STATE = () => ({
   id: 'game',
@@ -50,8 +51,31 @@ export function getState() {
 }
 
 export function saveState(newState) {
-  // Trim history to avoid unbounded document growth (mirrors cosmos.js behaviour).
+  // Archive entries that would be trimmed to history-archive.json so no tick
+  // data is permanently lost (mirrors cosmos.js archive behaviour).
   if (Array.isArray(newState.history) && newState.history.length > MAX_HISTORY_IN_STORE) {
+    const toArchive = newState.history.slice(0, newState.history.length - MAX_HISTORY_IN_STORE);
+    if (!IS_TEST) {
+      try {
+        let existing = [];
+        if (existsSync(HISTORY_ARCHIVE_FILE)) {
+          existing = JSON.parse(readFileSync(HISTORY_ARCHIVE_FILE, 'utf8'));
+        }
+        const existingTicks = new Set(existing.map(e => e.tick));
+        const newEntries = toArchive.filter(e => !existingTicks.has(e.tick));
+        if (newEntries.length > 0) {
+          writeFileSync(
+            HISTORY_ARCHIVE_FILE,
+            JSON.stringify([...existing, ...newEntries], null, 2),
+            'utf8'
+          );
+        }
+      } catch (archiveErr) {
+        // Archive failures must not block the main state write.
+        const failedTicks = toArchive.map(e => e.tick).join(', ');
+        console.error(`[store] history archive failed for ticks [${failedTicks}]:`, archiveErr.message ?? archiveErr);
+      }
+    }
     newState.history = newState.history.slice(-MAX_HISTORY_IN_STORE);
   }
   if (IS_TEST) {
