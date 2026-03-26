@@ -14,16 +14,6 @@ const container = client
   .database('sandcastle')
   .container('game');
 
-// Separate container that stores every history entry ever recorded.
-// Each document has id = `tick-${entry.tick}` and a `gameId` field used as
-// the partition key (configure the container with partition key path /gameId).
-// This container must be pre-provisioned in Cosmos DB; the game container
-// cap (MAX_HISTORY_IN_STORE) keeps the main document within the 2 MB limit
-// while full history is preserved here for auditing / replay.
-const historyContainer = client
-  .database('sandcastle')
-  .container('history');
-
 const ITEM_ID = 'game';
 const PARTITION_KEY = 'game';
 
@@ -59,22 +49,9 @@ export async function getState() {
 
 export async function saveState(newState) {
   newState.lastUpdated = new Date().toISOString();
-  // Archive entries that would be trimmed to the dedicated history container
-  // so no tick data is lost, even though the main document only keeps the
-  // most recent MAX_HISTORY_IN_STORE entries (to stay within the 2 MB limit).
+  // Trim history to avoid exceeding Cosmos DB's 2 MB document size limit.
+  // Interfaces apply their own default limit and allow callers to request more.
   if (Array.isArray(newState.history) && newState.history.length > MAX_HISTORY_IN_STORE) {
-    const toArchive = newState.history.slice(0, newState.history.length - MAX_HISTORY_IN_STORE);
-    try {
-      await Promise.all(
-        toArchive.map(entry =>
-          historyContainer.items.upsert({ id: `tick-${entry.tick}`, gameId: 'game', ...entry })
-        )
-      );
-    } catch (archiveErr) {
-      // Archive failures must not block the main state write.
-      const failedTicks = toArchive.map(e => e.tick).join(', ');
-      console.error(`[cosmos] history archive failed for ticks [${failedTicks}]:`, archiveErr.message ?? archiveErr);
-    }
     newState.history = newState.history.slice(-MAX_HISTORY_IN_STORE);
   }
   await container.items.upsert(newState);

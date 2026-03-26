@@ -149,10 +149,13 @@ export function createMcpRouter() {
     server.tool(
       'get_state',
       'Get the current game state including board, weather, your action budget, and recent turn history with weather damage events. Use this before planning your moves.',
-      {},
-      async () => {
+      {
+        history_limit: z.number().int().min(0).max(30).optional()
+          .describe('Number of recent history entries to include (default 5, max 30). Pass 0 to omit history entirely.'),
+      },
+      async ({ history_limit = 5 }) => {
         const state = await getState();
-        const recentHistory = (state.history || []).slice(-5).map(round => ({
+        const recentHistory = (state.history || []).slice(-history_limit).map(round => ({
           tick: round.tick,
           weather: round.weather,
           myMoves: round.moves?.[player] || [],

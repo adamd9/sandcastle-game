@@ -73,16 +73,24 @@ describe('GET /state/history', () => {
     expect(lastEntry).toHaveProperty('timestamp');
   });
 
-  it('caps stored history at MAX_HISTORY_IN_STORE entries after many ticks', async () => {
-    // Fire more ticks than MAX_HISTORY_IN_STORE (10) to trigger trimming.
-    for (let i = 0; i < 12; i++) {
+  it('default history response is limited to 20 entries even when more are stored', async () => {
+    // Fire more ticks than the endpoint default limit (20) to verify it caps output.
+    for (let i = 0; i < 22; i++) {
       await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
     }
 
     const res = await request(app).get('/state/history');
     expect(res.status).toBe(200);
-    // History must not exceed the cap even though 12 ticks were applied.
-    expect(res.body.history.length).toBeLessThanOrEqual(10);
+    // Default limit is 20 — returned slice must not exceed it.
+    expect(res.body.history.length).toBeLessThanOrEqual(20);
+    // total reflects how many entries are actually stored (may be more).
+    expect(res.body.total).toBeGreaterThan(20);
+  });
+
+  it('history limit can be overridden via ?limit query param', async () => {
+    const res = await request(app).get('/state/history?limit=5');
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBeLessThanOrEqual(5);
   });
 });
 

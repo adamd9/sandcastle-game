@@ -89,10 +89,10 @@ export const MAX_JUDGMENTS_HISTORY = 50;
 
 // Maximum number of history entries retained in the stored document.
 // Cosmos DB has a 2 MB document size limit; each history entry contains two
-// full cell snapshots (~56 KB each), so keeping all history causes 413 errors
-// once the document grows beyond ~35 ticks.  Ten entries is a safe ceiling
-// while still providing a useful recent-history window for agents and the UI.
-export const MAX_HISTORY_IN_STORE = 10;
+// full cell snapshots (~56 KB each).  30 entries × ~56 KB ≈ 1.7 MB, which
+// stays safely under the limit.  Interfaces (GET /state/history, get_state MCP
+// tool) apply their own default limit and allow callers to override it.
+export const MAX_HISTORY_IN_STORE = 30;
 
 // Pick a random event by weight
 export function selectWeatherEvent() {
