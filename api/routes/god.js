@@ -10,6 +10,12 @@ import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
 
+/**
+ * Select a weighted random weather event that matches a given event type.
+ * Returns the matching event or null when no events exist for that type.
+ * Falls back to the final event in the list if floating-point rounding
+ * prevents the weighted roll from selecting an earlier entry.
+ */
 function selectWeatherEventByType(eventType) {
   const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
   if (events.length === 0) return null;
