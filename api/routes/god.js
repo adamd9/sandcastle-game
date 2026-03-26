@@ -10,8 +10,16 @@ import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
 
+let cachedEventsByType = null;
 function selectWeatherEventByType(eventType) {
-  const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
+  if (!cachedEventsByType) {
+    cachedEventsByType = getAllWeatherEvents().reduce((acc, event) => {
+      if (!acc[event.event_type]) acc[event.event_type] = [];
+      acc[event.event_type].push(event);
+      return acc;
+    }, {});
+  }
+  const events = cachedEventsByType[eventType] ?? [];
   if (events.length === 0) return null;
   const total = events.reduce((sum, event) => sum + event.weight, 0);
   let roll = Math.random() * total;
