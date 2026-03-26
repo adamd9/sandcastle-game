@@ -20,10 +20,11 @@ export const BLOCK_TYPES = {
   moat:        { initial_health: 0, permanent: true }, // immune to weather; cannot stack; grants 25% damage reduction to adjacent same-owner blocks
 };
 
-export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE'];
+export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT'];
 
 export const REINFORCE_AMOUNT = 15;
 export const MAX_HEALTH = 60;
+export const REPAIR_KIT_COOLDOWN = 5; // ticks between REPAIR_KIT uses per player
 export const MOAT_DAMAGE_REDUCTION = 0.25; // adjacent same-owner blocks take 25% less weather damage
 export const FLAGS_MAX_LABEL_LENGTH = 50;
 export const FLAG_MIN_SPACING = 4; // flags must be >= 4 grid units apart (Euclidean), unless separated by empty cells
@@ -85,6 +86,13 @@ export const WEATHER_EVENTS = [
 export const JUDGE_INTERVAL = 4;
 export const JUDGE_MODEL = 'gpt-5.2';
 export const MAX_JUDGMENTS_HISTORY = 50;
+
+// Maximum number of history entries retained in the stored document.
+// Cosmos DB has a 2 MB document size limit; each history entry contains two
+// full cell snapshots (~56 KB each), so keeping all history causes 413 errors
+// once the document grows beyond ~35 ticks.  Ten entries is a safe ceiling
+// while still providing a useful recent-history window for agents and the UI.
+export const MAX_HISTORY_IN_STORE = 10;
 
 // Pick a random event by weight
 export function selectWeatherEvent() {

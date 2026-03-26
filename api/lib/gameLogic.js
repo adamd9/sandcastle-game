@@ -2,8 +2,10 @@ import {
   ZONES,
   ACTIONS_PER_TICK,
   BLOCK_TYPES,
+  VALID_ACTIONS,
   REINFORCE_AMOUNT,
   MAX_HEALTH,
+  REPAIR_KIT_COOLDOWN,
   GRID_WIDTH,
   GRID_HEIGHT,
   WATER_ROWS,
@@ -20,27 +22,87 @@ import {
 // computeStructureScore — live score formula for a player's current structure
 // ---------------------------------------------------------------------------
 
-export function computeStructureScore(cells, player) {
+export function computeStructureScore(cells, player, flags = []) {
   const playerCells = cells.filter(c => c.owner === player);
 
-  // (1) Total block HP remaining (resilience)
+  // (1) Total block count
+  const total_blocks = playerCells.length;
+
+  // (2) Total block HP remaining (resilience)
   const total_hp = playerCells.reduce((sum, c) => sum + c.health, 0);
 
-  // (2) Max height achieved (highest level + 1; level 0 = height 1)
-  const max_height = playerCells.length > 0
+  // (3) Average health per block, rounded to 1 decimal place (0 if no blocks)
+  const avg_health = total_blocks > 0
+    ? Math.round((total_hp / total_blocks) * 10) / 10
+    : 0;
+
+  // (4) Max height achieved (highest level + 1; level 0 = height 1)
+  const max_height = total_blocks > 0
     ? Math.max(...playerCells.map(c => c.level)) + 1
     : 0;
 
-  // (3) Footprint: number of distinct (x,y) cells with at least one block
+  // (5) Footprint: number of distinct (x,y) cells with at least one block
   const occupiedSet = new Set(playerCells.map(c => `${c.x},${c.y}`));
   const footprint = occupiedSet.size;
 
-  // (4) Courtyard bonus: empty cells fully enclosed within the player's structure.
-  //     Uses a flood-fill from the zone boundary — any empty cell in the zone that
-  //     is NOT reachable from the boundary counts as an enclosed courtyard cell.
-  const zone = ZONES[player];
+  // (6) Perimeter: number of exposed outer edges of the 2D footprint.
+  //     A wider, more spread-out castle scores higher than a simple column.
   const DX = [-1, 0, 1, 0];
   const DY = [0, -1, 0, 1];
+  let perimeter = 0;
+  for (const key of occupiedSet) {
+    const [px, py] = key.split(',').map(Number);
+    for (let d = 0; d < 4; d++) {
+      if (!occupiedSet.has(`${px + DX[d]},${py + DY[d]}`)) {
+        perimeter++;
+      }
+    }
+  }
+
+  // (7) Height variety: number of distinct building levels in use.
+  //     Having blocks at L0 walls + L2 towers + L3 spires scores more than
+  //     uniform stacking.
+  const height_variety = new Set(playerCells.map(c => c.level)).size;
+
+  // (8) Architectural complexity: number of (x,y) positions with 2+ stacked blocks.
+  //     Rewards multi-level towers over single-level spreading.
+  const byPos = new Map();
+  for (const c of playerCells) {
+    const posKey = `${c.x},${c.y}`;
+    byPos.set(posKey, (byPos.get(posKey) || 0) + 1);
+  }
+  const architectural_complexity = [...byPos.values()].filter(count => count > 1).length;
+
+  // (9) Perimeter integrity: percentage (0–100, 1 decimal) of the buildable zone
+  //     boundary positions that have at least one block.
+  const zone = ZONES[player];
+  const buildableYMin = WATER_ROWS;
+  const buildableYMax = GRID_HEIGHT - 1;
+  const perimeterSet = new Set();
+  for (let x = zone.x_min; x <= zone.x_max; x++) {
+    perimeterSet.add(`${x},${buildableYMin}`);
+    perimeterSet.add(`${x},${buildableYMax}`);
+  }
+  for (let y = buildableYMin + 1; y < buildableYMax; y++) {
+    perimeterSet.add(`${zone.x_min},${y}`);
+    perimeterSet.add(`${zone.x_max},${y}`);
+  }
+  let occupiedPerimeterCount = 0;
+  for (const key of perimeterSet) {
+    if (occupiedSet.has(key)) occupiedPerimeterCount++;
+  }
+  const perimeter_integrity = perimeterSet.size > 0
+    ? Math.round((occupiedPerimeterCount / perimeterSet.size) * 1000) / 10
+    : 0;
+
+  // (10) Flag diversity: number of distinct named structures (flags).
+  //      Each flag must be spatially separated (enforced by FLAG_MIN_SPACING),
+  //      so more flags indicate a richer, multi-part castle design.
+  const flag_diversity = flags.filter(f => f.owner === player).length;
+
+  // (11) Courtyard bonus: empty cells fully enclosed within the player's structure.
+  //      Uses a flood-fill from the zone boundary — any empty cell in the zone that
+  //      is NOT reachable from the boundary counts as an enclosed courtyard cell.
 
   const visited = new Set();
   const queue = [];
@@ -85,114 +147,11 @@ export function computeStructureScore(cells, player) {
     }
   }
 
-  return { total_hp, max_height, footprint, courtyard_bonus };
-}
-
-// ---------------------------------------------------------------------------
-// computeScoreBreakdown — detailed per-metric breakdown for a player's structure
-// ---------------------------------------------------------------------------
-
-export function computeScoreBreakdown(cells, player, flags = []) {
-  const playerCells = cells.filter(c => c.owner === player);
-  const total_blocks = playerCells.length;
-
-  // avg_health: mean block health rounded to 1 decimal place (0 if no blocks)
-  const avg_health = total_blocks > 0
-    ? Math.round((playerCells.reduce((s, c) => s + c.health, 0) / total_blocks) * 10) / 10
-    : 0;
-
-  // max_height: highest level + 1 (level 0 = height 1)
-  const max_height = total_blocks > 0
-    ? Math.max(...playerCells.map(c => c.level)) + 1
-    : 0;
-
-  // architectural_complexity: number of (x,y) positions with more than one stacked block
-  const byPos = new Map();
-  for (const c of playerCells) {
-    const key = `${c.x},${c.y}`;
-    byPos.set(key, (byPos.get(key) || 0) + 1);
-  }
-  const architectural_complexity = [...byPos.values()].filter(count => count > 1).length;
-
-  // perimeter_integrity: percentage (0–100, 1 decimal) of the buildable zone boundary
-  // positions that have at least one block. Calculated as (occupied / total) * 100.
-  const zone = ZONES[player];
-  const buildableYMin = WATER_ROWS;
-  const buildableYMax = GRID_HEIGHT - 1;
-  const perimeterSet = new Set();
-  for (let x = zone.x_min; x <= zone.x_max; x++) {
-    perimeterSet.add(`${x},${buildableYMin}`);
-    perimeterSet.add(`${x},${buildableYMax}`);
-  }
-  for (let y = buildableYMin + 1; y < buildableYMax; y++) {
-    perimeterSet.add(`${zone.x_min},${y}`);
-    perimeterSet.add(`${zone.x_max},${y}`);
-  }
-  const occupiedSet = new Set(playerCells.map(c => `${c.x},${c.y}`));
-  let occupiedPerimeterCount = 0;
-  for (const key of perimeterSet) {
-    if (occupiedSet.has(key)) occupiedPerimeterCount++;
-  }
-  const perimeter_integrity = perimeterSet.size > 0
-    ? Math.round((occupiedPerimeterCount / perimeterSet.size) * 1000) / 10
-    : 0;
-
-  // flagged_structures: number of distinct connected components that contain a flag
-  const playerFlags = (flags || []).filter(f => f.owner === player);
-  let flagged_structures = 0;
-  if (playerFlags.length > 0 && total_blocks > 0) {
-    const keyToIdx = new Map();
-    for (let i = 0; i < playerCells.length; i++) {
-      const c = playerCells[i];
-      keyToIdx.set(`${c.x},${c.y},${c.level}`, i);
-    }
-    const parent = playerCells.map((_, i) => i);
-    const rank = new Array(playerCells.length).fill(0);
-    function find(a) {
-      while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
-      return a;
-    }
-    function union(a, b) {
-      a = find(a); b = find(b);
-      if (a === b) return;
-      if (rank[a] < rank[b]) [a, b] = [b, a];
-      parent[b] = a;
-      if (rank[a] === rank[b]) rank[a]++;
-    }
-    const byPosForFlags = new Map();
-    for (let i = 0; i < playerCells.length; i++) {
-      const c = playerCells[i];
-      const posKey = `${c.x},${c.y}`;
-      if (!byPosForFlags.has(posKey)) byPosForFlags.set(posKey, []);
-      byPosForFlags.get(posKey).push(i);
-    }
-    for (const indices of byPosForFlags.values()) {
-      for (let j = 1; j < indices.length; j++) union(indices[0], indices[j]);
-    }
-    const DX = [-1, 0, 1, 0];
-    const DY = [0, -1, 0, 1];
-    for (let i = 0; i < playerCells.length; i++) {
-      const c = playerCells[i];
-      for (let d = 0; d < 4; d++) {
-        const nk = `${c.x + DX[d]},${c.y + DY[d]},${c.level}`;
-        if (keyToIdx.has(nk)) union(i, keyToIdx.get(nk));
-      }
-    }
-    const flaggedRoots = new Set();
-    for (const f of playerFlags) {
-      const idx = keyToIdx.get(`${f.x},${f.y},${f.level}`);
-      if (idx !== undefined) flaggedRoots.add(find(idx));
-    }
-    flagged_structures = flaggedRoots.size;
-  }
-
   return {
-    total_blocks,
-    max_height,
-    avg_health,
-    perimeter_integrity,
-    architectural_complexity,
-    flagged_structures,
+    total_blocks, total_hp, avg_health, max_height,
+    footprint, perimeter, perimeter_integrity,
+    height_variety, architectural_complexity,
+    flag_diversity, courtyard_bonus,
   };
 }
 
@@ -221,7 +180,7 @@ function inGrid(x, y) {
 // Flag protection — connected component analysis via union-find
 // ---------------------------------------------------------------------------
 
-function buildFlagProtectedSet(cells, flags) {
+export function buildFlagProtectedSet(cells, flags) {
   if (!flags || flags.length === 0) return new Set();
 
   // Index cells by owner for per-owner component analysis
@@ -409,8 +368,26 @@ export function validateMove(state, player, action) {
       return { valid: true };
     }
 
+    case 'REPAIR_KIT': {
+      if (!cell) {
+        return { valid: false, reason: `No block at (${x},${y}).` };
+      }
+      if (cell.owner !== player) {
+        return { valid: false, reason: `Cell (${x},${y}) belongs to ${cell.owner}.` };
+      }
+      if (cell.type === 'moat') {
+        return { valid: false, reason: 'Moat blocks are permanent and cannot be repaired.' };
+      }
+      const lastUsed = playerState.repairKitLastUsedTick;
+      if (lastUsed !== undefined && lastUsed !== null && state.tick - lastUsed < REPAIR_KIT_COOLDOWN) {
+        const ticksRemaining = REPAIR_KIT_COOLDOWN - (state.tick - lastUsed);
+        return { valid: false, reason: `Repair Kit is on cooldown. Available in ${ticksRemaining} more tick(s).` };
+      }
+      return { valid: true };
+    }
+
     default:
-      return { valid: false, reason: `Unknown action "${type}". Valid actions: PLACE, REMOVE, REINFORCE.` };
+      return { valid: false, reason: `Unknown action "${type}". Valid actions: ${VALID_ACTIONS.join(', ')}.` };
   }
 }
 
@@ -447,6 +424,12 @@ export function applyMove(state, player, action) {
     case 'REINFORCE': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
       cell.health = Math.min(cell.health + REINFORCE_AMOUNT, MAX_HEALTH);
+      break;
+    }
+    case 'REPAIR_KIT': {
+      const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
+      cell.health = MAX_HEALTH;
+      state.players[player].repairKitLastUsedTick = state.tick;
       break;
     }
   }
@@ -499,7 +482,7 @@ export function recordRound(state) {
     flags_snapshot: structuredClone(state.flags || []),
   };
   state.history.push(round);
-  // No cap — all history is retained. Endpoints slice as needed for consumers.
+  // In-memory history is unbounded; cosmos.js trims to MAX_HISTORY_IN_STORE on every save.
   return state;
 }
 

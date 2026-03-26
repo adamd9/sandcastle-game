@@ -72,6 +72,18 @@ describe('GET /state/history', () => {
     expect(lastEntry).toHaveProperty('tick');
     expect(lastEntry).toHaveProperty('timestamp');
   });
+
+  it('caps stored history at MAX_HISTORY_IN_STORE entries after many ticks', async () => {
+    // Fire more ticks than MAX_HISTORY_IN_STORE (10) to trigger trimming.
+    for (let i = 0; i < 12; i++) {
+      await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+    }
+
+    const res = await request(app).get('/state/history');
+    expect(res.status).toBe(200);
+    // History must not exceed the cap even though 12 ticks were applied.
+    expect(res.body.history.length).toBeLessThanOrEqual(10);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -99,7 +111,7 @@ describe('GET /state/:player', () => {
     expect(bd).toHaveProperty('avg_health');
     expect(bd).toHaveProperty('perimeter_integrity');
     expect(bd).toHaveProperty('architectural_complexity');
-    expect(bd).toHaveProperty('flagged_structures');
+    expect(bd).toHaveProperty('flag_diversity');
   });
 
   it('returns 400 for invalid player name', async () => {

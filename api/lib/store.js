@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { MAX_HISTORY_IN_STORE } from './rules.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = join(__dirname, '..', 'state.json');
@@ -49,6 +50,10 @@ export function getState() {
 }
 
 export function saveState(newState) {
+  // Trim history to avoid unbounded document growth (mirrors cosmos.js behaviour).
+  if (Array.isArray(newState.history) && newState.history.length > MAX_HISTORY_IN_STORE) {
+    newState.history = newState.history.slice(-MAX_HISTORY_IN_STORE);
+  }
   if (IS_TEST) {
     _memState = structuredClone(newState);
     return;

@@ -15,6 +15,7 @@ import {
   MAX_LEVEL,
   WEATHER_EVENTS,
   FLAG_DAMAGE_REDUCTION,
+  MOAT_DAMAGE_REDUCTION,
 } from '../lib/rules.js';
 import { getAllWeatherEvents } from '../lib/weather.js';
 
@@ -57,6 +58,16 @@ const COMPUTED = {
   },
   weather_events: WEATHER_EVENTS.map(e => ({ id: e.id, label: e.label, description: e.description })),
   flag_damage_reduction: FLAG_DAMAGE_REDUCTION,
+  moat_damage_reduction: MOAT_DAMAGE_REDUCTION,
+  moat_mechanics: {
+    description: 'Moat blocks are permanent ground-level water channels. They are immune to all weather damage and grant damage reduction to adjacent same-owner blocks.',
+    placement: 'Level 0 only — cannot be stacked or have blocks placed on top.',
+    permanence: 'Immune to all weather: rain, wind, storm, wave surge, rogue wave.',
+    adjacency_protection: `Same-owner blocks orthogonally adjacent (up/down/left/right) to a moat take ${MOAT_DAMAGE_REDUCTION * 100}% less weather damage.`,
+    damage_reduction: MOAT_DAMAGE_REDUCTION,
+    score_contribution: 'Moat blocks do not contribute to structural score (health = 0).',
+    cannot_reinforce: true,
+  },
 };
 
 // GET /rules — JSON response with computed constants + raw Markdown embedded
