@@ -9,6 +9,7 @@ import { renderBoard } from '../lib/renderer.js';
 import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
+const allWeatherEvents = getAllWeatherEvents();
 
 /**
  * Select a weighted random weather event that matches a given event type.
@@ -17,7 +18,7 @@ const router = Router();
  * prevents the weighted roll from selecting an earlier entry.
  */
 function selectWeatherEventByType(eventType) {
-  const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
+  const events = allWeatherEvents.filter(event => event.event_type === eventType);
   if (events.length === 0) return null;
   const total = events.reduce((sum, event) => sum + event.weight, 0);
   let roll = Math.random() * total;
@@ -188,15 +189,15 @@ router.post('/tick', async (req, res) => {
       } else {
         // Legacy WEATHER_EVENTS type (calm/normal/storm/wave_surge/rogue_wave)
         const typedEvent = selectWeatherEventByType(eventParam);
-        const ev = typedEvent ?? selectRandomWeatherEvent();
+        const selectedEvent = typedEvent ?? selectRandomWeatherEvent();
         weather = {
-          rain_mm:        ev.rain_mm,
-          wind_speed_kph: ev.wind_speed_kph,
-          wind_direction: ev.wind_direction,
-          event_id:       ev.id,
-          event_name:     ev.name,
-          event_emoji:    ev.emoji,
-          event_type:     typedEvent ? ev.event_type : eventParam,  // fall back to forced damage type
+          rain_mm:        selectedEvent.rain_mm,
+          wind_speed_kph: selectedEvent.wind_speed_kph,
+          wind_direction: selectedEvent.wind_direction,
+          event_id:       selectedEvent.id,
+          event_name:     selectedEvent.name,
+          event_emoji:    selectedEvent.emoji,
+          event_type:     typedEvent ? selectedEvent.event_type : eventParam,  // fall back to forced damage type
           event:          eventParam,  // consumed by applyWeather
         };
       }
