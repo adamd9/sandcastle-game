@@ -9,16 +9,16 @@ import { renderBoard } from '../lib/renderer.js';
 import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
-const allWeatherEvents = getAllWeatherEvents();
 
 /**
  * Select a weighted random weather event that matches a given event type.
  * Returns the matching event or null when no events exist for that type.
+ * Uses getAllWeatherEvents(), which already returns a cached list.
  * Falls back to the final event in the list if floating-point rounding
  * prevents the weighted roll from selecting an earlier entry.
  */
 function selectWeatherEventByType(eventType) {
-  const events = allWeatherEvents.filter(event => event.event_type === eventType);
+  const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
   if (events.length === 0) return null;
   const total = events.reduce((sum, event) => sum + event.weight, 0);
   let roll = Math.random() * total;
@@ -197,7 +197,7 @@ router.post('/tick', async (req, res) => {
           event_id:       selectedEvent.id,
           event_name:     selectedEvent.name,
           event_emoji:    selectedEvent.emoji,
-          event_type:     typedEvent ? selectedEvent.event_type : eventParam,  // fall back to forced damage type
+          event_type:     eventParam,  // align damage type with requested event type
           event:          eventParam,  // consumed by applyWeather
         };
       }
