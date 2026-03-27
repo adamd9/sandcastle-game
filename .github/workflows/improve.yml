@@ -22,7 +22,7 @@ jobs:
             exit 0
           fi
 
-          # On schedule/dispatch: find all open approved-for-work issues not yet in-progress
+          # On schedule/dispatch: find all open approved-for-work issues not yet is-approved
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             ISSUES=$(gh issue list \
               --repo ${{ github.repository }} \
@@ -36,15 +36,14 @@ jobs:
 
           for ISSUE in $ISSUES; do
             LABELS=$(gh issue view "$ISSUE" --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
-            if echo "$LABELS" | grep -q "in-progress"; then
-              echo "Issue #$ISSUE already in-progress, skipping."
+            if echo "$LABELS" | grep -q "is-approved"; then
+              echo "Issue #$ISSUE already is-approved, skipping."
               continue
             fi
             echo "Assigning issue #$ISSUE to copilot-swe-agent..."
             gh issue edit "$ISSUE" \
               --add-assignee copilot-swe-agent \
-              --add-label "in-progress" \
+              --add-label "is-approved" \
               --remove-label "approved-for-work" \
               --repo ${{ github.repository }}
           done
-

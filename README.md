@@ -110,7 +110,7 @@ flowchart TD
     F -->|Rejected| H[Posts reasoning comment\nCloses issue]
 
     G --> I[improve workflow\nApproved-for-work label trigger]
-    I --> J[Assigns copilot-swe-agent\nSwaps label to in-progress]
+    I --> J[Assigns copilot-swe-agent\nSwaps label to is-approved]
     J --> K[Copilot implements the change\nCreates draft PR]
     K --> L[PR marked ready for review]
     L --> M[auto-merge workflow fires]

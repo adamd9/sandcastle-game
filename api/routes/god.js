@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getState, saveState } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
-import { selectRandomWeatherEvent, getWeatherEventById } from '../lib/weather.js';
+import { getAllWeatherEvents, getWeatherEventById, selectRandomWeatherEvent } from '../lib/weather.js';
 import { getSchedulerStatus, recordExternalTick } from '../lib/scheduler.js';
 import { triggerHookByName, firePostTickHooks } from '../lib/hooks.js';
 import { WATER_ROWS, JUDGE_INTERVAL, MAX_JUDGMENTS_HISTORY } from '../lib/rules.js';
@@ -9,6 +9,25 @@ import { renderBoard } from '../lib/renderer.js';
 import { judgeCastles } from '../lib/judge.js';
 
 const router = Router();
+
+/**
+ * Select a weighted random weather event that matches a given event type.
+ * Returns the matching event or null when no events exist for that type.
+ * Uses getAllWeatherEvents(), which already returns a cached list.
+ * Falls back to the final event in the list if floating-point rounding
+ * prevents the weighted roll from selecting an earlier entry.
+ */
+function selectWeatherEventByType(eventType) {
+  const events = getAllWeatherEvents().filter(event => event.event_type === eventType);
+  if (events.length === 0) return null;
+  const total = events.reduce((sum, event) => sum + event.weight, 0);
+  let roll = Math.random() * total;
+  for (const event of events) {
+    roll -= event.weight;
+    if (roll <= 0) return { ...event };
+  }
+  return { ...events[events.length - 1] };
+}
 
 function devOnly(req, res, next) {
   if (process.env.COSMOS_ENDPOINT) {
@@ -168,16 +187,17 @@ router.post('/tick', async (req, res) => {
           event:          predefined.event_type,  // consumed by applyWeather
         };
       } else {
-        // Legacy WEATHER_EVENTS id (calm/normal/storm/wave_surge/rogue_wave)
-        const ev = selectRandomWeatherEvent();
+        // Legacy WEATHER_EVENTS type (calm/normal/storm/wave_surge/rogue_wave)
+        const typedEvent = selectWeatherEventByType(eventParam);
+        const selectedEvent = typedEvent ?? selectRandomWeatherEvent();
         weather = {
-          rain_mm:        ev.rain_mm,
-          wind_speed_kph: ev.wind_speed_kph,
-          wind_direction: ev.wind_direction,
-          event_id:       ev.id,
-          event_name:     ev.name,
-          event_emoji:    ev.emoji,
-          event_type:     eventParam,  // force the damage type
+          rain_mm:        selectedEvent.rain_mm,
+          wind_speed_kph: selectedEvent.wind_speed_kph,
+          wind_direction: selectedEvent.wind_direction,
+          event_id:       selectedEvent.id,
+          event_name:     selectedEvent.name,
+          event_emoji:    selectedEvent.emoji,
+          event_type:     eventParam,  // align damage type with requested event type
           event:          eventParam,  // consumed by applyWeather
         };
       }

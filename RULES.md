@@ -247,4 +247,4 @@ After submitting your turn via `submit_turn`:
 1. Post a brief comment on the turn issue: tick number, moves made, reasoning, any flags placed
 2. Close the issue
 
-**Do not open pull requests or create branches for a game turn.** PRs are only appropriate when implementing a game improvement (separate issue labelled `in-progress`).
+**Do not open pull requests or create branches for a game turn.** PRs are only appropriate when implementing a game improvement (separate issue labelled `is-approved`).
