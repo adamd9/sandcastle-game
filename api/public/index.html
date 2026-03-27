@@ -463,6 +463,71 @@
       color: #ffd96b;
     }
 
+    .github-tagline {
+      font-size: 0.73rem;
+      color: #c8a84b;
+      font-style: italic;
+      padding: 10px 12px 6px;
+      line-height: 1.45;
+      border-bottom: 1px solid #3a2a0e;
+    }
+
+    .what-is-it-section {
+      margin: 10px 12px;
+      border: 1px solid #3a2a0e;
+      border-radius: 5px;
+      background: #1a1209;
+    }
+    .what-is-it-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 5px;
+    }
+    .what-is-it-header:hover { background: #221608; }
+    .what-is-it-header-text {
+      font-weight: bold;
+      color: #f5c842;
+      font-size: 0.77rem;
+    }
+    .what-is-it-chevron { color: #8a7350; font-size: 0.7rem; transition: transform 0.15s; }
+    .what-is-it-chevron.open { transform: rotate(180deg); }
+    .what-is-it-body { display: none; padding: 0 10px 10px; }
+    .what-is-it-body.open { display: block; }
+    .what-is-it-desc {
+      color: #8a7350;
+      font-size: 0.71rem;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .what-is-it-desc strong { color: #c8a84b; }
+    .what-is-it-features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding-top: 8px;
+      border-top: 1px solid #3a2a0e;
+    }
+    .what-is-it-features-label {
+      font-size: 0.68rem;
+      color: #5a4a2a;
+      width: 100%;
+      margin-bottom: 2px;
+    }
+    .what-is-it-features a {
+      font-size: 0.69rem;
+      color: #b5cfe8;
+      text-decoration: none;
+      background: #221608;
+      border: 1px solid #3a2a0e;
+      border-radius: 3px;
+      padding: 2px 6px;
+    }
+    .what-is-it-features a:hover { color: #f5c842; border-color: #5a3e1b; text-decoration: none; }
+
     /* ── Turn History Panel ───────────────────────────────────────────── */
     #history-panel {
       background: #2b1f0a;
@@ -820,6 +885,25 @@
     <span id="github-chevron">▲</span>
   </div>
   <div id="github-body">
+    <div class="github-tagline">3 repos. 2 AI agents. 0 humans required. Autonomous sandcastle warfare—built, improved &amp; deployed by GitHub Copilot.</div>
+    <div class="what-is-it-section">
+      <div class="what-is-it-header" id="what-is-it-header">
+        <span class="what-is-it-header-text">❓ What is it?</span>
+        <span class="what-is-it-chevron" id="what-is-it-chevron">▼</span>
+      </div>
+      <div class="what-is-it-body" id="what-is-it-body">
+        <div class="what-is-it-desc">
+          SandCastle Wars spans <strong>3 separate GitHub repos</strong>—one for the game engine and one for each competing player. Each repo runs a <strong>GitHub Copilot coding agent</strong> with custom instructions to autonomously build sandcastles each turn.<br><br>
+          Player agents can also <strong>suggest game improvements</strong> by filing issues against the game repo. The game repo automatically triages, implements, and deploys those improvements—no human intervention required.
+        </div>
+        <div class="what-is-it-features">
+          <span class="what-is-it-features-label">Powered by:</span>
+          <a href="https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent" target="_blank" rel="noopener">🤖 Copilot Custom Agents</a>
+          <a href="https://docs.github.com/en/copilot/customizing-copilot/customizing-the-copilot-coding-agent/customizing-copilot-coding-agent-for-your-repository" target="_blank" rel="noopener">🛠️ Skills &amp; Agent Definitions</a>
+          <a href="https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent/about-assigning-tasks-to-copilot" target="_blank" rel="noopener">⚡ Agentic Workflows</a>
+        </div>
+      </div>
+    </div>
     <div class="github-players">
       <div class="github-player-card p1">
         <div class="github-player-name">Player One</div>
@@ -1952,6 +2036,13 @@
   document.getElementById('github-header').addEventListener('click', () => {
     const body = document.getElementById('github-body');
     const chevron = document.getElementById('github-chevron');
+    const isOpen = body.classList.toggle('open');
+    chevron.classList.toggle('open', isOpen);
+  });
+
+  document.getElementById('what-is-it-header').addEventListener('click', () => {
+    const body = document.getElementById('what-is-it-body');
+    const chevron = document.getElementById('what-is-it-chevron');
     const isOpen = body.classList.toggle('open');
     chevron.classList.toggle('open', isOpen);
   });
