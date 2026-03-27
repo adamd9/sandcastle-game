@@ -6,7 +6,7 @@ const BLOCK_DRAW_COLORS = {
   packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
   wet_sand:    { player1: '#c49a28', player2: '#6aab28' },
   dry_sand:    { player1: '#e8d5a3', player2: '#a3e8a3' },
-  moat:        { player1: '#1a6dbf', player2: '#1a6dbf' }, // blue water channel
+  moat:        { player1: '#2a8c80', player2: '#2a8c80' }, // ocean-matching teal water channel
 };
 
 const FLAG_COLORS = { player1: '#4fc3f7', player2: '#ef9a9a', god: '#f5d87a' };
@@ -129,11 +129,10 @@ export async function renderBoard(state, options = {}) {
       const { x: gx, y: gy, type, owner, level, health } = cell;
       const sz = levelSizes[Math.min(level, MAX_LEVEL)];
       const isMoat = type === 'moat';
-      const moatInset = isMoat ? Math.max(2, Math.round(CS * 0.12)) : 0;
-      const moatDepth = isMoat ? Math.max(1, Math.round(CS * 0.04)) : 0;
-      const drawSize = isMoat ? Math.max(4, sz - moatInset * 2) : sz;
-      const ox = px(gx) + (CS - drawSize) / 2;
-      const oy = gy * CS + (CS - drawSize) / 2 + moatDepth;
+      // Moats fill the full cell — edges level with ground, center depressed
+      const drawSize = isMoat ? CS : sz;
+      const ox = isMoat ? px(gx) : px(gx) + (CS - drawSize) / 2;
+      const oy = isMoat ? gy * CS : gy * CS + (CS - drawSize) / 2;
 
       const maxHp = (BLOCK_TYPES[type] && BLOCK_TYPES[type].initial_health) || 25;
       // Moat is permanent (health=0) — render at full opacity to distinguish from damaged blocks
@@ -144,26 +143,26 @@ export async function renderBoard(state, options = {}) {
       ctx.fillStyle = (colors && colors[owner]) || '#888888';
       ctx.fillRect(ox, oy, drawSize, drawSize);
 
-      // Moat: add a ripple overlay to suggest water
-      if (type === 'moat') {
-        ctx.globalAlpha = 0.25;
-        ctx.strokeStyle = 'rgba(180,230,255,0.8)';
-        ctx.lineWidth = 0.8;
+      ctx.globalAlpha = 1;
+      if (isMoat) {
+        // Reverse emboss: shadow on top/left (depression), highlight on bottom/right
+        const rimW = Math.max(1, Math.round(CS * 0.1));
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.fillRect(ox, oy, drawSize, rimW);           // top shadow
+        ctx.fillRect(ox, oy, rimW, drawSize);           // left shadow
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fillRect(ox, oy + drawSize - rimW, drawSize, rimW);  // bottom highlight
+        ctx.fillRect(ox + drawSize - rimW, oy, rimW, drawSize);  // right highlight
+        // Subtle ripple lines
+        ctx.strokeStyle = 'rgba(180,240,255,0.3)';
+        ctx.lineWidth = 0.6;
         for (let ri = 0; ri < 3; ri++) {
           const ry = oy + drawSize * (0.3 + ri * 0.2);
           ctx.beginPath();
-          ctx.moveTo(ox, ry);
-          ctx.bezierCurveTo(ox + drawSize * 0.33, ry - 2, ox + drawSize * 0.66, ry + 2, ox + drawSize, ry);
+          ctx.moveTo(ox + rimW, ry);
+          ctx.bezierCurveTo(ox + drawSize * 0.33, ry - 1.5, ox + drawSize * 0.66, ry + 1.5, ox + drawSize - rimW, ry);
           ctx.stroke();
         }
-        ctx.globalAlpha = 1;
-      }
-
-      ctx.globalAlpha = 1;
-      if (isMoat) {
-        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(ox + 0.5, oy + 0.5, drawSize - 1, drawSize - 1);
       } else {
         ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';
         ctx.lineWidth = level === 0 ? 0.5 : 1;

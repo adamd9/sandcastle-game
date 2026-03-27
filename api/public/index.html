@@ -807,6 +807,7 @@
   <div class="legend-item"><div class="legend-swatch" style="background:#c8a96e"></div>dry sand</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#7fb3c8"></div>wet sand</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#d4af37"></div>packed sand</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#2a8c80; box-shadow: inset 1px 1px 2px rgba(0,0,0,0.4), inset -1px -1px 1px rgba(255,255,255,0.15)"></div>moat</div>
 </div>
 
 <div id="error-msg"></div>
@@ -1185,7 +1186,7 @@
       packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
       wet_sand:    { player1: '#c49a28', player2: '#6aab28' },
       dry_sand:    { player1: '#e8d5a3', player2: '#a3e8a3' },
-      moat:        { player1: '#1a6dbf', player2: '#1a6dbf' },
+      moat:        { player1: '#2a8c80', player2: '#2a8c80' },
     };
 
     for (const [key, stack] of columns) {
@@ -1194,11 +1195,10 @@
         const lvl = cell.level ?? 0;
         const sz  = levelSizes[Math.min(lvl, levelSizes.length - 1)];
         const isMoat = cell.type === 'moat';
-        const moatInset = isMoat ? Math.max(2, Math.round(CELL_SIZE * 0.12)) : 0;
-        const moatDepth = isMoat ? Math.max(1, Math.round(CELL_SIZE * 0.04)) : 0;
-        const drawSize = isMoat ? Math.max(4, sz - moatInset * 2) : sz;
-        const ox  = gx * CELL_SIZE + (CELL_SIZE - drawSize) / 2;
-        const oy  = gy * CELL_SIZE + (CELL_SIZE - drawSize) / 2 + moatDepth;
+        // Moats fill the full cell — edges level with ground, center depressed
+        const drawSize = isMoat ? CELL_SIZE : sz;
+        const ox  = isMoat ? gx * CELL_SIZE : gx * CELL_SIZE + (CELL_SIZE - drawSize) / 2;
+        const oy  = isMoat ? gy * CELL_SIZE : gy * CELL_SIZE + (CELL_SIZE - drawSize) / 2;
 
         const colors = BLOCK_DRAW_COLORS[cell.type] ?? BLOCK_DRAW_COLORS.dry_sand;
         const baseColor = colors[cell.owner] ?? colors.player1;
@@ -1211,11 +1211,25 @@
         ctx.fillRect(ox, oy, drawSize, drawSize);
         ctx.globalAlpha = 1;
 
-        // Border — slightly lighter
         if (isMoat) {
-          ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(ox + 0.5, oy + 0.5, drawSize - 1, drawSize - 1);
+          // Reverse emboss: shadow on top/left edges (depression), highlight on bottom/right
+          const rimW = Math.max(1, Math.round(CELL_SIZE * 0.1));
+          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.fillRect(ox, oy, drawSize, rimW);           // top shadow
+          ctx.fillRect(ox, oy, rimW, drawSize);           // left shadow
+          ctx.fillStyle = 'rgba(255,255,255,0.12)';
+          ctx.fillRect(ox, oy + drawSize - rimW, drawSize, rimW);  // bottom highlight
+          ctx.fillRect(ox + drawSize - rimW, oy, rimW, drawSize);  // right highlight
+          // Subtle ripple lines
+          ctx.strokeStyle = 'rgba(180,240,255,0.3)';
+          ctx.lineWidth = 0.6;
+          for (let ri = 0; ri < 3; ri++) {
+            const ry = oy + drawSize * (0.3 + ri * 0.2);
+            ctx.beginPath();
+            ctx.moveTo(ox + rimW, ry);
+            ctx.bezierCurveTo(ox + drawSize * 0.33, ry - 1.5, ox + drawSize * 0.66, ry + 1.5, ox + drawSize - rimW, ry);
+            ctx.stroke();
+          }
         } else {
           ctx.strokeStyle = lvl === 0 ? '#ffffff22' : '#ffffff44';
           ctx.lineWidth = lvl === 0 ? 0.5 : 1;
@@ -2327,7 +2341,7 @@
     const tileW  = Math.floor(Math.min(W, H) / (GRID * 1.2));
     const tileH  = Math.floor(tileW / 2);
     const blockH = Math.floor(tileH * 1.2);
-    const MOAT_LEVEL_OFFSET = 0.22; // sink moat surface slightly below the ground plane
+    const MOAT_LEVEL_OFFSET = 0.38; // sink moat surface below the ground plane (reverse emboss)
 
     const originX = W / 2;
     // Centre the grid diamond vertically: place the middle of the grid (x=9.5,y=9.5) at H/2
@@ -2354,10 +2368,10 @@
     }
     function faceColour(owner, type, face) {
       if (type === 'moat') {
-        // Blue water channel — same for both players
-        const base = 45;
-        const l = face === 'top' ? base + 10 : face === 'left' ? base - 5 : base - 15;
-        return `hsl(210,70%,${Math.max(10, Math.min(90, l))}%)`;
+        // Ocean-matching water channel — hsl(174,57%) like the ocean tiles
+        const base = 38;
+        const l = face === 'top' ? base + 8 : face === 'left' ? base - 3 : base - 10;
+        return `hsl(174,57%,${Math.max(10, Math.min(90, l))}%)`;
       }
       const { h, s } = ownerBaseColour(owner);
       const base = typeL(type);
@@ -2406,24 +2420,74 @@
       return level - MOAT_LEVEL_OFFSET;
     }
 
-    function drawMoatTile(gx, gy, level) {
+    function drawMoatTile(gx, gy, level, moatSet) {
       const hw = tileW / 2, hh = tileH / 2;
-      const { sx, sy } = toScreen(gx, gy, moatLevel(level));
-      drawFace([
-        [sx,      sy],
-        [sx + hw, sy + hh],
-        [sx,      sy + tileH],
-        [sx - hw, sy + hh],
-      ], faceColour('neutral', 'moat', 'top'), true);
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      // Rim at ground level, water surface depressed below
+      const rim = toScreen(gx, gy, level);
+      const water = toScreen(gx, gy, moatLevel(level));
+      const rsx = rim.sx, rsy = rim.sy;
+      const wsx = water.sx, wsy = water.sy;
+
+      // Rim and water diamond vertices
+      const rTop = [rsx, rsy], rRight = [rsx + hw, rsy + hh];
+      const rBottom = [rsx, rsy + tileH], rLeft = [rsx - hw, rsy + hh];
+      const wTop = [wsx, wsy], wRight = [wsx + hw, wsy + hh];
+      const wBottom = [wsx, wsy + tileH], wLeft = [wsx - hw, wsy + hh];
+
+      // Which neighbors are also moats?
+      const hasBackLeft  = moatSet.has(`${gx - 1},${gy}`);  // shares Top→Left edge
+      const hasBackRight = moatSet.has(`${gx},${gy - 1}`);  // shares Top→Right edge
+      const hasFrontRight = moatSet.has(`${gx + 1},${gy}`); // shares Right→Bottom edge
+      const hasFrontLeft  = moatSet.has(`${gx},${gy + 1}`); // shares Left→Bottom edge
+
+      // Draw inner walls only on edges without a moat neighbor (no stroke — colour contrast defines edges)
+      if (!hasBackLeft) {
+        drawFace([rTop, rLeft, wLeft, wTop], faceColour('neutral', 'moat', 'left'), false);
+      }
+      if (!hasBackRight) {
+        drawFace([rTop, wTop, wRight, rRight], faceColour('neutral', 'moat', 'right'), false);
+      }
+      if (!hasFrontRight) {
+        drawFace([rRight, rBottom, wBottom, wRight], faceColour('neutral', 'moat', 'right'), false);
+      }
+      if (!hasFrontLeft) {
+        drawFace([rLeft, wLeft, wBottom, rBottom], faceColour('neutral', 'moat', 'left'), false);
+      }
+
+      // Water surface (always drawn, no stroke — adjacent tiles must be seamless)
+      drawFace([wTop, wRight, wBottom, wLeft], faceColour('neutral', 'moat', 'top'), false);
+
+      // Subtle ripple on water surface
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = 'rgba(180,240,255,0.9)';
       ctx.lineWidth = 0.6;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + hw, sy + hh);
-      ctx.lineTo(sx, sy + tileH);
-      ctx.lineTo(sx - hw, sy + hh);
-      ctx.closePath();
-      ctx.stroke();
+      for (let ri = 0; ri < 2; ri++) {
+        const frac = 0.35 + ri * 0.3;
+        const ry = wsy + tileH * frac;
+        const rxOff = hw * (1 - Math.abs(frac - 0.5) * 1.4);
+        ctx.beginPath();
+        ctx.moveTo(wsx - rxOff * 0.6, ry + hh * frac);
+        ctx.quadraticCurveTo(wsx, ry + hh * frac - 1.5, wsx + rxOff * 0.6, ry + hh * frac);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      // Rim outline only on non-moat edges
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 0.6;
+      const edges = [
+        [rTop, rRight, hasBackRight],
+        [rRight, rBottom, hasFrontRight],
+        [rBottom, rLeft, hasFrontLeft],
+        [rLeft, rTop, hasBackLeft],
+      ];
+      for (const [a, b, skip] of edges) {
+        if (skip) continue;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      }
     }
 
     // Environment: render back-to-front across a margin of 3 tiles around the grid
@@ -2453,10 +2517,12 @@
     }
 
     const cellMap = {};
+    const moatSet = new Set();
     for (const c of cells) {
       const key = `${c.x},${c.y}`;
       if (!cellMap[key]) cellMap[key] = [];
       cellMap[key].push(c);
+      if (c.type === 'moat') moatSet.add(key);
     }
 
     // Build lookup maps for diff overlays
@@ -2540,7 +2606,7 @@
       const column = (cellMap[key] || []).sort((a, b) => a.level - b.level);
       for (const cell of column) {
         if (cell.type === 'moat') {
-          drawMoatTile(gx, gy, cell.level ?? 0);
+          drawMoatTile(gx, gy, cell.level ?? 0, moatSet);
         } else {
           drawCube(gx, gy, cell.level, cell.owner, cell.type);
         }
