@@ -19,9 +19,9 @@ function resolvePlayer(key) {
   return null;
 }
 
-// Returns true if there is at least one empty cell (no blocks at any level) on
-// the Bresenham line between (x1,y1) and (x2,y2), meaning the two flags are
-// separated by a gap in the sandcastle structure.
+// Returns true if there is at least one empty cell (no blocks at any level) or
+// moat-only cell on the Bresenham line between (x1,y1) and (x2,y2), meaning
+// the two flags are separated by a structural gap or moat channel.
 function flagsSeparatedByGap(state, x1, y1, x2, y2) {
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);
@@ -33,7 +33,8 @@ function flagsSeparatedByGap(state, x1, y1, x2, y2) {
     const e2 = 2 * err;
     if (e2 > -dy) { err -= dy; x += sx; }
     if (e2 < dx)  { err += dx; y += sy; }
-    if (!state.cells.some(c => c.x === x && c.y === y)) return true;
+    const nonMoatCells = state.cells.filter(c => c.x === x && c.y === y && c.type !== 'moat');
+    if (nonMoatCells.length === 0) return true;  // found a gap or moat separator
   }
   return false;
 }
@@ -62,7 +63,7 @@ const RULES_DOC = {
     damage_reduction: FLAG_DAMAGE_REDUCTION,
     damage_reduction_description: `Blocks in a flagged connected component take ${FLAG_DAMAGE_REDUCTION * 100}% of normal weather damage (half damage).`,
     min_spacing: FLAG_MIN_SPACING,
-    min_spacing_description: `Flags must be at least ${FLAG_MIN_SPACING} grid units apart (Euclidean distance). Exception: if the two flag positions are separated by empty (no-block) space the spacing limit does not apply, since a gap means they mark distinct structures.`,
+    min_spacing_description: `Flags must be at least ${FLAG_MIN_SPACING} grid units apart (Euclidean distance). Exception: if the two flag positions are separated by empty (no-block) space or by moat blocks the spacing limit does not apply, since a gap or moat channel means they mark distinct structures.`,
     max_label_length: FLAGS_MAX_LABEL_LENGTH,
     strategy: 'One flag per distinct connected structure is sufficient for full protection of that structure. Place flags on well-defended foundation blocks (L0) so they survive as long as the structure does.',
   },
@@ -333,7 +334,7 @@ export function createMcpRouter() {
           return dist < FLAG_MIN_SPACING && !flagsSeparatedByGap(state, x, y, f.x, f.y);
         });
         if (tooClose) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: `Too close to existing flag "${tooClose.label}" at (${tooClose.x},${tooClose.y}). Flags must be at least ${FLAG_MIN_SPACING} grid units apart unless separated by empty space.` }) }], isError: true };
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `Too close to existing flag "${tooClose.label}" at (${tooClose.x},${tooClose.y}). Flags must be at least ${FLAG_MIN_SPACING} grid units apart unless separated by empty space or a moat.` }) }], isError: true };
         }
         const trimmedLabel = String(label).slice(0, FLAGS_MAX_LABEL_LENGTH);
         const newState = structuredClone(state);

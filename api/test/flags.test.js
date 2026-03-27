@@ -90,6 +90,50 @@ describe('place_flag MCP tool', () => {
     expect(flagsAt).toHaveLength(1);
     expect(flagsAt[0].label).toBe('new label');
   });
+
+  // -------------------------------------------------------------------------
+  // 5. place_flag enforces spacing for nearby flags without separator
+  // -------------------------------------------------------------------------
+  it('rejects flag too close to existing flag with no separator', async () => {
+    const s = await getState();
+    // Two blocks owned by player1, only 2 units apart (< FLAG_MIN_SPACING=4)
+    s.cells.push(
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 7, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    );
+    s.flags.push({ id: 'flag_main', x: 5, y: 5, level: 0, owner: 'player1', label: 'main' });
+    await saveState(s);
+
+    // Placing a flag at (7,5) is only 2 units away — should be rejected
+    const res = await mcpCall('test-key-p1', 'place_flag', { x: 7, y: 5, level: 0, label: 'too close' });
+    expect(res.status).toBe(200);
+    expect(res.body.result?.isError).toBe(true);
+    const result = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(result.error).toMatch(/Too close/);
+  });
+
+  // -------------------------------------------------------------------------
+  // 6. place_flag allows nearby flags separated by a moat
+  // -------------------------------------------------------------------------
+  it('allows flag closer than min spacing when separated by a moat', async () => {
+    const s = await getState();
+    // Castle blocks on both sides of a moat at (6,5)
+    s.cells.push(
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 5, level: 0, type: 'moat', health: 0, owner: 'player1' },
+      { x: 7, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    );
+    s.flags.push({ id: 'flag_left', x: 5, y: 5, level: 0, owner: 'player1', label: 'left castle' });
+    await saveState(s);
+
+    // Placing a flag at (7,5) is only 2 units from (5,5) but moat at (6,5) separates them
+    const res = await mcpCall('test-key-p1', 'place_flag', { x: 7, y: 5, level: 0, label: 'right castle' });
+    expect(res.status).toBe(200);
+    const result = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(result.ok).toBe(true);
+    expect(result.flag).toMatchObject({ x: 7, y: 5, label: 'right castle' });
+  });
 });
 
 // ---------------------------------------------------------------------------
