@@ -128,8 +128,12 @@ export async function renderBoard(state, options = {}) {
     for (const cell of group) {
       const { x: gx, y: gy, type, owner, level, health } = cell;
       const sz = levelSizes[Math.min(level, MAX_LEVEL)];
-      const ox = px(gx) + (CS - sz) / 2;
-      const oy = gy * CS + (CS - sz) / 2;
+      const isMoat = type === 'moat';
+      const moatInset = isMoat ? Math.max(2, Math.round(CS * 0.12)) : 0;
+      const moatDepth = isMoat ? Math.max(1, Math.round(CS * 0.04)) : 0;
+      const drawSize = isMoat ? Math.max(4, sz - moatInset * 2) : sz;
+      const ox = px(gx) + (CS - drawSize) / 2;
+      const oy = gy * CS + (CS - drawSize) / 2 + moatDepth;
 
       const maxHp = (BLOCK_TYPES[type] && BLOCK_TYPES[type].initial_health) || 25;
       // Moat is permanent (health=0) — render at full opacity to distinguish from damaged blocks
@@ -138,7 +142,7 @@ export async function renderBoard(state, options = {}) {
 
       const colors = BLOCK_DRAW_COLORS[type];
       ctx.fillStyle = (colors && colors[owner]) || '#888888';
-      ctx.fillRect(ox, oy, sz, sz);
+      ctx.fillRect(ox, oy, drawSize, drawSize);
 
       // Moat: add a ripple overlay to suggest water
       if (type === 'moat') {
@@ -146,26 +150,32 @@ export async function renderBoard(state, options = {}) {
         ctx.strokeStyle = 'rgba(180,230,255,0.8)';
         ctx.lineWidth = 0.8;
         for (let ri = 0; ri < 3; ri++) {
-          const ry = oy + sz * (0.3 + ri * 0.2);
+          const ry = oy + drawSize * (0.3 + ri * 0.2);
           ctx.beginPath();
           ctx.moveTo(ox, ry);
-          ctx.bezierCurveTo(ox + sz * 0.33, ry - 2, ox + sz * 0.66, ry + 2, ox + sz, ry);
+          ctx.bezierCurveTo(ox + drawSize * 0.33, ry - 2, ox + drawSize * 0.66, ry + 2, ox + drawSize, ry);
           ctx.stroke();
         }
         ctx.globalAlpha = 1;
       }
 
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';
-      ctx.lineWidth = level === 0 ? 0.5 : 1;
-      ctx.strokeRect(ox + 0.5, oy + 0.5, sz - 1, sz - 1);
+      if (isMoat) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(ox + 0.5, oy + 0.5, drawSize - 1, drawSize - 1);
+      } else {
+        ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';
+        ctx.lineWidth = level === 0 ? 0.5 : 1;
+        ctx.strokeRect(ox + 0.5, oy + 0.5, drawSize - 1, drawSize - 1);
+      }
 
       // Flag-protected component overlay: faint tint matching flag colour
       if (flagProtectedSet.has(`${gx},${gy},${level}`)) {
         const tintColor = FLAG_COLORS[owner] || FLAG_COLORS.god;
         ctx.globalAlpha = 0.18;
         ctx.fillStyle = tintColor;
-        ctx.fillRect(ox, oy, sz, sz);
+        ctx.fillRect(ox, oy, drawSize, drawSize);
         ctx.globalAlpha = 1;
       }
     }
