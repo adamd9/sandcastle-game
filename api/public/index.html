@@ -2341,6 +2341,12 @@
       return 34;
     }
     function faceColour(owner, type, face) {
+      if (type === 'moat') {
+        // Blue water channel — same for both players
+        const base = 45;
+        const l = face === 'top' ? base + 10 : face === 'left' ? base - 5 : base - 15;
+        return `hsl(210,70%,${Math.max(10, Math.min(90, l))}%)`;
+      }
       const { h, s } = ownerBaseColour(owner);
       const base = typeL(type);
       const l = face === 'top' ? base + 12 : face === 'left' ? base - 4 : base - 14;
