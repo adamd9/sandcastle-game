@@ -119,6 +119,22 @@ describe('renderBoard', () => {
     expect(buf).toBeInstanceOf(Buffer);
   });
 
+  it('renders courtyard overlay for enclosed empty cells without error', async () => {
+    // Build a 3x3 ring of blocks for player1 enclosing (4,10)
+    const ring = [
+      [3, 9], [4, 9], [5, 9],
+      [3, 10],        [5, 10],
+      [3, 11], [4, 11], [5, 11],
+    ];
+    const cells = ring.map(([x, y]) => ({
+      x, y, level: 0, type: 'packed_sand', health: 60, owner: 'player1',
+    }));
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
   it('custom cellSize changes output', async () => {
     const small = await renderBoard(freshState(), { cellSize: 10 });
     const big = await renderBoard(freshState(), { cellSize: 40 });

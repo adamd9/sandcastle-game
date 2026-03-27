@@ -1,6 +1,6 @@
 import { createCanvas } from '@napi-rs/canvas';
 import { GRID_WIDTH, GRID_HEIGHT, WATER_ROWS, BLOCK_TYPES, MAX_LEVEL, REINFORCE_AMOUNT } from './rules.js';
-import { buildFlagProtectedSet } from './gameLogic.js';
+import { buildFlagProtectedSet, computeStructureScore } from './gameLogic.js';
 
 const BLOCK_DRAW_COLORS = {
   packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
@@ -113,6 +113,21 @@ export async function renderBoard(state, options = {}) {
 
   // Compute which cells are in a flag-protected connected component
   const flagProtectedSet = buildFlagProtectedSet(cells, flags);
+
+  // --- 4.5. Courtyard overlays ---
+  // Highlight empty cells that are fully enclosed within each player's structure
+  const COURTYARD_COLORS = {
+    player1: 'rgba(255, 195, 50, 0.15)',
+    player2: 'rgba(100, 200, 100, 0.15)',
+  };
+  for (const player of ['player1', 'player2']) {
+    const { courtyard_cells } = computeStructureScore(cells, player, flags);
+    ctx.fillStyle = COURTYARD_COLORS[player];
+    for (const [gx, gy] of courtyard_cells) {
+      if (gx < colMin || gx > colMax || gy < WATER_ROWS) continue;
+      ctx.fillRect(px(gx), gy * CS, CS, CS);
+    }
+  }
 
   // Group by (x,y) and sort by level ascending
   const cellMap = new Map();
