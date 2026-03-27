@@ -1,0 +1,55 @@
+name: Mark Copilot PRs ready for review
+
+# Uses pull_request_target (not pull_request) so the workflow is NOT gated
+# behind GitHub's "approval required" for bot actors. pull_request events
+# from bot actors get conclusion=action_required with 0 jobs — the workflow
+# never starts. pull_request_target bypasses this because it runs in the
+# context of the base branch.
+#
+# SECURITY: This workflow intentionally does NOT check out PR code. It only
+# calls `gh pr ready` via the GitHub API. No untrusted code is executed.
+
+on:
+  pull_request_target:
+    types: [opened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  mark-ready:
+    runs-on: ubuntu-latest
+    # Only run for draft PRs from Copilot
+    if: github.event.pull_request.draft == true
+    steps:
+      - name: Check PR author
+        id: author-check
+        run: |
+          LOGIN="${{ github.event.pull_request.user.login }}"
+          TYPE="${{ github.event.pull_request.user.type }}"
+          echo "PR author login: '$LOGIN'"
+          echo "PR author type: '$TYPE'"
+          # Require Bot type AND specific Copilot login to prevent abuse
+          # via pull_request_target (which doesn't require approval).
+          if [[ "$TYPE" == "Bot" ]] && [[ "$LOGIN" == "Copilot" || "$LOGIN" == "copilot-swe-agent"* ]]; then
+            echo "is_copilot=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_copilot=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mark PR ready for review
+        if: steps.author-check.outputs.is_copilot == 'true'
+        # Use COPILOT_TOKEN (a PAT) so GitHub fires the ready_for_review
+        # event as a real user actor. This re-triggers auto-merge.yml
+        # (pull_request: ready_for_review) with triggering_actor=adamd9,
+        # which bypasses the GitHub approval gate for bot actors.
+        # GITHUB_TOKEN would NOT fire the event (GitHub prevents loops).
+        run: |
+          echo "Marking PR #${{ github.event.pull_request.number }} as ready for review..."
+          gh pr ready ${{ github.event.pull_request.number }} --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_TOKEN }}
