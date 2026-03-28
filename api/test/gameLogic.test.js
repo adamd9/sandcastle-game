@@ -475,6 +475,7 @@ describe('computeStructureScore', () => {
       footprint: 0, perimeter: 0, perimeter_integrity: 0,
       height_variety: 0, architectural_complexity: 0,
       flag_diversity: 0, courtyard_bonus: 0,
+      prestige_score: 0, moat_courtyard_bonus: 0, longevity_bonus: 0,
     });
   });
 
@@ -685,5 +686,182 @@ describe('computeStructureScore — breakdown fields', () => {
     ];
     const score = computeStructureScore(cells, 'player1');
     expect(score.perimeter_integrity).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — prestige score (height multiplier + depth bonus)
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — prestige_score', () => {
+  it('awards level multipliers: L0=1x, L1=1.5x, L2=2x, L3=3x', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // 60*1 + 60*1.5 + 60*2 + 60*3 = 60 + 90 + 120 + 180 = 450
+    expect(score.prestige_score).toBe(450);
+  });
+
+  it('grants 25% structural depth bonus for a fully-stacked column (L0–L3)', () => {
+    const cells = [0, 1, 2, 3].map(level => ({
+      x: 5, y: 5, level, type: 'packed_sand', health: 60, owner: 'player1',
+    }));
+    const score = computeStructureScore(cells, 'player1');
+    // Raw column: 60*1 + 60*1.5 + 60*2 + 60*3 = 450; with 25% bonus: 450 * 1.25 = 562.5 → 563
+    expect(score.prestige_score).toBe(563);
+  });
+
+  it('does not apply depth bonus when column is incomplete', () => {
+    // Only L0 and L3 — not a complete column
+    const cells = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // No bonus: 60*1 + 60*3 = 240
+    expect(score.prestige_score).toBe(240);
+  });
+
+  it('excludes moat cells from prestige score', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'moat', health: 0, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // Only sand block counts: 60 * 1 = 60
+    expect(score.prestige_score).toBe(60);
+  });
+
+  it('returns prestige_score 0 for empty board', () => {
+    expect(computeStructureScore([], 'player1').prestige_score).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — moat courtyard bonus
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — moat_courtyard_bonus', () => {
+  it('counts non-moat blocks enclosed within a closed moat ring', () => {
+    // Ring of moats around (5, 10); sand block inside at (5, 10)
+    const moatRing = [
+      [4, 9], [5, 9], [6, 9],
+      [4, 10],         [6, 10],
+      [4, 11], [5, 11], [6, 11],
+    ].map(([x, y]) => ({ x, y, level: 0, type: 'moat', health: 0, owner: 'player1' }));
+    const innerBlock = { x: 5, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' };
+    const score = computeStructureScore([...moatRing, innerBlock], 'player1');
+    expect(score.moat_courtyard_bonus).toBe(1);
+  });
+
+  it('returns 0 when there is no moat ring enclosure', () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    expect(computeStructureScore(cells, 'player1').moat_courtyard_bonus).toBe(0);
+  });
+
+  it('does not count moat cells themselves in the bonus', () => {
+    // A small moat ring with no sand blocks inside
+    const moatRing = [
+      [4, 9], [5, 9], [6, 9],
+      [4, 10],         [6, 10],
+      [4, 11], [5, 11], [6, 11],
+    ].map(([x, y]) => ({ x, y, level: 0, type: 'moat', health: 0, owner: 'player1' }));
+    const score = computeStructureScore(moatRing, 'player1');
+    expect(score.moat_courtyard_bonus).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — longevity bonus
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — longevity_bonus', () => {
+  it('sums survivedTicks for L2 and L3 blocks', () => {
+    const cells = [
+      { x: 3, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1', survivedTicks: 5 },
+      { x: 3, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1', survivedTicks: 3 },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1', survivedTicks: 10 },
+      { x: 4, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1', survivedTicks: 10 },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // Only L2 (5) and L3 (3) count: total = 8
+    expect(score.longevity_bonus).toBe(8);
+  });
+
+  it('treats missing survivedTicks as 0', () => {
+    const cells = [
+      { x: 3, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.longevity_bonus).toBe(0);
+  });
+
+  it('excludes moat blocks from longevity bonus', () => {
+    const cells = [
+      { x: 3, y: 5, level: 2, type: 'moat', health: 0, owner: 'player1', survivedTicks: 99 },
+      { x: 4, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1', survivedTicks: 4 },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.longevity_bonus).toBe(4);
+  });
+
+  it('returns 0 for empty board', () => {
+    expect(computeStructureScore([], 'player1').longevity_bonus).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyWeather — survivedTicks accumulation
+// ---------------------------------------------------------------------------
+
+describe('applyWeather — survivedTicks', () => {
+  it('increments survivedTicks for L2/L3 blocks surviving a tick', () => {
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'calm' };
+    state.cells = [
+      { x: 5, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const result = applyWeather(structuredClone(state));
+    const l2 = result.cells.find(c => c.level === 2);
+    const l3 = result.cells.find(c => c.level === 3);
+    expect(l2.survivedTicks).toBe(1);
+    expect(l3.survivedTicks).toBe(1);
+  });
+
+  it('does not increment survivedTicks for L0/L1 blocks', () => {
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'calm' };
+    state.cells = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const result = applyWeather(structuredClone(state));
+    result.cells.forEach(c => {
+      expect(c.survivedTicks).toBeUndefined();
+    });
+  });
+
+  it('accumulates survivedTicks across multiple ticks', () => {
+    let state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'calm' };
+    state.cells = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    for (let i = 0; i < 3; i++) {
+      state = applyWeather(structuredClone(state));
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'calm' };
+    }
+    const l2 = state.cells.find(c => c.level === 2);
+    expect(l2.survivedTicks).toBe(3);
   });
 });
