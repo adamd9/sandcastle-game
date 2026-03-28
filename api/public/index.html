@@ -2396,24 +2396,28 @@
     function drawCube(gx, gy, level, owner, type) {
       const hw = tileW / 2, hh = tileH / 2;
       const { sx, sy } = toScreen(gx, gy, level);
+      // Top face — always drawn
       drawFace([
         [sx,      sy],
         [sx + hw, sy + hh],
         [sx,      sy + tileH],
         [sx - hw, sy + hh],
       ], faceColour(owner, type, 'top'), true);
-      drawFace([
-        [sx - hw, sy + hh],
-        [sx,      sy + tileH],
-        [sx,      sy + tileH + blockH],
-        [sx - hw, sy + hh   + blockH],
-      ], faceColour(owner, type, 'left'), true);
-      drawFace([
-        [sx,      sy + tileH],
-        [sx + hw, sy + hh],
-        [sx + hw, sy + hh   + blockH],
-        [sx,      sy + tileH + blockH],
-      ], faceColour(owner, type, 'right'), true);
+      // Side faces — skip for level 0 (flush with ground plane)
+      if (level > 0) {
+        drawFace([
+          [sx - hw, sy + hh],
+          [sx,      sy + tileH],
+          [sx,      sy + tileH + blockH],
+          [sx - hw, sy + hh   + blockH],
+        ], faceColour(owner, type, 'left'), true);
+        drawFace([
+          [sx,      sy + tileH],
+          [sx + hw, sy + hh],
+          [sx + hw, sy + hh   + blockH],
+          [sx,      sy + tileH + blockH],
+        ], faceColour(owner, type, 'right'), true);
+      }
     }
 
     function moatLevel(level) {
