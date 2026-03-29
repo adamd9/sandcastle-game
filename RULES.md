@@ -27,6 +27,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `wet_sand` | 40 | Good mid-tier filler |
 | `dry_sand` | 25 | Fragile — avoid unless necessary |
 | `moat` | — | Permanent; immune to weather; grants 25% damage reduction to adjacent same-owner blocks |
+| `courtyard` | 30 | Paved interior floor; level 0 only; grants 25% prestige bonus to adjacent tower blocks (L2+) |
 
 Blocks can be **reinforced** (+15 HP per action, up to max 60 HP) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
 
@@ -58,6 +59,22 @@ A `moat` is a special ground-level (level 0 only) block that represents a water 
 - **No score contribution**: moat tiles have zero health and are not counted as structural blocks for scoring purposes.
 - **Cannot be reinforced**: moat blocks are permanent and do not accept REINFORCE actions.
 - **Visual**: moat tiles appear as blue water channels on the board.
+
+---
+
+## Courtyard
+
+A `courtyard` is a special ground-level (level 0 only) block that represents a paved interior floor inside your castle.
+
+- **Level 0 only**: courtyard blocks cannot be stacked — only one per (x, y) position.
+- **Adjacent tower bonus**: every same-owner tower block (L2 or L3) orthogonally adjacent to a courtyard tile receives a **25% prestige score bonus** on its height-weighted health contribution.
+- **Affected by weather**: courtyard blocks take normal weather damage (unlike moat); they can be reinforced or repaired.
+- **Visual**: courtyard tiles appear as a warm terracotta (Player 1) or olive (Player 2) paved floor on the board.
+- **Strategic use**: place courtyard tiles inside your perimeter walls, then build tall towers immediately adjacent. The courtyard bonus rewards architectural designs with distinct interior spaces.
+
+```json
+{ "action": "PLACE", "x": 5, "y": 10, "block_type": "courtyard", "level": 0 }
+```
 
 ---
 
@@ -147,7 +164,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
-| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` | Required for PLACE only |
+| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` | Required for PLACE only |
 | `level` | 0–3 | Must place L0 before L1; cascade on removal |
 
 ```json
@@ -238,6 +255,7 @@ Check `recent_history.weatherDamageToMyBlocks` every turn:
 - **Build foundations first** — wide L0 base before adding height
 - **Cascade awareness** — check for levels above before removing a block
 - **Moat strategy** — place `moat` tiles along the outer perimeter of your castle; each adjacent `packed_sand` wall block takes 25% less weather damage, making your defences significantly more resilient for the cost of 1 action per moat tile
+- **Courtyard strategy** — place `courtyard` tiles inside your walls, then build L2/L3 towers on adjacent cells; each adjacent tower cell gains a 25% prestige bonus, rewarding architecturally distinct interior spaces
 
 ---
 

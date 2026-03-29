@@ -16,6 +16,7 @@ import {
   WEATHER_EVENTS,
   FLAG_DAMAGE_REDUCTION,
   MOAT_DAMAGE_REDUCTION,
+  COURTYARD_TOWER_BONUS,
   PRESTIGE_LEVEL_MULTIPLIERS,
   STRUCTURAL_DEPTH_BONUS,
 } from './rules.js';
@@ -155,13 +156,28 @@ export function computeStructureScore(cells, player, flags = []) {
   //      for complete columns (blocks at all four levels L0–L3).
   //      Level multipliers: L0=1×, L1=1.5×, L2=2×, L3=3×.
   //      Columns with all 4 levels receive an additional 25% bonus.
+  //      Tower blocks (L2+) adjacent to same-owner courtyard tiles receive a
+  //      25% courtyard prestige bonus on top of their normal contribution.
   const nonMoatCells = playerCells.filter(c => c.type !== 'moat');
+  // Collect courtyard positions owned by the player for adjacency lookup
+  const courtyardXYSet = new Set(
+    playerCells.filter(c => c.type === 'courtyard').map(c => `${c.x},${c.y}`)
+  );
   // Build a per-column map of level sets once to avoid repeated filtering
   const columnLevels = new Map(); // posKey → Set<level>
   const columnPrestige = new Map(); // posKey → raw prestige for that column
   for (const cell of nonMoatCells) {
     const posKey = `${cell.x},${cell.y}`;
-    const contrib = cell.health * PRESTIGE_LEVEL_MULTIPLIERS[cell.level];
+    let contrib = cell.health * PRESTIGE_LEVEL_MULTIPLIERS[cell.level];
+    // Tower blocks (L2+) adjacent to a same-owner courtyard get 25% prestige bonus
+    if (cell.level >= 2 && (
+      courtyardXYSet.has(`${cell.x - 1},${cell.y}`) ||
+      courtyardXYSet.has(`${cell.x + 1},${cell.y}`) ||
+      courtyardXYSet.has(`${cell.x},${cell.y - 1}`) ||
+      courtyardXYSet.has(`${cell.x},${cell.y + 1}`)
+    )) {
+      contrib *= (1 + COURTYARD_TOWER_BONUS);
+    }
     columnPrestige.set(posKey, (columnPrestige.get(posKey) || 0) + contrib);
     if (!columnLevels.has(posKey)) columnLevels.set(posKey, new Set());
     columnLevels.get(posKey).add(cell.level);
@@ -621,6 +637,9 @@ export function validateMove(state, player, action) {
       }
       if (blockType === 'moat' && level > 0) {
         return { valid: false, reason: 'Moat blocks cannot be stacked — they can only be placed at level 0.' };
+      }
+      if (blockType === 'courtyard' && level > 0) {
+        return { valid: false, reason: 'Courtyard blocks cannot be stacked — they can only be placed at level 0.' };
       }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
