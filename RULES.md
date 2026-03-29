@@ -26,7 +26,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `packed_sand` | 60 | Best durability — use for walls and load-bearing structures |
 | `wet_sand` | 40 | Good mid-tier filler |
 | `dry_sand` | 25 | Fragile — avoid unless necessary |
-| `moat` | — | Permanent; immune to weather; grants 25% damage reduction to adjacent same-owner blocks |
+| `moat` | — | Permanent; immune to weather; depth 1–3 grants 25/35/45% damage reduction to adjacent same-owner blocks |
 
 Blocks can be **reinforced** (+15 HP per action, up to max 60 HP) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
 
@@ -54,10 +54,26 @@ A `moat` is a special ground-level (level 0 only) block that represents a water 
 
 - **Permanent**: moat blocks are immune to all weather damage and never destroyed by erosion, wave surges, or rogue waves.
 - **Level 0 only**: moat blocks cannot be stacked — only one per (x, y) position.
-- **Adjacent defense**: every same-owner block orthogonally adjacent to a moat tile takes **25% less weather damage** each tick.
+- **Adjacent defense**: every same-owner block orthogonally adjacent to a moat tile takes reduced weather damage each tick based on the moat's depth (see table below).
 - **No score contribution**: moat tiles have zero health and are not counted as structural blocks for scoring purposes.
 - **Cannot be reinforced**: moat blocks are permanent and do not accept REINFORCE actions.
-- **Visual**: moat tiles appear as blue water channels on the board.
+- **Visual**: moat tiles appear as water channels on the board — shallow moats are teal, standard moats are deeper blue-green, and deep moats are dark blue.
+
+### Moat Depth
+
+Each moat block starts at **shallow depth (1)** and can be deepened twice using the `DEEPEN_MOAT` action.
+
+| Depth | Name | Damage Reduction | Cost |
+|---|---|---|---|
+| 1 | Shallow (default) | 25% | free (placed with PLACE) |
+| 2 | Standard | 35% | 1 additional `DEEPEN_MOAT` action |
+| 3 | Deep | 45% | 2 additional `DEEPEN_MOAT` actions |
+
+A deep moat (depth 3) adjacent to a flag-protected block reduces weather damage by 45% on top of the 50% flag reduction — making well-defended structures significantly more resilient during storm events.
+
+```json
+{ "action": "DEEPEN_MOAT", "x": 3, "y": 9, "level": 0 }
+```
 
 ---
 
@@ -144,7 +160,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 
 | Field | Values | Notes |
 |---|---|---|
-| `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` | Required |
+| `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` \| `DEEPEN_MOAT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
 | `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` | Required for PLACE only |
@@ -237,7 +253,7 @@ Check `recent_history.weatherDamageToMyBlocks` every turn:
 - **Avoid y=3–5** unless you want throwaway wave-absorbers
 - **Build foundations first** — wide L0 base before adding height
 - **Cascade awareness** — check for levels above before removing a block
-- **Moat strategy** — place `moat` tiles along the outer perimeter of your castle; each adjacent `packed_sand` wall block takes 25% less weather damage, making your defences significantly more resilient for the cost of 1 action per moat tile
+- **Moat strategy** — place `moat` tiles along the outer perimeter of your castle; each adjacent `packed_sand` wall block takes 25% less weather damage, making your defences significantly more resilient for the cost of 1 action per moat tile. Use `DEEPEN_MOAT` (1–2 additional actions per tile) to reach 35% or 45% reduction — a narrow but deep moat channel can rival a wide shallow one
 
 ---
 

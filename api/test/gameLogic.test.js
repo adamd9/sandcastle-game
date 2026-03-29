@@ -134,6 +134,52 @@ describe('validateMove', () => {
     });
   });
 
+  describe('DEEPEN_MOAT validation', () => {
+    it('allows DEEPEN_MOAT on own moat block at default depth', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('allows DEEPEN_MOAT on moat at depth 2', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 2 });
+      const r = validateMove(state, 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects DEEPEN_MOAT on moat already at max depth (3)', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 3 });
+      const r = validateMove(state, 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/maximum depth/i);
+    });
+
+    it('rejects DEEPEN_MOAT on a non-moat block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/moat/i);
+    });
+
+    it("rejects DEEPEN_MOAT on opponent's moat block", () => {
+      const state = freshState();
+      state.cells.push({ x: 15, y: 5, type: 'moat', health: 0, owner: 'player2', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'DEEPEN_MOAT', x: 15, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/belongs to/i);
+    });
+
+    it('rejects DEEPEN_MOAT on empty cell', () => {
+      const r = validateMove(freshState(), 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/no block/i);
+    });
+  });
+
   describe('REPAIR_KIT validation', () => {
     it('allows REPAIR_KIT on own cell when no cooldown', () => {
       const state = freshState();
@@ -256,6 +302,29 @@ describe('applyMove', () => {
       const state = freshState();
       state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 30, owner: 'player1', level: 0 });
       const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(next.players.player1.actionsThisTick).toBe(1);
+    });
+  });
+
+  describe('DEEPEN_MOAT', () => {
+    it('DEEPEN_MOAT increments moatDepth from default (1) to 2', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(next.cells[0].moatDepth).toBe(2);
+    });
+
+    it('DEEPEN_MOAT increments moatDepth from 2 to 3', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 2 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
+      expect(next.cells[0].moatDepth).toBe(3);
+    });
+
+    it('DEEPEN_MOAT increments actionsThisTick', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'moat', health: 0, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'DEEPEN_MOAT', x: 5, y: 5 });
       expect(next.players.player1.actionsThisTick).toBe(1);
     });
   });
@@ -457,6 +526,43 @@ describe('applyWeather', () => {
       // rainDamage(1) = 13, flag: floor(13 * 0.5) = 6, moat: floor(6 * 0.75) = 4
       const castle = next.cells.find(c => c.type === 'packed_sand');
       expect(castle.health).toBe(56); // 60 - 4 = 56
+    });
+
+    it('standard moat (depth 2) gives 35% damage reduction', () => {
+      const state = freshState();
+      // Standard moat at (4, 10), castle block at (5, 10)
+      state.cells.push({ x: 4, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 2 });
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, with 35% moat reduction → floor(13 * 0.65) = 8
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(52); // 60 - 8 = 52
+    });
+
+    it('deep moat (depth 3) gives 45% damage reduction', () => {
+      const state = freshState();
+      // Deep moat at (4, 10), castle block at (5, 10)
+      state.cells.push({ x: 4, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 3 });
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, with 45% moat reduction → floor(13 * 0.55) = 7
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(53); // 60 - 7 = 53
+    });
+
+    it('block adjacent to two moats uses the deeper one', () => {
+      const state = freshState();
+      // Shallow moat at (4, 10), deep moat at (6, 10), castle block at (5, 10) — adjacent to both
+      state.cells.push({ x: 4, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 1 });
+      state.cells.push({ x: 6, y: 10, type: 'moat', health: 0, owner: 'player1', level: 0, moatDepth: 3 });
+      state.cells.push({ x: 5, y: 10, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 1, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+      const next = applyWeather(structuredClone(state));
+      // rainDamage(1) = 13, with 45% deep moat reduction → floor(13 * 0.55) = 7
+      const castle = next.cells.find(c => c.type === 'packed_sand');
+      expect(castle.health).toBe(53); // 60 - 7 = 53 (uses deeper moat's 45%)
     });
   });
 });

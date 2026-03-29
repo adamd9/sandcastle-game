@@ -17,15 +17,18 @@ export const BLOCK_TYPES = {
   dry_sand:    { initial_health: 25 },
   wet_sand:    { initial_health: 40 },
   packed_sand: { initial_health: 60 },
-  moat:        { initial_health: 0, permanent: true }, // immune to weather; cannot stack; grants 25% damage reduction to adjacent same-owner blocks
+  moat:        { initial_health: 0, permanent: true }, // immune to weather; cannot stack; tiered depth (1-3) grants 25/35/45% damage reduction to adjacent same-owner blocks
 };
 
-export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT'];
+export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT', 'DEEPEN_MOAT'];
 
 export const REINFORCE_AMOUNT = 15;
 export const MAX_HEALTH = 60;
 export const REPAIR_KIT_COOLDOWN = 5; // ticks between REPAIR_KIT uses per player
-export const MOAT_DAMAGE_REDUCTION = 0.25; // adjacent same-owner blocks take 25% less weather damage
+export const MOAT_DAMAGE_REDUCTION = 0.25; // shallow moat (default depth 1) — 25% damage reduction
+// Tiered moat depth: depth 1 = shallow (25%), depth 2 = standard (35%), depth 3 = deep (45%)
+export const MOAT_DEPTH_REDUCTIONS = { 1: 0.25, 2: 0.35, 3: 0.45 };
+export const MOAT_MAX_DEPTH = 3;
 export const FLAGS_MAX_LABEL_LENGTH = 50;
 export const FLAG_MIN_SPACING = 4; // flags must be >= 4 grid units apart (Euclidean), unless separated by empty cells
 export const FLAG_DAMAGE_REDUCTION = 0.5; // flagged structures take 50% damage
