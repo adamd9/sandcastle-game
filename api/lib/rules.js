@@ -82,6 +82,12 @@ export const WEATHER_EVENTS = [
   },
 ];
 
+// Prestige scoring — height-weighted score computed inside computeStructureScore
+// Index = level (0–3); value = multiplier applied to block health
+export const PRESTIGE_LEVEL_MULTIPLIERS = [1, 1.5, 2, 3];
+// Extra multiplier awarded to a column when all four levels (L0–L3) are filled
+export const STRUCTURAL_DEPTH_BONUS = 0.25;
+
 // Visual scoring — every JUDGE_INTERVAL ticks, an LLM judges the castles
 export const JUDGE_INTERVAL = 4;
 export const JUDGE_MODEL = 'gpt-5.2';

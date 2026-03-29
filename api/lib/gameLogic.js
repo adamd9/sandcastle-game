@@ -16,6 +16,8 @@ import {
   WEATHER_EVENTS,
   FLAG_DAMAGE_REDUCTION,
   MOAT_DAMAGE_REDUCTION,
+  PRESTIGE_LEVEL_MULTIPLIERS,
+  STRUCTURAL_DEPTH_BONUS,
 } from './rules.js';
 
 // ---------------------------------------------------------------------------
@@ -149,11 +151,81 @@ export function computeStructureScore(cells, player, flags = []) {
     }
   }
 
+  // (12) Prestige score: height-weighted health sum, with a structural depth bonus
+  //      for complete columns (blocks at all four levels L0–L3).
+  //      Level multipliers: L0=1×, L1=1.5×, L2=2×, L3=3×.
+  //      Columns with all 4 levels receive an additional 25% bonus.
+  const nonMoatCells = playerCells.filter(c => c.type !== 'moat');
+  // Build a per-column map of level sets once to avoid repeated filtering
+  const columnLevels = new Map(); // posKey → Set<level>
+  const columnPrestige = new Map(); // posKey → raw prestige for that column
+  for (const cell of nonMoatCells) {
+    const posKey = `${cell.x},${cell.y}`;
+    const contrib = cell.health * PRESTIGE_LEVEL_MULTIPLIERS[cell.level];
+    columnPrestige.set(posKey, (columnPrestige.get(posKey) || 0) + contrib);
+    if (!columnLevels.has(posKey)) columnLevels.set(posKey, new Set());
+    columnLevels.get(posKey).add(cell.level);
+  }
+  // Apply 25% depth bonus to fully-stacked columns
+  for (const [posKey, levelsHere] of columnLevels) {
+    const isFullColumn = levelsHere.has(0) && levelsHere.has(1) && levelsHere.has(2) && levelsHere.has(3);
+    if (isFullColumn) {
+      columnPrestige.set(posKey, columnPrestige.get(posKey) * (1 + STRUCTURAL_DEPTH_BONUS));
+    }
+  }
+  const prestige_score = Math.round([...columnPrestige.values()].reduce((sum, s) => sum + s, 0));
+
+  // (13) Moat courtyard bonus: non-moat blocks owned by the player that are fully
+  //      enclosed within the moat perimeter — i.e., unreachable from the zone
+  //      boundary without crossing a same-owner moat cell.
+  const moatXYSet = new Set(playerCells.filter(c => c.type === 'moat').map(c => `${c.x},${c.y}`));
+  const visitedOutside = new Set();
+  const moatBfsQueue = [];
+
+  for (let x = zone.x_min; x <= zone.x_max; x++) {
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      if (x === zone.x_min || x === zone.x_max || y === 0 || y === GRID_HEIGHT - 1) {
+        const key = `${x},${y}`;
+        if (!moatXYSet.has(key) && !visitedOutside.has(key)) {
+          visitedOutside.add(key);
+          moatBfsQueue.push([x, y]);
+        }
+      }
+    }
+  }
+  let moatHead = 0;
+  while (moatHead < moatBfsQueue.length) {
+    const [cx, cy] = moatBfsQueue[moatHead++];
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DX[d];
+      const ny = cy + DY[d];
+      if (nx < zone.x_min || nx > zone.x_max || ny < 0 || ny >= GRID_HEIGHT) continue;
+      const key = `${nx},${ny}`;
+      if (!moatXYSet.has(key) && !visitedOutside.has(key)) {
+        visitedOutside.add(key);
+        moatBfsQueue.push([nx, ny]);
+      }
+    }
+  }
+  let moat_courtyard_bonus = 0;
+  for (const cell of nonMoatCells) {
+    if (!visitedOutside.has(`${cell.x},${cell.y}`)) {
+      moat_courtyard_bonus++;
+    }
+  }
+
+  // (14) Longevity bonus: total ticks that L2/L3 blocks have survived at height.
+  //      Each such block accumulates survivedTicks (+1 per tick) in applyWeather.
+  const longevity_bonus = nonMoatCells
+    .filter(c => c.level >= 2)
+    .reduce((sum, c) => sum + (c.survivedTicks || 0), 0);
+
   return {
     total_blocks, total_hp, avg_health, max_height,
     footprint, perimeter, perimeter_integrity,
     height_variety, architectural_complexity,
     flag_diversity, courtyard_bonus, courtyard_cells,
+    prestige_score, moat_courtyard_bonus, longevity_bonus,
   };
 }
 
@@ -757,6 +829,13 @@ export function applyWeather(state) {
   // Moat cells are permanent — add them back after weather processing
   state.cells = [...survivingCells, ...moatCells];
   state.weatherEvents = events;
+
+  // Increment survivedTicks for L2/L3 non-moat blocks that survived this tick
+  for (const cell of state.cells) {
+    if (cell.level >= 2 && cell.type !== 'moat') {
+      cell.survivedTicks = (cell.survivedTicks || 0) + 1;
+    }
+  }
 
   // Remove flags whose host block was destroyed this tick
   const destroyedSet = new Set(
