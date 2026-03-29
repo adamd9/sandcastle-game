@@ -9,8 +9,13 @@ router.get('/', async (_req, res) => {
   try {
     const state = await getState();
     const { history: _history, ...response } = state;
+    const flags = state.flags || [];
+    const courtyard_cells = {
+      player1: computeStructureScore(state.cells || [], 'player1', flags).courtyard_cells,
+      player2: computeStructureScore(state.cells || [], 'player2', flags).courtyard_cells,
+    };
     res.set('Cache-Control', 'no-store');
-    res.json({ ...response, forecast: generateForecast() });
+    res.json({ ...response, forecast: generateForecast(), courtyard_cells });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
