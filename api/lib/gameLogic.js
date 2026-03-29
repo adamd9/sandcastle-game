@@ -140,11 +140,13 @@ export function computeStructureScore(cells, player, flags = []) {
 
   // Any empty cell in the zone that was not reached = enclosed courtyard
   let courtyard_bonus = 0;
+  const courtyard_cells = [];
   for (let x = zone.x_min; x <= zone.x_max; x++) {
     for (let y = 0; y < GRID_HEIGHT; y++) {
       const key = `${x},${y}`;
       if (!occupiedSet.has(key) && !visited.has(key)) {
         courtyard_bonus++;
+        courtyard_cells.push([x, y]);
       }
     }
   }
@@ -222,7 +224,7 @@ export function computeStructureScore(cells, player, flags = []) {
     total_blocks, total_hp, avg_health, max_height,
     footprint, perimeter, perimeter_integrity,
     height_variety, architectural_complexity,
-    flag_diversity, courtyard_bonus,
+    flag_diversity, courtyard_bonus, courtyard_cells,
     prestige_score, moat_courtyard_bonus, longevity_bonus,
   };
 }

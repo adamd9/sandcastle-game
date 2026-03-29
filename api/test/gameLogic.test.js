@@ -474,7 +474,7 @@ describe('computeStructureScore', () => {
       total_blocks: 0, total_hp: 0, avg_health: 0, max_height: 0,
       footprint: 0, perimeter: 0, perimeter_integrity: 0,
       height_variety: 0, architectural_complexity: 0,
-      flag_diversity: 0, courtyard_bonus: 0,
+      flag_diversity: 0, courtyard_bonus: 0, courtyard_cells: [],
       prestige_score: 0, moat_courtyard_bonus: 0, longevity_bonus: 0,
     });
   });
@@ -532,6 +532,7 @@ describe('computeStructureScore', () => {
     }));
     const score = computeStructureScore(cells, 'player1');
     expect(score.courtyard_bonus).toBe(1); // (4,10) is enclosed
+    expect(score.courtyard_cells).toEqual([[4, 10]]);
   });
 
   it('returns zero courtyard_bonus for open structures without enclosure', () => {
