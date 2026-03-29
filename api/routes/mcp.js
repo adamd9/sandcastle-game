@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove, commitTurn, computeStructureScore } from '../lib/gameLogic.js';
+import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCoverage, computeDamagePreview } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
@@ -188,6 +188,8 @@ export function createMcpRouter() {
             opponent_structure_score: computeStructureScore(state.cells, otherPlayer, state.flags ?? []),
             my_score_breakdown: computeStructureScore(state.cells, player, state.flags ?? []),
             opponent_score_breakdown: computeStructureScore(state.cells, otherPlayer, state.flags ?? []),
+            flag_coverage: buildFlagCoverage(state.cells, flags),
+            damage_preview: computeDamagePreview(state),
           },
           recent_history: recentHistory,
         };

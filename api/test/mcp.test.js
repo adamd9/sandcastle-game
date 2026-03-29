@@ -108,6 +108,121 @@ describe('POST /mcp', () => {
     expect(parsed.current_state.my_score_breakdown).toHaveProperty('avg_health');
     expect(parsed.current_state.my_score_breakdown).toHaveProperty('perimeter_integrity');
     expect(parsed.current_state.my_score_breakdown).toHaveProperty('architectural_complexity');
+    // flag_coverage and damage_preview are always present
+    expect(parsed.current_state).toHaveProperty('flag_coverage');
+    expect(Array.isArray(parsed.current_state.flag_coverage)).toBe(true);
+    expect(parsed.current_state).toHaveProperty('damage_preview');
+    expect(parsed.current_state.damage_preview).toHaveProperty('weather_assumption');
+    expect(parsed.current_state.damage_preview).toHaveProperty('damage_per_top_block');
+    expect(parsed.current_state.damage_preview).toHaveProperty('blocks_at_risk');
+    expect(Array.isArray(parsed.current_state.damage_preview.damage_per_top_block)).toBe(true);
+    expect(Array.isArray(parsed.current_state.damage_preview.blocks_at_risk)).toBe(true);
+  });
+
+  it('get_state flag_coverage lists protected blocks for each flag', async () => {
+    // Place a block then flag it
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: { moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'packed_sand' }] },
+        },
+      });
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'place_flag', arguments: { x: 5, y: 5, level: 0, label: 'TestTower' } },
+      });
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const coverage = parsed.current_state.flag_coverage;
+    expect(coverage).toHaveLength(1);
+    expect(coverage[0].flag.label).toBe('TestTower');
+    expect(Array.isArray(coverage[0].protected_blocks)).toBe(true);
+    expect(coverage[0].protected_blocks).toHaveLength(1);
+    expect(coverage[0].protected_blocks[0]).toMatchObject({ x: 5, y: 5, level: 0 });
+  });
+
+  it('get_state damage_preview shows expected damage for placed blocks', async () => {
+    // Place a block so damage_per_top_block is non-empty
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: { moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'packed_sand' }] },
+        },
+      });
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const preview = parsed.current_state.damage_preview;
+    expect(preview.damage_per_top_block.length).toBeGreaterThan(0);
+    const block = preview.damage_per_top_block.find(b => b.x === 5 && b.y === 5);
+    expect(block).toBeDefined();
+    expect(block).toHaveProperty('expected_damage');
+    expect(block).toHaveProperty('flag_protected', false);
+    expect(block).toHaveProperty('moat_protected', false);
+    expect(block).toHaveProperty('health');
+    expect(block).toHaveProperty('type', 'packed_sand');
+  });
+
+  it('get_state blocks_at_risk includes blocks with health <= expected damage', async () => {
+    // Place a dry_sand block (health=25), which may be at risk with enough rain
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: { moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand' }] },
+        },
+      });
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const preview = parsed.current_state.damage_preview;
+    // blocks_at_risk should contain only blocks where health <= expected_damage
+    for (const b of preview.blocks_at_risk) {
+      expect(b.health).toBeLessThanOrEqual(b.expected_damage);
+    }
   });
 
   it('submit_turn places multiple blocks and auto-commits', async () => {

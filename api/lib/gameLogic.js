@@ -364,6 +364,218 @@ function buildMoatProtectedPositions(cells) {
 }
 
 // ---------------------------------------------------------------------------
+// buildFlagCoverage — per-flag connected component info for get_state
+// Returns [{ flag, protected_blocks: [{ x, y, level, type, health }] }]
+// ---------------------------------------------------------------------------
+
+export function buildFlagCoverage(cells, flags) {
+  if (!flags || flags.length === 0) return [];
+
+  const cellsByOwner = new Map();
+  for (const cell of cells) {
+    if (!cellsByOwner.has(cell.owner)) cellsByOwner.set(cell.owner, []);
+    cellsByOwner.get(cell.owner).push(cell);
+  }
+
+  const result = [];
+
+  for (const [owner, ownerCells] of cellsByOwner) {
+    const ownerFlags = flags.filter(f => f.owner === owner);
+    if (ownerFlags.length === 0) continue;
+
+    const keyToIdx = new Map();
+    for (let i = 0; i < ownerCells.length; i++) {
+      const c = ownerCells[i];
+      keyToIdx.set(`${c.x},${c.y},${c.level}`, i);
+    }
+
+    // Union-Find
+    const parent = ownerCells.map((_, i) => i);
+    const rank = new Array(ownerCells.length).fill(0);
+    function find(a) {
+      while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+      return a;
+    }
+    function union(a, b) {
+      a = find(a); b = find(b);
+      if (a === b) return;
+      if (rank[a] < rank[b]) [a, b] = [b, a];
+      parent[b] = a;
+      if (rank[a] === rank[b]) rank[a]++;
+    }
+
+    // Same (x,y) different levels are connected
+    const byPos = new Map();
+    for (let i = 0; i < ownerCells.length; i++) {
+      const c = ownerCells[i];
+      const posKey = `${c.x},${c.y}`;
+      if (!byPos.has(posKey)) byPos.set(posKey, []);
+      byPos.get(posKey).push(i);
+    }
+    for (const indices of byPos.values()) {
+      for (let j = 1; j < indices.length; j++) union(indices[0], indices[j]);
+    }
+
+    // Orthogonally adjacent (x,y) positions sharing any level are connected
+    const DX = [-1, 0, 1, 0];
+    const DY = [0, -1, 0, 1];
+    for (let i = 0; i < ownerCells.length; i++) {
+      const c = ownerCells[i];
+      for (let d = 0; d < 4; d++) {
+        const nk = `${c.x + DX[d]},${c.y + DY[d]},${c.level}`;
+        if (keyToIdx.has(nk)) union(i, keyToIdx.get(nk));
+      }
+    }
+
+    // Build component map: root -> [cell indices]
+    const componentMap = new Map();
+    for (let i = 0; i < ownerCells.length; i++) {
+      const root = find(i);
+      if (!componentMap.has(root)) componentMap.set(root, []);
+      componentMap.get(root).push(i);
+    }
+
+    // For each flag, find its component and list protected blocks
+    for (const flag of ownerFlags) {
+      const flagIdx = keyToIdx.get(`${flag.x},${flag.y},${flag.level}`);
+      if (flagIdx === undefined) {
+        result.push({ flag, protected_blocks: [] });
+        continue;
+      }
+      const root = find(flagIdx);
+      const componentIndices = componentMap.get(root) || [];
+      const protected_blocks = componentIndices.map(i => {
+        const c = ownerCells[i];
+        return { x: c.x, y: c.y, level: c.level, type: c.type, health: c.health };
+      });
+      result.push({ flag, protected_blocks });
+    }
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// computeDamagePreview — expected damage for each top-level block this tick
+// Returns { weather_assumption, damage_per_top_block, blocks_at_risk }
+// ---------------------------------------------------------------------------
+
+export function computeDamagePreview(state) {
+  const { rain_mm, wind_speed_kph, wind_direction } = state.weather;
+
+  // Use current event if pre-set (e.g. god mode), otherwise assume normal for preview
+  const currentEventId = state.weather.event;
+  const weatherEvent = currentEventId
+    ? (WEATHER_EVENTS.find(e => e.id === currentEventId) ?? WEATHER_EVENTS.find(e => e.id === 'normal'))
+    : WEATHER_EVENTS.find(e => e.id === 'normal');
+
+  const baseRain = rainDamage(rain_mm);
+  const baseWind = windDamage(wind_speed_kph);
+  const mult = weatherEvent.damageMultiplier;
+
+  const protectedSet = buildFlagProtectedSet(state.cells, state.flags || []);
+  const moatProtectedPositions = buildMoatProtectedPositions(state.cells);
+
+  const regularCells = state.cells.filter(c => c.type !== 'moat');
+
+  // Build top-block map: (x,y) -> highest-level block
+  const topBlocks = new Map();
+  for (const cell of regularCells) {
+    const key = `${cell.x},${cell.y}`;
+    if (!topBlocks.has(key) || cell.level > topBlocks.get(key).level) {
+      topBlocks.set(key, cell);
+    }
+  }
+
+  const weatherAssumption = currentEventId
+    ? `${weatherEvent.id} (multiplier: ${mult}${weatherEvent.specialEffect ? ', special: ' + weatherEvent.specialEffect : ''})`
+    : `normal (multiplier: 1) — actual event is randomly selected each tick`;
+
+  const damage_per_top_block = [];
+
+  for (const cell of topBlocks.values()) {
+    const cellKey = `${cell.x},${cell.y},${cell.level}`;
+    const posKey = `${cell.x},${cell.y}`;
+    const isProtected = protectedSet.has(cellKey);
+    const isMoatProtected = moatProtectedPositions.has(posKey);
+
+    let expectedDamage;
+    let note;
+
+    if (weatherEvent.specialEffect === 'wave_surge') {
+      if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
+        // Rows 3–5: instant destroy unless flag-protected (→ heavy damage instead)
+        if (isProtected) {
+          let dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
+          if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
+          expectedDamage = dmg;
+          note = 'wave_surge: flag-protected — heavy damage instead of instant destroy';
+        } else {
+          expectedDamage = cell.health; // instant destroy
+          note = 'wave_surge: instant destroy';
+        }
+      } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5) {
+        if (cell.level === 0) {
+          // L0 in rows 6–8: 40 damage with reductions
+          let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
+          if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
+          expectedDamage = dmg;
+        } else {
+          // Upper levels in rows 6–8 are sheltered if L0 survives; risk of cascade if L0 dies
+          expectedDamage = 0;
+          note = 'wave_surge: upper level sheltered — but L0 below may take heavy damage (cascade risk)';
+        }
+      } else {
+        // Other rows: standard rain damage (no wind in wave_surge)
+        let dmg = Math.round(baseRain * mult);
+        if (isProtected) dmg = Math.floor(dmg * FLAG_DAMAGE_REDUCTION);
+        if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
+        expectedDamage = dmg;
+      }
+    } else if (weatherEvent.specialEffect === 'rogue_wave') {
+      // Columns are random — rain damage shown as minimum; actual may be total destruction
+      let dmg = Math.round(baseRain * mult);
+      if (isProtected) dmg = Math.floor(dmg * FLAG_DAMAGE_REDUCTION);
+      if (isMoatProtected) dmg = Math.floor(dmg * (1 - MOAT_DAMAGE_REDUCTION));
+      expectedDamage = dmg;
+      note = 'rogue_wave: random column(s) may be completely destroyed; rain damage shown as minimum estimate';
+    } else {
+      // Normal / calm / storm — rain + wind to top block
+      const rainDmg = Math.round(baseRain * mult);
+      const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
+        ? baseWind : 0;
+      const windDmg = Math.round(rawWind * mult);
+      let totalDamage = rainDmg + windDmg;
+      if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
+      if (isMoatProtected) totalDamage = Math.floor(totalDamage * (1 - MOAT_DAMAGE_REDUCTION));
+      expectedDamage = totalDamage;
+    }
+
+    const entry = {
+      x: cell.x,
+      y: cell.y,
+      level: cell.level,
+      owner: cell.owner,
+      type: cell.type,
+      health: cell.health,
+      expected_damage: expectedDamage,
+      flag_protected: isProtected,
+      moat_protected: isMoatProtected,
+    };
+    if (note !== undefined) entry.note = note;
+    damage_per_top_block.push(entry);
+  }
+
+  const blocks_at_risk = damage_per_top_block.filter(b => b.health <= b.expected_damage);
+
+  return {
+    weather_assumption: weatherAssumption,
+    damage_per_top_block,
+    blocks_at_risk,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // validateMove — returns { valid: true } or { valid: false, reason: string }
 // ---------------------------------------------------------------------------
 
