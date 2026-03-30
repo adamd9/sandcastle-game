@@ -688,6 +688,51 @@ describe('computeStructureScore — breakdown fields', () => {
     const score = computeStructureScore(cells, 'player1');
     expect(score.perimeter_integrity).toBe(0);
   });
+
+  it('counts moat cells on the zone boundary as occupied for perimeter_integrity', () => {
+    // Moat cell directly on zone boundary (x=0 is left edge of player1's zone)
+    const cells = [
+      { x: 0, y: 5, level: 0, type: 'moat', health: 0, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.perimeter_integrity).toBeGreaterThan(0);
+  });
+
+  it('awards full perimeter_integrity for complete moat ring enclosing non-moat structures', () => {
+    // Moat ring forming a rectangle inside player1's zone (x=2..8, y=7..17)
+    // with a non-moat block enclosed at the centre.
+    const makeMoat = (x, y) => ({ x, y, level: 0, type: 'moat', health: 0, owner: 'player1' });
+    const moatCells = [
+      // Left wall x=2, y=7..17
+      ...[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(y => makeMoat(2, y)),
+      // Right wall x=8, y=7..17
+      ...[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(y => makeMoat(8, y)),
+      // Top wall y=7, x=3..7 (corners already covered by left/right walls)
+      ...[3, 4, 5, 6, 7].map(x => makeMoat(x, 7)),
+      // Bottom wall y=17, x=3..7
+      ...[3, 4, 5, 6, 7].map(x => makeMoat(x, 17)),
+    ];
+    const innerBlock = { x: 5, y: 12, level: 0, type: 'packed_sand', health: 60, owner: 'player1' };
+    const score = computeStructureScore([...moatCells, innerBlock], 'player1');
+    expect(score.perimeter_integrity).toBe(100);
+  });
+
+  it('returns zero perimeter_integrity for incomplete moat ring with gap', () => {
+    // Same ring as above but with (5, 7) removed — creating a gap in the top wall
+    const makeMoat = (x, y) => ({ x, y, level: 0, type: 'moat', health: 0, owner: 'player1' });
+    const moatCells = [
+      ...[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(y => makeMoat(2, y)),
+      ...[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(y => makeMoat(8, y)),
+      // Top wall with gap at x=5
+      ...[3, 4, 6, 7].map(x => makeMoat(x, 7)),
+      ...[3, 4, 5, 6, 7].map(x => makeMoat(x, 17)),
+    ];
+    const innerBlock = { x: 5, y: 12, level: 0, type: 'packed_sand', health: 60, owner: 'player1' };
+    const score = computeStructureScore([...moatCells, innerBlock], 'player1');
+    // Gap lets zone boundary reach interior block → no moat-ring bonus → falls back to
+    // direct boundary coverage (no blocks on zone boundary → 0)
+    expect(score.perimeter_integrity).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
