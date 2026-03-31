@@ -78,7 +78,9 @@ export function computeStructureScore(cells, player, flags = []) {
   const architectural_complexity = [...byPos.values()].filter(count => count > 1).length;
 
   // (9) Perimeter integrity: percentage (0–100, 1 decimal) of the buildable zone
-  //     boundary positions that have at least one block.
+  //     boundary positions that have at least one block, or are shielded by a moat ring.
+  //     A complete moat ring that encloses all non-moat player blocks is treated as a
+  //     valid defensive perimeter (equivalent to covering the zone boundary directly).
   const zone = ZONES[player];
   const buildableYMin = WATER_ROWS;
   const buildableYMax = GRID_HEIGHT - 1;
@@ -91,9 +93,46 @@ export function computeStructureScore(cells, player, flags = []) {
     perimeterSet.add(`${zone.x_min},${y}`);
     perimeterSet.add(`${zone.x_max},${y}`);
   }
+
+  // Detect whether a moat ring completely separates the zone boundary from the player's
+  // non-moat structure. BFS from all unoccupied zone boundary positions, blocked by moat
+  // cells. If no non-moat player block is reachable, the moat ring is an intact perimeter.
+  const piMoatSet = new Set(playerCells.filter(c => c.type === 'moat').map(c => `${c.x},${c.y}`));
+  const piNonMoatSet = new Set(playerCells.filter(c => c.type !== 'moat').map(c => `${c.x},${c.y}`));
+  let moatRingDefendsPerimeter = false;
+  if (piNonMoatSet.size > 0 && piMoatSet.size > 0) {
+    const piVisited = new Set();
+    const piQueue = [];
+    for (const key of perimeterSet) {
+      if (!occupiedSet.has(key) && !piVisited.has(key)) {
+        piVisited.add(key);
+        const [kx, ky] = key.split(',').map(Number);
+        piQueue.push([kx, ky]);
+      }
+    }
+    let piHead = 0;
+    while (piHead < piQueue.length) {
+      const [cx, cy] = piQueue[piHead++];
+      for (let d = 0; d < 4; d++) {
+        const nx = cx + DX[d];
+        const ny = cy + DY[d];
+        if (nx < zone.x_min || nx > zone.x_max || ny < buildableYMin || ny > buildableYMax) continue;
+        const nkey = `${nx},${ny}`;
+        if (piMoatSet.has(nkey) || piVisited.has(nkey)) continue;
+        piVisited.add(nkey);
+        piQueue.push([nx, ny]);
+      }
+    }
+    moatRingDefendsPerimeter = ![...piNonMoatSet].some(key => piVisited.has(key));
+  }
+
   let occupiedPerimeterCount = 0;
-  for (const key of perimeterSet) {
-    if (occupiedSet.has(key)) occupiedPerimeterCount++;
+  if (moatRingDefendsPerimeter) {
+    occupiedPerimeterCount = perimeterSet.size;
+  } else {
+    for (const key of perimeterSet) {
+      if (occupiedSet.has(key)) occupiedPerimeterCount++;
+    }
   }
   const perimeter_integrity = perimeterSet.size > 0
     ? Math.round((occupiedPerimeterCount / perimeterSet.size) * 1000) / 10
