@@ -127,11 +127,17 @@ export function computeStructureScore(cells, player, flags = []) {
   }
 
   let occupiedPerimeterCount = 0;
+  const perimeter_gaps = [];
   if (moatRingDefendsPerimeter) {
     occupiedPerimeterCount = perimeterSet.size;
   } else {
     for (const key of perimeterSet) {
-      if (occupiedSet.has(key)) occupiedPerimeterCount++;
+      if (occupiedSet.has(key)) {
+        occupiedPerimeterCount++;
+      } else {
+        const [gx, gy] = key.split(',').map(Number);
+        perimeter_gaps.push({ x: gx, y: gy });
+      }
     }
   }
   const perimeter_integrity = perimeterSet.size > 0
@@ -263,7 +269,7 @@ export function computeStructureScore(cells, player, flags = []) {
 
   return {
     total_blocks, total_hp, avg_health, max_height,
-    footprint, perimeter, perimeter_integrity,
+    footprint, perimeter, perimeter_integrity, perimeter_gaps,
     height_variety, architectural_complexity,
     flag_diversity, courtyard_bonus, courtyard_cells,
     prestige_score, moat_courtyard_bonus, longevity_bonus,
