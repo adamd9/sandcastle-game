@@ -851,7 +851,7 @@
           </a>
         </div>
         <div class="github-stat">
-          <a class="github-stat-link" id="github-stat-prs-link" href="https://github.com/adamd9/sandcastle-game/issues?q=label%3Agame-improvement+is%3Aclosed" target="_blank" rel="noopener">
+          <a class="github-stat-link" id="github-stat-prs-link" href="https://github.com/adamd9/sandcastle-game/issues?q=label%3Agame-improvement+is%3Aclosed+label%3Ais-approved%2Capproved-for-work" target="_blank" rel="noopener">
             <span class="github-stat-val" id="github-stat-prs">—</span>
             ✅ improvements implemented
           </a>
@@ -1993,7 +1993,7 @@
     }
     const [issues, prs] = await Promise.all([
       fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:issue+label:game-improvement&per_page=1'),
-      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:issue+label:game-improvement+is:closed&per_page=1'),
+      fetchCount('https://api.github.com/search/issues?q=repo:adamd9/sandcastle-game+is:issue+label:game-improvement+is:closed+label:is-approved,approved-for-work&per_page=1'),
     ]);
     document.getElementById('github-stat-issues').textContent = issues;
     document.getElementById('github-stat-prs').textContent = prs;
