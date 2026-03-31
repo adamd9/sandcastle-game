@@ -17,9 +17,9 @@ When triggered by an issue labelled `game-improvement`:
    - `api/lib/gameLogic.js` — validateMove(), applyMove(), applyWeather(), validateCommit(), commitTurn(), recordRound()
    - `api/public/index.html` — frontend canvas renderer
 3. Make the minimal change that faithfully addresses the request
-4. Open a pull request with:
+4. **⚠️ MANDATORY: Open a pull request.** You MUST create a pull request when you are done. Do not complete the session without opening a PR. Use the following settings:
    - Title: `improvement: <issue title>`
-   - Body: what changed and why, gameplay impact
+   - Body: what changed and why, gameplay impact. **Always include `Closes #<issue_number>` or `Fixes #<issue_number>`** in the PR body to link the PR to the source issue — the auto-merge workflow relies on this to close the issue after merge.
    - Label: `agent-pr`
    - Only changed files — no unrelated refactoring
 

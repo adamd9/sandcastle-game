@@ -34,16 +34,40 @@ jobs:
             ISSUES="${{ github.event.issue.number }}"
           fi
 
+          PROCESSED=0
+          FAILED=0
+
           for ISSUE in $ISSUES; do
-            LABELS=$(gh issue view "$ISSUE" --repo ${{ github.repository }} --json labels --jq '[.labels[].name]')
+            LABELS=$(gh issue view "$ISSUE" --repo ${{ github.repository }} --json labels --jq '[.labels[].name]') || {
+              echo "::warning::Failed to fetch labels for issue #$ISSUE, skipping."
+              FAILED=$((FAILED + 1))
+              continue
+            }
             if echo "$LABELS" | grep -q "is-approved"; then
               echo "Issue #$ISSUE already is-approved, skipping."
               continue
             fi
+
             echo "Assigning issue #$ISSUE to copilot-swe-agent..."
-            gh issue edit "$ISSUE" \
+            if gh issue edit "$ISSUE" \
               --add-assignee copilot-swe-agent \
+              --repo ${{ github.repository }}; then
+              echo "Assigned issue #$ISSUE successfully."
+            else
+              echo "::warning::Failed to assign issue #$ISSUE."
+              FAILED=$((FAILED + 1))
+              continue
+            fi
+
+            echo "Swapping labels on issue #$ISSUE..."
+            gh issue edit "$ISSUE" \
               --add-label "is-approved" \
               --remove-label "approved-for-work" \
-              --repo ${{ github.repository }}
+              --repo ${{ github.repository }} || echo "::warning::Failed to swap labels on issue #$ISSUE (assignment still succeeded)."
+
+            PROCESSED=$((PROCESSED + 1))
           done
+
+          echo "--- Summary ---"
+          echo "Processed: $PROCESSED"
+          echo "Failed: $FAILED"

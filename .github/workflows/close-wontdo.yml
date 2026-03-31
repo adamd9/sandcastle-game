@@ -3,13 +3,16 @@ name: Close wont-do issues
 on:
   issues:
     types: [labeled]
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 permissions:
   issues: write
 
 jobs:
-  close:
-    if: github.event.label.name == 'wont-do'
+  close-labeled:
+    if: github.event_name == 'issues' && github.event.label.name == 'wont-do'
     runs-on: ubuntu-latest
     steps:
       - name: Close issue
@@ -17,3 +20,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
         run: gh issue close "$ISSUE_URL" --reason "not planned"
+
+  close-open-wontdo:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close all open wont-do issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUES=$(gh issue list --repo "$GITHUB_REPOSITORY" --label wont-do --state open --json number --jq '.[].number')
+          for ISSUE in $ISSUES; do
+            echo "Closing issue #$ISSUE"
+            gh issue close "$ISSUE" --reason "not planned" --repo "$GITHUB_REPOSITORY"
+          done
