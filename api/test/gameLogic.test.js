@@ -605,13 +605,14 @@ import { computeStructureScore } from '../lib/gameLogic.js';
 describe('computeStructureScore', () => {
   it('returns all zeros for empty board', () => {
     const score = computeStructureScore([], 'player1');
-    expect(score).toEqual({
+    expect(score).toMatchObject({
       total_blocks: 0, total_hp: 0, avg_health: 0, max_height: 0,
       footprint: 0, perimeter: 0, perimeter_integrity: 0,
       height_variety: 0, architectural_complexity: 0,
       flag_diversity: 0, courtyard_bonus: 0, courtyard_cells: [],
       prestige_score: 0, moat_courtyard_bonus: 0, longevity_bonus: 0,
     });
+    expect(Array.isArray(score.perimeter_gaps)).toBe(true);
   });
 
   it('calculates total_hp as sum of all block health', () => {
@@ -867,6 +868,38 @@ describe('computeStructureScore — breakdown fields', () => {
     // Gap lets zone boundary reach interior block → no moat-ring bonus → falls back to
     // direct boundary coverage (no blocks on zone boundary → 0)
     expect(score.perimeter_integrity).toBe(0);
+  });
+
+  it('returns perimeter_gaps as empty array when moat ring fully defends perimeter', () => {
+    const makeMoat = (x, y) => ({ x, y, level: 0, type: 'moat', health: 0, owner: 'player1' });
+    const moatCells = [
+      ...[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(y => makeMoat(2, y)),
+      ...[7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(y => makeMoat(8, y)),
+      ...[3, 4, 5, 6, 7].map(x => makeMoat(x, 7)),
+      ...[3, 4, 5, 6, 7].map(x => makeMoat(x, 17)),
+    ];
+    const innerBlock = { x: 5, y: 12, level: 0, type: 'packed_sand', health: 60, owner: 'player1' };
+    const score = computeStructureScore([...moatCells, innerBlock], 'player1');
+    expect(score.perimeter_gaps).toEqual([]);
+  });
+
+  it('returns perimeter_gaps listing unoccupied zone boundary cells when no blocks placed', () => {
+    const score = computeStructureScore([], 'player1');
+    // All perimeter cells should be listed as gaps
+    expect(Array.isArray(score.perimeter_gaps)).toBe(true);
+    expect(score.perimeter_gaps.length).toBeGreaterThan(0);
+    expect(score.perimeter_gaps.every(g => typeof g.x === 'number' && typeof g.y === 'number')).toBe(true);
+  });
+
+  it('excludes occupied boundary cells from perimeter_gaps', () => {
+    // Place a block on a zone boundary cell for player1 (x=0 is the left edge)
+    const cells = [
+      { x: 0, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    const gap = score.perimeter_gaps.find(g => g.x === 0 && g.y === 5);
+    expect(gap).toBeUndefined(); // occupied cell should not appear as a gap
+    expect(score.perimeter_gaps.length).toBeLessThan(computeStructureScore([], 'player1').perimeter_gaps.length);
   });
 });
 
