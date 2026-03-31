@@ -9,6 +9,13 @@ const BLOCK_DRAW_COLORS = {
   moat:        { player1: '#2a8c80', player2: '#2a8c80' }, // ocean-matching teal water channel
 };
 
+// Depth-tiered moat colors: shallow (1) = teal, standard (2) = deeper blue-green, deep (3) = dark blue
+const MOAT_DEPTH_COLORS = {
+  1: '#2a8c80',
+  2: '#1a6070',
+  3: '#0d3b52',
+};
+
 const FLAG_COLORS = { player1: '#4fc3f7', player2: '#ef9a9a', god: '#f5d87a' };
 
 /**
@@ -155,7 +162,9 @@ export async function renderBoard(state, options = {}) {
       ctx.globalAlpha = 0.4 + hpFrac * 0.6;
 
       const colors = BLOCK_DRAW_COLORS[type];
-      ctx.fillStyle = (colors && colors[owner]) || '#888888';
+      ctx.fillStyle = isMoat
+        ? (MOAT_DEPTH_COLORS[cell.moatDepth || 1] ?? MOAT_DEPTH_COLORS[1])
+        : ((colors && colors[owner]) || '#888888');
       ctx.fillRect(ox, oy, drawSize, drawSize);
 
       ctx.globalAlpha = 1;
