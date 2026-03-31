@@ -7,6 +7,7 @@ const BLOCK_DRAW_COLORS = {
   wet_sand:    { player1: '#c49a28', player2: '#6aab28' },
   dry_sand:    { player1: '#e8d5a3', player2: '#a3e8a3' },
   moat:        { player1: '#2a8c80', player2: '#2a8c80' }, // ocean-matching teal water channel
+  courtyard:   { player1: '#b5813a', player2: '#7a9e4a' }, // warm terracotta / olive paved floor
 };
 
 // Depth-tiered moat colors: shallow (1) = teal, standard (2) = deeper blue-green, deep (3) = dark blue

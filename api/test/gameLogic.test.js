@@ -134,6 +134,35 @@ describe('validateMove', () => {
     });
   });
 
+  describe('courtyard validation', () => {
+    it('allows PLACE courtyard at level 0', () => {
+      const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'courtyard' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects PLACE courtyard at level > 0', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 6, type: 'courtyard', level: 1 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/courtyard/i);
+    });
+
+    it('allows REINFORCE on a courtyard block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'courtyard', health: 20, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('allows REPAIR_KIT on a courtyard block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'courtyard', health: 10, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+  });
+
   describe('DEEPEN_MOAT validation', () => {
     it('allows DEEPEN_MOAT on own moat block at default depth', () => {
       const state = freshState();
@@ -890,6 +919,86 @@ describe('computeStructureScore — prestige_score', () => {
 
   it('returns prestige_score 0 for empty board', () => {
     expect(computeStructureScore([], 'player1').prestige_score).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — courtyard tower bonus
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — courtyard tower prestige bonus', () => {
+  it('grants 25% prestige bonus to an L2 block adjacent to a courtyard', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player1' },
+      { x: 6, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 10, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 10, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // courtyard at L0: 30*1 = 30 prestige
+    // tower col (6,10): L0=60*1=60, L1=60*1.5=90, L2=60*2=120 → L2 gets 25% bonus: 120*1.25=150
+    // total = 30 + 60 + 90 + 150 = 330
+    expect(score.prestige_score).toBe(330);
+  });
+
+  it('grants 25% prestige bonus to an L3 block adjacent to a courtyard', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player1' },
+      { x: 5, y: 11, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 11, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 11, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 11, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // courtyard at (5,10): 30*1 = 30
+    // tower col (5,11): L0=60, L1=90, L2=120*1.25=150, L3=180*1.25=225 → raw sum=525
+    // full column (L0–L3) depth bonus applied to the raw sum: 525*1.25=656.25
+    // total prestige = Math.round(30 + 656.25) = 686
+    expect(score.prestige_score).toBe(686);
+  });
+
+  it('does NOT grant courtyard bonus to L0 or L1 blocks', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player1' },
+      { x: 6, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 10, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // courtyard: 30, L0=60, L1=90 (no bonus for L0/L1)
+    expect(score.prestige_score).toBe(180);
+  });
+
+  it('does NOT grant courtyard bonus when courtyard belongs to the opponent', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player2' },
+      { x: 6, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 10, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 10, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // player1 has no courtyard; no bonus: L0=60, L1=90, L2=120
+    expect(score.prestige_score).toBe(270);
+  });
+
+  it('does NOT grant courtyard bonus when tower is not adjacent (diagonal only)', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player1' },
+      { x: 6, y: 11, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // diagonal — not adjacent
+      { x: 6, y: 11, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 6, y: 11, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // courtyard: 30, L0=60, L1=90, L2=120 (no bonus since diagonal, not orthogonally adjacent)
+    expect(score.prestige_score).toBe(300);
+  });
+
+  it('courtyard block itself contributes to prestige based on its health', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // courtyard at L0: 30 * 1 = 30
+    expect(score.prestige_score).toBe(30);
   });
 });
 
