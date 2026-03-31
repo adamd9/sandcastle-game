@@ -76,6 +76,7 @@ A deep moat (depth 3) adjacent to a flag-protected block reduces weather damage 
 { "action": "DEEPEN_MOAT", "x": 3, "y": 9, "level": 0 }
 ```
 
+
 ---
 
 ## Courtyard
