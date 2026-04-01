@@ -192,6 +192,15 @@ export async function renderBoard(state, options = {}) {
         ctx.strokeStyle = level === 0 ? '#ffffff22' : '#ffffff44';
         ctx.lineWidth = level === 0 ? 0.5 : 1;
         ctx.strokeRect(ox + 0.5, oy + 0.5, drawSize - 1, drawSize - 1);
+
+        // Height gradient shading: progressively darken higher levels so spires stand out
+        if (level > 0) {
+          const LEVEL_SHADE = [0, 0.12, 0.24, 0.36];
+          ctx.globalAlpha = LEVEL_SHADE[Math.min(level, MAX_LEVEL)];
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(ox, oy, drawSize, drawSize);
+          ctx.globalAlpha = 1;
+        }
       }
 
       // Flag-protected component overlay: faint tint matching flag colour
@@ -225,6 +234,29 @@ export async function renderBoard(state, options = {}) {
       ctx.fill();
       ctx.globalAlpha = 1;
     }
+  }
+
+  // --- 5c. Health bar mini-overlays ---
+  // Draw a 5px health bar at the bottom of each occupied cell.
+  // Green when HP ≥ 50 % of max, red when below that threshold.
+  const HEALTH_BAR_H = 5;
+  for (const group of cellMap.values()) {
+    const topCell = group[group.length - 1]; // already sorted ascending by level
+    const { x: gx, y: gy, type: topType, health: topHealth } = topCell;
+    if (topType === 'moat') continue; // moats are permanent — no health bar needed
+    const maxHp = (BLOCK_TYPES[topType] && BLOCK_TYPES[topType].initial_health) || 25;
+    const hpFrac = Math.max(0, Math.min(1, topHealth / maxHp));
+    const barW = Math.round(CS * hpFrac);
+    const barX = px(gx);
+    const barY = gy * CS + CS - HEALTH_BAR_H;
+    // Background track
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#222222';
+    ctx.fillRect(barX, barY, CS, HEALTH_BAR_H);
+    // Fill: green ≥ 50 % max HP, red below
+    ctx.fillStyle = hpFrac >= 0.5 ? '#4caf50' : '#f44336';
+    ctx.fillRect(barX, barY, barW, HEALTH_BAR_H);
+    ctx.globalAlpha = 1;
   }
 
   // --- 6. Flags ---
