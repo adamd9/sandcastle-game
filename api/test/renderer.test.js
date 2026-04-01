@@ -140,4 +140,47 @@ describe('renderBoard', () => {
     const big = await renderBoard(freshState(), { cellSize: 40 });
     expect(big.length).toBeGreaterThan(small.length);
   });
+
+  it('renders height gradient shading for multi-level blocks without error', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 3, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders health bar for blocks with full health (green)', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders health bar for blocks with low health (red)', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 10, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('does not render health bar for moat blocks', async () => {
+    const cells = [
+      { x: 5, y: 7, level: 0, type: 'moat', health: 0, owner: 'player1', moatDepth: 2 },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
 });
