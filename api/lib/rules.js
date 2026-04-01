@@ -19,6 +19,7 @@ export const BLOCK_TYPES = {
   packed_sand: { initial_health: 60 },
   moat:        { initial_health: 0, permanent: true }, // immune to weather; cannot stack; tiered depth (1-3) grants 25/35/45% damage reduction to adjacent same-owner blocks
   courtyard:   { initial_health: 30, level0Only: true }, // paved interior floor; cannot stack; grants 25% prestige bonus to adjacent tower blocks (L2+)
+  buttress:    { initial_health: 20, level0Only: true }, // fragile support block; level 0 only; grants +10 max HP and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top
 };
 
 export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT', 'DEEPEN_MOAT'];
@@ -31,6 +32,8 @@ export const MOAT_DAMAGE_REDUCTION = 0.25; // shallow moat (default depth 1) —
 export const MOAT_DEPTH_REDUCTIONS = { 1: 0.25, 2: 0.35, 3: 0.45 };
 export const MOAT_MAX_DEPTH = 3;
 export const COURTYARD_TOWER_BONUS = 0.25; // tower blocks (L2+) adjacent to courtyard get 25% prestige bonus
+export const BUTTRESS_HP_BONUS = 10; // adjacent same-owner blocks get +10 max HP (cap raised from 60 to 70)
+export const BUTTRESS_SCORE_MULTIPLIER = 1.2; // adjacent same-owner blocks get 1.2× prestige score
 export const FLAGS_MAX_LABEL_LENGTH = 50;
 export const FLAG_MIN_SPACING = 4; // flags must be >= 4 grid units apart (Euclidean), unless separated by empty cells
 export const FLAG_DAMAGE_REDUCTION = 0.5; // flagged structures take 50% damage

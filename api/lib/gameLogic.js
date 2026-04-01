@@ -19,6 +19,8 @@ import {
   MOAT_DEPTH_REDUCTIONS,
   MOAT_MAX_DEPTH,
   COURTYARD_TOWER_BONUS,
+  BUTTRESS_HP_BONUS,
+  BUTTRESS_SCORE_MULTIPLIER,
   PRESTIGE_LEVEL_MULTIPLIERS,
   STRUCTURAL_DEPTH_BONUS,
 } from './rules.js';
@@ -210,6 +212,10 @@ export function computeStructureScore(cells, player, flags = []) {
   const courtyardXYSet = new Set(
     playerCells.filter(c => c.type === 'courtyard').map(c => `${c.x},${c.y}`)
   );
+  // Collect buttress positions owned by the player for adjacency lookup
+  const buttressXYSet = new Set(
+    playerCells.filter(c => c.type === 'buttress').map(c => `${c.x},${c.y}`)
+  );
   // Build a per-column map of level sets once to avoid repeated filtering
   const columnLevels = new Map(); // posKey → Set<level>
   const columnPrestige = new Map(); // posKey → raw prestige for that column
@@ -224,6 +230,15 @@ export function computeStructureScore(cells, player, flags = []) {
       courtyardXYSet.has(`${cell.x},${cell.y + 1}`)
     )) {
       contrib *= (1 + COURTYARD_TOWER_BONUS);
+    }
+    // Blocks adjacent to a same-owner buttress get 1.2× prestige score
+    if (
+      buttressXYSet.has(`${cell.x - 1},${cell.y}`) ||
+      buttressXYSet.has(`${cell.x + 1},${cell.y}`) ||
+      buttressXYSet.has(`${cell.x},${cell.y - 1}`) ||
+      buttressXYSet.has(`${cell.x},${cell.y + 1}`)
+    ) {
+      contrib *= BUTTRESS_SCORE_MULTIPLIER;
     }
     columnPrestige.set(posKey, (columnPrestige.get(posKey) || 0) + contrib);
     if (!columnLevels.has(posKey)) columnLevels.set(posKey, new Set());
@@ -429,6 +444,24 @@ function buildMoatProtectedPositions(cells) {
   }
 
   return moatProtected;
+}
+
+// ---------------------------------------------------------------------------
+// hasButtressAdjacent — returns true if any orthogonally adjacent cell (same owner)
+// is a buttress block, granting the +10 max HP bonus.
+// ---------------------------------------------------------------------------
+
+function hasButtressAdjacent(cells, x, y, owner) {
+  const DX = [-1, 0, 1, 0];
+  const DY = [0, -1, 0, 1];
+  for (let d = 0; d < 4; d++) {
+    const nx = x + DX[d];
+    const ny = y + DY[d];
+    if (cells.some(c => c.x === nx && c.y === ny && c.type === 'buttress' && c.owner === owner)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -693,6 +726,9 @@ export function validateMove(state, player, action) {
       if (blockType === 'courtyard' && level > 0) {
         return { valid: false, reason: 'Courtyard blocks cannot be stacked — they can only be placed at level 0.' };
       }
+      if (blockType === 'buttress' && level > 0) {
+        return { valid: false, reason: 'Buttress blocks cannot be stacked — they can only be placed at level 0.' };
+      }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
         if (!foundation) {
@@ -799,12 +835,14 @@ export function applyMove(state, player, action) {
     }
     case 'REINFORCE': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
-      cell.health = Math.min(cell.health + REINFORCE_AMOUNT, MAX_HEALTH);
+      const maxHealth = MAX_HEALTH + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
+      cell.health = Math.min(cell.health + REINFORCE_AMOUNT, maxHealth);
       break;
     }
     case 'REPAIR_KIT': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
-      cell.health = MAX_HEALTH;
+      const maxHealth = MAX_HEALTH + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
+      cell.health = maxHealth;
       state.players[player].repairKitLastUsedTick = state.tick;
       break;
     }
