@@ -636,10 +636,15 @@ export function computeDamagePreview(state) {
 
   const blocks_at_risk = damage_per_top_block.filter(b => b.health <= b.expected_damage);
 
+  const blocks_needing_reinforcement = damage_per_top_block
+    .filter(b => b.health < MAX_HEALTH * 0.5)
+    .sort((a, b) => a.health - b.health);
+
   return {
     weather_assumption: weatherAssumption,
     damage_per_top_block,
     blocks_at_risk,
+    blocks_needing_reinforcement,
   };
 }
 
