@@ -52,6 +52,11 @@ jobs:
         # which bypasses the GitHub approval gate for bot actors.
         # GITHUB_TOKEN would NOT fire the event (GitHub prevents loops).
         run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if echo "$TITLE" | grep -qi "\[WIP\]"; then
+            echo "PR still has [WIP] in title — agent is working. Skipping."
+            exit 0
+          fi
           echo "Marking PR #${{ github.event.pull_request.number }} as ready for review..."
           gh pr ready ${{ github.event.pull_request.number }} --repo ${{ github.repository }}
         env:
@@ -67,7 +72,8 @@ jobs:
       - name: Find and mark draft Copilot PRs ready
         run: |
           echo "Listing open draft PRs..."
-          DRAFT_PRS=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --draft --json number,author --jq '.[]')
+          # Include title so we can skip [WIP] PRs where the agent is still working
+          DRAFT_PRS=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --draft --json number,author,title --jq '.[]')
 
           if [ -z "$DRAFT_PRS" ]; then
             echo "No open draft PRs found."
@@ -78,7 +84,14 @@ jobs:
             [ -z "$pr" ] && continue
             NUMBER=$(echo "$pr" | jq -r '.number')
             AUTHOR=$(echo "$pr" | jq -r '.author.login')
-            echo "Checking PR #${NUMBER} by '${AUTHOR}'..."
+            TITLE=$(echo "$pr" | jq -r '.title')
+            echo "Checking PR #${NUMBER} by '${AUTHOR}': ${TITLE}"
+
+            # Skip PRs where the agent is still working
+            if echo "$TITLE" | grep -qi "\[WIP\]"; then
+              echo "  → Skipping (still WIP — agent is working)."
+              continue
+            fi
 
             # Case-insensitive check for Copilot-related authors
             if echo "$AUTHOR" | grep -iq "opilot"; then

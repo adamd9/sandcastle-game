@@ -55,14 +55,36 @@ jobs:
         if: steps.author-check.outputs.is_copilot == 'true'
         run: cd api && npm ci && npm test
 
-      - name: Auto-merge PR
+      - name: Check PR has actual changes
         if: steps.author-check.outputs.is_copilot == 'true'
+        id: change-check
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          FILES=$(gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json files --jq '.files | length')
+          echo "PR title: $TITLE"
+          echo "Changed files: $FILES"
+
+          if echo "$TITLE" | grep -qi "\[WIP\]"; then
+            echo "PR still has [WIP] in title — agent may be working. Skipping merge."
+            echo "should_merge=false" >> "$GITHUB_OUTPUT"
+          elif [ "$FILES" = "0" ] || [ -z "$FILES" ]; then
+            echo "PR has no file changes — agent may not have committed yet. Skipping merge."
+            echo "should_merge=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "PR has $FILES changed files. Proceeding with merge."
+            echo "should_merge=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-merge PR
+        if: steps.author-check.outputs.is_copilot == 'true' && steps.change-check.outputs.should_merge == 'true'
         run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Close linked issues
-        if: steps.author-check.outputs.is_copilot == 'true'
+        if: steps.author-check.outputs.is_copilot == 'true' && steps.change-check.outputs.should_merge == 'true'
         run: |
           ISSUES=$(gh pr view ${{ github.event.pull_request.number }} \
             --repo ${{ github.repository }} \
