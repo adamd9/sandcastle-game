@@ -28,6 +28,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `dry_sand` | 25 | Fragile — avoid unless necessary |
 | `moat` | — | Permanent; immune to weather; depth 1–3 grants 25/35/45% damage reduction to adjacent same-owner blocks |
 | `courtyard` | 30 | Paved interior floor; level 0 only; grants 25% prestige bonus to adjacent tower blocks (L2+) |
+| `buttress` | 20 | Fragile support block; level 0 only; grants +10 max HP (cap 60→70) and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top |
 
 Blocks can be **reinforced** (+15 HP per action, up to max 60 HP) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
 
@@ -91,6 +92,24 @@ A `courtyard` is a special ground-level (level 0 only) block that represents a p
 
 ```json
 { "action": "PLACE", "x": 5, "y": 10, "block_type": "courtyard", "level": 0 }
+```
+
+---
+
+## Buttress
+
+A `buttress` is a special ground-level (level 0 only) support block that reinforces adjacent structures — like a flying buttress on a cathedral wall.
+
+- **Level 0 only**: buttress blocks cannot be stacked — only one per (x, y) position.
+- **Adjacent HP bonus**: every same-owner block orthogonally adjacent to a buttress tile has its maximum HP raised by **+10** (from 60 to 70). This means those blocks can be reinforced or repaired to 70 HP.
+- **Adjacent prestige bonus**: every same-owner block orthogonally adjacent to a buttress tile receives a **1.2× prestige score multiplier** on its height-weighted health contribution.
+- **Fragile**: buttress blocks start with only 20 HP — they need regular maintenance to keep supporting adjacent structures.
+- **Stackable foundation**: normal blocks (packed_sand, wet_sand, etc.) can be placed on top of a buttress at level 1+.
+- **Affected by weather**: buttress blocks take normal weather damage; they can be reinforced or repaired.
+- **Strategic tradeoff**: buttress sacrifices HP for scoring advantage — plan maintenance carefully during storm events.
+
+```json
+{ "action": "PLACE", "x": 5, "y": 10, "block_type": "buttress", "level": 0 }
 ```
 
 ---
@@ -181,7 +200,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` \| `DEEPEN_MOAT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
-| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` | Required for PLACE only |
+| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` | Required for PLACE only |
 | `level` | 0–3 | Must place L0 before L1; cascade on removal |
 
 ```json
@@ -273,6 +292,7 @@ Check `recent_history.weatherDamageToMyBlocks` every turn:
 - **Cascade awareness** — check for levels above before removing a block
 - **Moat strategy** — place `moat` tiles along the outer perimeter of your castle; each adjacent `packed_sand` wall block takes 25% less weather damage, making your defences significantly more resilient for the cost of 1 action per moat tile. Use `DEEPEN_MOAT` (1–2 additional actions per tile) to reach 35% or 45% reduction — a narrow but deep moat channel can rival a wide shallow one
 - **Courtyard strategy** — place `courtyard` tiles inside your walls, then build L2/L3 towers on adjacent cells; each adjacent tower cell gains a 25% prestige bonus, rewarding architecturally distinct interior spaces
+- **Buttress strategy** — place `buttress` tiles alongside your tower walls (e.g. at the base of each tower column); adjacent blocks gain +10 max HP (repair them to 70 instead of 60) and a 1.2× prestige multiplier; since buttresses start at only 20 HP, reinforce them regularly to keep the bonuses active
 
 ---
 

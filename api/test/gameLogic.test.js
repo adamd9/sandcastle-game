@@ -163,6 +163,42 @@ describe('validateMove', () => {
     });
   });
 
+  describe('buttress validation', () => {
+    it('allows PLACE buttress at level 0', () => {
+      const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'buttress' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects PLACE buttress at level > 0', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 6, type: 'buttress', level: 1 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/buttress/i);
+    });
+
+    it('allows REINFORCE on a buttress block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'buttress', health: 10, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('allows REPAIR_KIT on a buttress block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'buttress', health: 5, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('allows normal blocks to be stacked on top of a buttress', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'buttress', health: 20, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'packed_sand', level: 1 });
+      expect(r.valid).toBe(true);
+    });
+  });
+
   describe('DEEPEN_MOAT validation', () => {
     it('allows DEEPEN_MOAT on own moat block at default depth', () => {
       const state = freshState();
@@ -332,6 +368,60 @@ describe('applyMove', () => {
       state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 30, owner: 'player1', level: 0 });
       const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
       expect(next.players.player1.actionsThisTick).toBe(1);
+    });
+  });
+
+  describe('buttress HP bonus', () => {
+    it('PLACE buttress creates block with initial_health 20', () => {
+      const state = freshState();
+      const next = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'buttress' });
+      expect(next.cells[0].health).toBe(20);
+    });
+
+    it('REINFORCE on block adjacent to same-owner buttress caps at 70 (MAX_HEALTH + BUTTRESS_HP_BONUS)', () => {
+      const state = freshState();
+      // Buttress at (4, 5); packed_sand at (5, 5) — adjacent, same owner
+      state.cells.push({ x: 4, y: 5, type: 'buttress', health: 20, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+      // 60 + 15 = 75, capped at 70 (buttress bonus)
+      expect(next.cells.find(c => c.x === 5).health).toBe(70);
+    });
+
+    it('REINFORCE on block NOT adjacent to buttress still caps at 60 (MAX_HEALTH)', () => {
+      const state = freshState();
+      // Buttress at (4, 5); packed_sand at (7, 5) — not adjacent
+      state.cells.push({ x: 4, y: 5, type: 'buttress', health: 20, owner: 'player1', level: 0 });
+      state.cells.push({ x: 7, y: 5, type: 'packed_sand', health: 55, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 7, y: 5 });
+      // 55 + 15 = 70, capped at 60 (no buttress bonus)
+      expect(next.cells.find(c => c.x === 7).health).toBe(60);
+    });
+
+    it('REINFORCE adjacent to opponent buttress does NOT grant bonus', () => {
+      const state = freshState();
+      // Player2 buttress at (9, 5); player1 packed_sand at (8, 5) — adjacent but different owner
+      state.cells.push({ x: 9, y: 5, type: 'buttress', health: 20, owner: 'player2', level: 0 });
+      state.cells.push({ x: 8, y: 5, type: 'packed_sand', health: 55, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 8, y: 5 });
+      // 55 + 15 = 70, capped at 60 (opponent buttress — no bonus)
+      expect(next.cells.find(c => c.x === 8).health).toBe(60);
+    });
+
+    it('REPAIR_KIT on block adjacent to same-owner buttress restores to 70', () => {
+      const state = freshState();
+      state.cells.push({ x: 4, y: 5, type: 'buttress', health: 20, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5 });
+      expect(next.cells.find(c => c.x === 5).health).toBe(70);
+    });
+
+    it('REPAIR_KIT on block NOT adjacent to buttress restores to 60', () => {
+      const state = freshState();
+      state.cells.push({ x: 4, y: 5, type: 'buttress', health: 20, owner: 'player1', level: 0 });
+      state.cells.push({ x: 7, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+      const next = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 7, y: 5 });
+      expect(next.cells.find(c => c.x === 7).health).toBe(60);
     });
   });
 
@@ -1032,6 +1122,72 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
     const score = computeStructureScore(cells, 'player1');
     // courtyard at L0: 30 * 1 = 30
     expect(score.prestige_score).toBe(30);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — buttress prestige score multiplier
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — buttress prestige multiplier', () => {
+  it('grants 1.2× prestige multiplier to blocks adjacent to a same-owner buttress', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'buttress', health: 20, owner: 'player1' },
+      { x: 6, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // buttress at L0: 20*1 = 20 (no adjacent buttress, no multiplier)
+    // sand at L0: 60*1 = 60, adjacent to buttress → 60 * 1.2 = 72
+    // total = 20 + 72 = 92
+    expect(score.prestige_score).toBe(92);
+  });
+
+  it('does NOT grant buttress multiplier when buttress belongs to the opponent', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'buttress', health: 20, owner: 'player2' },
+      { x: 6, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // player1 has no buttress; no multiplier: 60*1 = 60
+    expect(score.prestige_score).toBe(60);
+  });
+
+  it('does NOT grant buttress multiplier when block is diagonal (not orthogonally adjacent)', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'buttress', health: 20, owner: 'player1' },
+      { x: 6, y: 11, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // diagonal
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // buttress: 20; sand: 60 (no multiplier — diagonal only)
+    expect(score.prestige_score).toBe(80);
+  });
+
+  it('buttress multiplier stacks multiplicatively with courtyard tower bonus', () => {
+    const cells = [
+      { x: 4, y: 10, level: 0, type: 'courtyard', health: 30, owner: 'player1' },
+      { x: 6, y: 10, level: 0, type: 'buttress', health: 20, owner: 'player1' },
+      { x: 5, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 10, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 10, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // courtyard (4,10): 30*1 = 30 (not adjacent to buttress — distance=2, not adjacent)
+    // buttress (6,10): 20*1 = 20 (adjacent to sand col at (5,10) but does not receive courtyard bonus — courtyard at x=4 is not adjacent to buttress at x=6)
+    // sand col (5,10): adjacent to both buttress(6,10) and courtyard(4,10)
+    //   L0: adjacent to buttress (6,10) → ×1.2 = 72; adjacent to courtyard (4,10) → level<2, no courtyard bonus
+    //   L1: adjacent to buttress (6,10) → ×1.2 = 108; adjacent to courtyard (4,10) → level<2, no courtyard bonus
+    //   L2: adjacent to buttress (6,10) → ×1.2 = 144; adjacent to courtyard (4,10) → level>=2, ×1.25 = 180
+    // total = 30 + 20 + 72 + 108 + 180 = 410
+    expect(score.prestige_score).toBe(410);
+  });
+
+  it('buttress block itself contributes to prestige based on its health', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'buttress', health: 20, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // buttress at L0: 20 * 1 = 20 (no adjacent buttress)
+    expect(score.prestige_score).toBe(20);
   });
 });
 
