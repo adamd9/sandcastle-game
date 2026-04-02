@@ -19,6 +19,11 @@ const MOAT_DEPTH_COLORS = {
 
 const FLAG_COLORS = { player1: '#4fc3f7', player2: '#ef9a9a', god: '#f5d87a' };
 
+// Health tier thresholds (as a fraction of max HP)
+const HEALTH_TIER_HEALTHY  = 0.8;  // > 80 % HP  → green
+const HEALTH_TIER_MODERATE = 0.5;  // 50–80 % HP → yellow
+const HEALTH_TIER_DAMAGED  = 0.25; // 25–50 % HP → orange  (≤ 25 % → red)
+
 /**
  * Render the game board as a PNG buffer.
  * @param {object} state - Game state with .cells and .flags arrays.
@@ -236,9 +241,13 @@ export async function renderBoard(state, options = {}) {
     }
   }
 
-  // --- 5c. Health bar mini-overlays ---
-  // Draw a 5px health bar at the bottom of each occupied cell.
-  // Green when HP ≥ 50 % of max, red when below that threshold.
+  // --- 5c. Health bar mini-overlays + HP value text ---
+  // Draw a 5px health bar at the bottom of each occupied cell using a 4-tier colour scheme:
+  //   Green  > 80 % HP  — healthy
+  //   Yellow 50–80 % HP — moderate damage
+  //   Orange 25–50 % HP — significant damage
+  //   Red    ≤ 25 % HP  — critical
+  // Also render the actual HP number inside the cell when there is enough room (cellSize ≥ 20).
   const HEALTH_BAR_H = 5;
   for (const group of cellMap.values()) {
     const topCell = group[group.length - 1]; // already sorted ascending by level
@@ -253,10 +262,73 @@ export async function renderBoard(state, options = {}) {
     ctx.globalAlpha = 0.7;
     ctx.fillStyle = '#222222';
     ctx.fillRect(barX, barY, CS, HEALTH_BAR_H);
-    // Fill: green ≥ 50 % max HP, red below
-    ctx.fillStyle = hpFrac >= 0.5 ? '#4caf50' : '#f44336';
+    // 4-tier fill colour based on HP percentage
+    let barColor;
+    if (hpFrac > HEALTH_TIER_HEALTHY) {
+      barColor = '#4caf50'; // green  — healthy
+    } else if (hpFrac > HEALTH_TIER_MODERATE) {
+      barColor = '#ffeb3b'; // yellow — moderate damage
+    } else if (hpFrac > HEALTH_TIER_DAMAGED) {
+      barColor = '#ff9800'; // orange — significant damage
+    } else {
+      barColor = '#f44336'; // red    — critical
+    }
+    ctx.fillStyle = barColor;
     ctx.fillRect(barX, barY, barW, HEALTH_BAR_H);
     ctx.globalAlpha = 1;
+
+    // HP value text — only draw when cell is large enough to be legible
+    if (CS >= 20) {
+      const fontSize = Math.max(7, Math.round(CS * 0.25));
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const tx = px(gx) + CS / 2;
+      const ty = gy * CS + CS / 2;
+      // Dark shadow for readability over any block colour
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = '#000000';
+      ctx.fillText(String(topHealth), tx + 1, ty + 1);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(String(topHealth), tx, ty);
+    }
+  }
+
+  // --- 5d. Most-damaged block indicator per player zone ---
+  // Draw a pulsing diamond outline around the single most-damaged (lowest hpFrac)
+  // non-moat block in each player's zone to make the critical block instantly visible.
+  for (const player of ['player1', 'player2']) {
+    let worstCell = null;
+    let worstFrac = Infinity;
+    for (const group of cellMap.values()) {
+      const topCell = group[group.length - 1];
+      if (topCell.owner !== player || topCell.type === 'moat') continue;
+      const maxHp = (BLOCK_TYPES[topCell.type] && BLOCK_TYPES[topCell.type].initial_health) || 25;
+      const frac = topCell.health / maxHp;
+      if (frac < worstFrac) {
+        worstFrac = frac;
+        worstCell = topCell;
+      }
+    }
+    // Only highlight when the worst block is genuinely damaged (< 100 % HP)
+    if (worstCell && worstFrac < 1) {
+      const { x: gx, y: gy } = worstCell;
+      const cx = px(gx) + CS / 2;
+      const cy = gy * CS + CS / 2;
+      const r = CS * 0.46;
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = Math.max(1.5, CS * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r);       // top
+      ctx.lineTo(cx + r, cy);       // right
+      ctx.lineTo(cx, cy + r);       // bottom
+      ctx.lineTo(cx - r, cy);       // left
+      ctx.closePath();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
   }
 
   // --- 6. Flags ---
