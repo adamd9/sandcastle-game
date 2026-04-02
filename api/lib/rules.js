@@ -25,6 +25,8 @@ export const BLOCK_TYPES = {
 export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT', 'DEEPEN_MOAT'];
 
 export const REINFORCE_AMOUNT = 15;
+export const REINFORCE_CRITICAL_THRESHOLD = 20; // blocks below this HP receive double reinforcement
+export const REINFORCE_AMOUNT_CRITICAL = 30;    // HP granted when block is critically damaged (< threshold)
 export const MAX_HEALTH = 60;
 export const REPAIR_KIT_COOLDOWN = 5; // ticks between REPAIR_KIT uses per player
 export const MOAT_DAMAGE_REDUCTION = 0.25; // shallow moat (default depth 1) — 25% damage reduction

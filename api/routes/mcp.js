@@ -7,7 +7,7 @@ import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCo
 import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
-  BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, MAX_HEALTH,
+  BLOCK_TYPES, VALID_ACTIONS, REINFORCE_AMOUNT, REINFORCE_CRITICAL_THRESHOLD, REINFORCE_AMOUNT_CRITICAL, MAX_HEALTH,
   WATER_ROWS, MAX_LEVEL, FLAGS_MAX_LABEL_LENGTH, FLAG_MIN_SPACING,
   FLAG_DAMAGE_REDUCTION, MOAT_DAMAGE_REDUCTION,
   rainDamage, windDamage,
@@ -46,6 +46,8 @@ const RULES_DOC = {
   block_types: BLOCK_TYPES,
   valid_actions: VALID_ACTIONS,
   reinforce_amount: REINFORCE_AMOUNT,
+  reinforce_critical_threshold: REINFORCE_CRITICAL_THRESHOLD,
+  reinforce_amount_critical: REINFORCE_AMOUNT_CRITICAL,
   max_health: MAX_HEALTH,
   weather_effects: {
     base_damage: 'Every cell takes 5 damage per tick regardless of weather.',
