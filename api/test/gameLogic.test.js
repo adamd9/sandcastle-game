@@ -328,6 +328,35 @@ describe('applyMove', () => {
     expect(next.cells[0].health).toBe(60); // 50 + 15 capped at 60
   });
 
+  it('REINFORCE on critically damaged block (health < 20) grants 30 HP instead of 15', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 5, owner: 'player1', level: 0 });
+    const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+    expect(next.cells[0].health).toBe(35); // 5 + 30 = 35
+  });
+
+  it('REINFORCE on block at exactly 20 HP grants standard 15 HP (not critical)', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 20, owner: 'player1', level: 0 });
+    const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+    expect(next.cells[0].health).toBe(35); // 20 + 15 = 35
+  });
+
+  it('REINFORCE critical healing is still capped at MAX_HEALTH', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 15, owner: 'player1', level: 0 });
+    const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+    expect(next.cells[0].health).toBe(45); // 15 + 30 = 45 (under cap)
+  });
+
+  it('REINFORCE critical healing on block adjacent to buttress caps at 70', () => {
+    const state = freshState();
+    state.cells.push({ x: 4, y: 5, type: 'buttress', health: 20, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 10, owner: 'player1', level: 0 });
+    const next = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5 });
+    expect(next.cells.find(c => c.x === 5).health).toBe(40); // 10 + 30 = 40 (under cap of 70)
+  });
+
   it('cascade removes levels above when lower level removed', () => {
     const state = freshState();
     state.cells.push({ x: 5, y: 5, type: 'dry_sand', health: 40, owner: 'player1', level: 0 });

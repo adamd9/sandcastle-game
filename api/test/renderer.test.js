@@ -154,9 +154,9 @@ describe('renderBoard', () => {
     expect(buf.length).toBeGreaterThan(100);
   });
 
-  it('renders health bar for blocks with full health (green)', async () => {
+  it('renders health bar green for blocks with >80% health', async () => {
     const cells = [
-      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // 60/60 = 100%
     ];
     const buf = await renderBoard(freshState(cells));
     expect(buf).toBeInstanceOf(Buffer);
@@ -164,9 +164,29 @@ describe('renderBoard', () => {
     expect(buf.length).toBeGreaterThan(100);
   });
 
-  it('renders health bar for blocks with low health (red)', async () => {
+  it('renders health bar yellow for blocks with 50–80% health', async () => {
     const cells = [
-      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 10, owner: 'player1' },
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 39, owner: 'player1' }, // 39/60 ≈ 65%
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders health bar orange for blocks with 25–50% health', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 21, owner: 'player1' }, // 21/60 = 35%
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders health bar red for blocks with ≤25% health', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 10, owner: 'player1' }, // 10/60 ≈ 17%
     ];
     const buf = await renderBoard(freshState(cells));
     expect(buf).toBeInstanceOf(Buffer);
@@ -177,6 +197,37 @@ describe('renderBoard', () => {
   it('does not render health bar for moat blocks', async () => {
     const cells = [
       { x: 5, y: 7, level: 0, type: 'moat', health: 0, owner: 'player1', moatDepth: 2 },
+    ];
+    const buf = await renderBoard(freshState(cells));
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders HP value text on blocks at default cell size', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 42, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells), { cellSize: 30 });
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('skips HP value text on blocks at small cell size', async () => {
+    const cells = [
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 42, owner: 'player1' },
+    ];
+    const buf = await renderBoard(freshState(cells), { cellSize: 10 });
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders most-damaged block diamond indicator', async () => {
+    const cells = [
+      { x: 3, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // healthy
+      { x: 4, y: 6, level: 0, type: 'packed_sand', health: 10, owner: 'player1' }, // most damaged
     ];
     const buf = await renderBoard(freshState(cells));
     expect(buf).toBeInstanceOf(Buffer);
