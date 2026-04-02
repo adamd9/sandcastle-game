@@ -111,7 +111,7 @@ export function getHistoryArchive({ limit = 0, offset = 0 } = {}) {
   }
   const total = archive.length;
   let entries = offset > 0 ? archive.slice(offset) : archive;
-  if (limit > 0) entries = entries.slice(-limit);
+  if (limit > 0) entries = entries.slice(0, limit);
   return { entries: structuredClone(entries), total };
 }
 

@@ -94,15 +94,9 @@ export async function getHistoryArchive({ limit = 0, offset = 0 } = {}) {
     const total = countRes[0] ?? 0;
 
     // Fetch entries ordered by tick
-    let query = 'SELECT * FROM c WHERE c.partitionKey = "history" ORDER BY c.tick ASC';
-    if (offset > 0) query += ` OFFSET ${offset}`;
-    if (limit > 0) query += ` LIMIT ${limit}`;
-    // Use proper Cosmos OFFSET LIMIT syntax
-    let pagedQuery;
+    let pagedQuery = 'SELECT * FROM c WHERE c.partitionKey = "history" ORDER BY c.tick ASC';
     if (offset > 0 || limit > 0) {
-      pagedQuery = `SELECT * FROM c WHERE c.partitionKey = "history" ORDER BY c.tick ASC OFFSET ${offset || 0} LIMIT ${limit || total}`;
-    } else {
-      pagedQuery = query;
+      pagedQuery += ` OFFSET ${offset || 0} LIMIT ${limit || total}`;
     }
 
     const { resources: entries } = await historyContainer.items

@@ -1564,16 +1564,19 @@
   });
 
   timelinePrev.addEventListener('click', () => {
+    stopAutoPlay();
     const cur = scrubbingIndex === -1 ? historySnapshots.length : scrubbingIndex;
     applyTimelineIndex(Math.max(0, cur - 1));
   });
 
   timelineNext.addEventListener('click', () => {
+    stopAutoPlay();
     const cur = scrubbingIndex === -1 ? historySnapshots.length : scrubbingIndex;
     applyTimelineIndex(cur + 1);
   });
 
   timelineResetBtn.addEventListener('click', () => {
+    stopAutoPlay();
     applyTimelineIndex(historySnapshots.length);
   });
 
@@ -2292,7 +2295,7 @@
     }).join('');
 
     const loadMoreHtml = hasMore
-      ? `<button id="history-load-more" onclick="this.remove()">▼ Load ${Math.min(lastHistory.length - historyDisplayCount, 20)} more (${lastHistory.length - historyDisplayCount} remaining)</button>`
+      ? `<button id="history-load-more">▼ Load ${Math.min(lastHistory.length - historyDisplayCount, 20)} more (${lastHistory.length - historyDisplayCount} remaining)</button>`
       : '';
 
     list.innerHTML = html + loadMoreHtml;
