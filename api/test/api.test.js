@@ -73,16 +73,17 @@ describe('GET /state/history', () => {
     expect(lastEntry).toHaveProperty('timestamp');
   });
 
-  it('caps stored history at MAX_HISTORY_IN_STORE entries after many ticks', async () => {
-    // Fire more ticks than MAX_HISTORY_IN_STORE (10) to trigger trimming.
+  it('returns all history entries from archive after many ticks', async () => {
+    // Fire more ticks than MAX_HISTORY_IN_STORE (10).
     for (let i = 0; i < 12; i++) {
       await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
     }
 
     const res = await request(app).get('/state/history');
     expect(res.status).toBe(200);
-    // History must not exceed the cap even though 12 ticks were applied.
-    expect(res.body.history.length).toBeLessThanOrEqual(10);
+    // The history archive stores all entries (not capped like inline state).
+    expect(res.body.history.length).toBe(12);
+    expect(res.body.total).toBe(12);
   });
 });
 

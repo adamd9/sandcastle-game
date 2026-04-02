@@ -10,3 +10,5 @@ const mod = process.env.COSMOS_ENDPOINT
 
 export const getState  = mod.getState;
 export const saveState = mod.saveState;
+export const saveHistoryEntry  = mod.saveHistoryEntry;
+export const getHistoryArchive = mod.getHistoryArchive;

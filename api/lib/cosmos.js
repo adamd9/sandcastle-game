@@ -10,9 +10,13 @@ const client = new CosmosClient({
   key: process.env.COSMOS_KEY,
 });
 
-const container = client
-  .database('sandcastle')
-  .container('game');
+const db = client.database('sandcastle');
+
+const container = db.container('game');
+
+// Separate container for the history archive — each tick is its own document,
+// so we are not constrained by the 2 MB single-document limit.
+const historyContainer = db.container('history');
 
 const ITEM_ID = 'game';
 const PARTITION_KEY = 'game';
@@ -56,4 +60,65 @@ export async function saveState(newState) {
     newState.history = newState.history.slice(-MAX_HISTORY_IN_STORE);
   }
   await container.items.upsert(newState);
+}
+
+/**
+ * Save a history entry to the separate archive container.
+ * Each entry is stored as its own document (id = "tick-{N}"), so history is
+ * not constrained by the main document's size limit.
+ */
+export async function saveHistoryEntry(entry) {
+  const doc = {
+    id: `tick-${entry.tick}`,
+    partitionKey: 'history',
+    ...entry,
+  };
+  await historyContainer.items.upsert(doc);
+}
+
+/**
+ * Retrieve history entries from the archive container.
+ * @param {object} opts
+ * @param {number} [opts.limit=0]   - Max entries to return (0 = all).
+ * @param {number} [opts.offset=0]  - Skip this many entries from the start.
+ * @returns {Promise<{ entries: Array, total: number }>}
+ */
+export async function getHistoryArchive({ limit = 0, offset = 0 } = {}) {
+  try {
+    // Count total entries
+    const { resources: countRes } = await historyContainer.items
+      .query({
+        query: 'SELECT VALUE COUNT(1) FROM c WHERE c.partitionKey = "history"',
+      })
+      .fetchAll();
+    const total = countRes[0] ?? 0;
+
+    // Fetch entries ordered by tick
+    let query = 'SELECT * FROM c WHERE c.partitionKey = "history" ORDER BY c.tick ASC';
+    if (offset > 0) query += ` OFFSET ${offset}`;
+    if (limit > 0) query += ` LIMIT ${limit}`;
+    // Use proper Cosmos OFFSET LIMIT syntax
+    let pagedQuery;
+    if (offset > 0 || limit > 0) {
+      pagedQuery = `SELECT * FROM c WHERE c.partitionKey = "history" ORDER BY c.tick ASC OFFSET ${offset || 0} LIMIT ${limit || total}`;
+    } else {
+      pagedQuery = query;
+    }
+
+    const { resources: entries } = await historyContainer.items
+      .query({ query: pagedQuery })
+      .fetchAll();
+
+    // Strip Cosmos metadata fields from entries
+    const clean = entries.map(e => {
+      const { _rid, _self, _etag, _attachments, _ts, partitionKey, ...rest } = e;
+      return rest;
+    });
+    return { entries: clean, total };
+  } catch (err) {
+    if (err.code === 404) {
+      return { entries: [], total: 0 };
+    }
+    throw err;
+  }
 }

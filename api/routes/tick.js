@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getState, saveState } from '../lib/db.js';
+import { getState, saveState, saveHistoryEntry } from '../lib/db.js';
 import { applyWeather, recordRound } from '../lib/gameLogic.js';
 import { selectRandomWeatherEvent } from '../lib/weather.js';
 import { recordExternalTick } from '../lib/scheduler.js';
@@ -105,6 +105,18 @@ router.post('/', authenticate, async (_req, res) => {
     }
 
     await saveState(newState);
+
+    // Archive the latest history entry separately so that the full history is
+    // available beyond the trimmed window kept in the main game document.
+    if (newState.history && newState.history.length > 0) {
+      const latestEntry = newState.history[newState.history.length - 1];
+      try {
+        await saveHistoryEntry(structuredClone(latestEntry));
+      } catch (archiveErr) {
+        console.error('Failed to archive history entry:', archiveErr.message);
+      }
+    }
+
     recordExternalTick();
 
     res.json({

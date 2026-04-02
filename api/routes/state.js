@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getState } from '../lib/db.js';
+import { getState, getHistoryArchive } from '../lib/db.js';
 import { generateForecast } from '../lib/forecast.js';
 import { computeStructureScore } from '../lib/gameLogic.js';
 
@@ -24,8 +24,19 @@ router.get('/', async (_req, res) => {
 // Must be defined before /:player to avoid being captured as player='history'
 router.get('/history', async (req, res) => {
   try {
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 0;
+    const offset = req.query.offset ? parseInt(req.query.offset, 10) : 0;
+
+    // Try the dedicated history archive first; fall back to inline state history
+    // when no archive entries exist (e.g. before the first tick after this change).
+    const archive = await getHistoryArchive({ limit, offset });
+    if (archive.total > 0) {
+      res.set('Cache-Control', 'no-store');
+      return res.json({ history: archive.entries, total: archive.total });
+    }
+
+    // Fallback: return inline history from the main state document
     const state = await getState();
-    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
     const history = limit > 0
       ? (state.history || []).slice(-limit)
       : (state.history || []);
