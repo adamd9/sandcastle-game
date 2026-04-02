@@ -183,4 +183,91 @@ describe('renderBoard', () => {
     expect(buf[0]).toBe(0x89);
     expect(buf.length).toBeGreaterThan(100);
   });
+
+  it('renders show_flags=true with golden tint on protected blocks without error', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'wet_sand',    health: 40, owner: 'player1' },
+      { x: 5, y: 5, level: 0, type: 'dry_sand',    health: 20, owner: 'player1' }, // unprotected
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'Fort Alpha' },
+    ];
+    const buf = await renderBoard(freshState(cells, flags), { show_flags: true });
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders show_flags=true as a different image than show_flags=false', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'wet_sand',    health: 40, owner: 'player1' },
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'Fort' },
+    ];
+    const state = freshState(cells, flags);
+    const withFlags = await renderBoard(state, { show_flags: true });
+    const withoutFlags = await renderBoard(state, { show_flags: false });
+    // The images should differ because the golden tint changes pixel values
+    expect(withFlags).not.toEqual(withoutFlags);
+  });
+
+  it('renders show_flags=true label overlays on protected blocks without error', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 4, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'North Tower' },
+    ];
+    const buf = await renderBoard(freshState(cells, flags), { show_flags: true, cellSize: 40 });
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders show_flags=true with dimmed unprotected blocks and highlighted protected ones', async () => {
+    // Mix of protected and unprotected blocks
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' }, // protected
+      { x: 7, y: 7, level: 0, type: 'dry_sand',    health: 25, owner: 'player1' }, // unprotected
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'Base' },
+    ];
+    const buf = await renderBoard(freshState(cells, flags), { show_flags: true });
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders show_flags=true for both players without error', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 15, y: 8, level: 0, type: 'packed_sand', health: 60, owner: 'player2' },
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'P1 Fort' },
+      { x: 15, y: 8, level: 0, owner: 'player2', label: 'P2 Base' },
+    ];
+    const buf = await renderBoard(freshState(cells, flags), { view: 'full', show_flags: true });
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(buf[0]).toBe(0x89); // valid PNG
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('renders show_flags=false (default) preserving existing faint tint behaviour', async () => {
+    const cells = [
+      { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const flags = [
+      { x: 3, y: 5, level: 0, owner: 'player1', label: 'Fort' },
+    ];
+    const explicit = await renderBoard(freshState(cells, flags), { show_flags: false });
+    const implicit = await renderBoard(freshState(cells, flags));
+    // Explicit show_flags=false should match the default (no show_flags option)
+    expect(explicit).toEqual(implicit);
+  });
 });

@@ -1,6 +1,6 @@
 import { createCanvas } from '@napi-rs/canvas';
 import { GRID_WIDTH, GRID_HEIGHT, WATER_ROWS, BLOCK_TYPES, MAX_LEVEL, REINFORCE_AMOUNT } from './rules.js';
-import { buildFlagProtectedSet, computeStructureScore } from './gameLogic.js';
+import { buildFlagProtectedSet, buildFlagCoverage, computeStructureScore } from './gameLogic.js';
 
 const BLOCK_DRAW_COLORS = {
   packed_sand: { player1: '#8b6914', player2: '#4a7c14' },
@@ -25,10 +25,13 @@ const FLAG_COLORS = { player1: '#4fc3f7', player2: '#ef9a9a', god: '#f5d87a' };
  * @param {object} [options]
  * @param {'full'|'player1'|'player2'} [options.view='full']
  * @param {number} [options.cellSize=30]
+ * @param {boolean} [options.show_flags=false] - When true, highlights flag-protected blocks
+ *   with a golden tint and border, dims unprotected blocks, and overlays the flag label
+ *   on each block in the protected connected component.
  * @returns {Promise<Buffer>} PNG image buffer.
  */
 export async function renderBoard(state, options = {}) {
-  const { view = 'full', cellSize = 30 } = options;
+  const { view = 'full', cellSize = 30, show_flags = false } = options;
   const CS = cellSize;
 
   // Determine visible column range and coordinate offset
@@ -122,6 +125,21 @@ export async function renderBoard(state, options = {}) {
   // Compute which cells are in a flag-protected connected component
   const flagProtectedSet = buildFlagProtectedSet(cells, flags);
 
+  // Build block-key → flag-label map for the show_flags overlay
+  const flagBlockLabelMap = new Map(); // "x,y,level" -> label string
+  if (show_flags) {
+    const coverage = buildFlagCoverage(cells, flags);
+    for (const { flag, protected_blocks } of coverage) {
+      const label = flag.label || '';
+      for (const block of protected_blocks) {
+        const key = `${block.x},${block.y},${block.level}`;
+        if (!flagBlockLabelMap.has(key)) {
+          flagBlockLabelMap.set(key, label);
+        }
+      }
+    }
+  }
+
   // --- 4.5. Courtyard overlays ---
   // Highlight empty cells that are fully enclosed within each player's structure
   const COURTYARD_COLORS = {
@@ -203,11 +221,28 @@ export async function renderBoard(state, options = {}) {
         }
       }
 
-      // Flag-protected component overlay: faint tint matching flag colour
+      // Flag-protected component overlay: tint matching flag colour.
+      // In show_flags mode: strong golden glow + border; otherwise faint tint.
       if (flagProtectedSet.has(`${gx},${gy},${level}`)) {
-        const tintColor = FLAG_COLORS[owner] || FLAG_COLORS.god;
-        ctx.globalAlpha = 0.18;
-        ctx.fillStyle = tintColor;
+        if (show_flags) {
+          ctx.globalAlpha = 0.40;
+          ctx.fillStyle = '#ffd700';
+          ctx.fillRect(ox, oy, drawSize, drawSize);
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = 'rgba(255,215,0,0.75)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(ox + 0.75, oy + 0.75, drawSize - 1.5, drawSize - 1.5);
+        } else {
+          const tintColor = FLAG_COLORS[owner] || FLAG_COLORS.god;
+          ctx.globalAlpha = 0.18;
+          ctx.fillStyle = tintColor;
+          ctx.fillRect(ox, oy, drawSize, drawSize);
+          ctx.globalAlpha = 1;
+        }
+      } else if (show_flags) {
+        // Dim non-protected blocks so protected ones stand out
+        ctx.globalAlpha = 0.40;
+        ctx.fillStyle = '#000000';
         ctx.fillRect(ox, oy, drawSize, drawSize);
         ctx.globalAlpha = 1;
       }
@@ -257,6 +292,42 @@ export async function renderBoard(state, options = {}) {
     ctx.fillStyle = hpFrac >= 0.5 ? '#4caf50' : '#f44336';
     ctx.fillRect(barX, barY, barW, HEALTH_BAR_H);
     ctx.globalAlpha = 1;
+  }
+
+  // --- 5d. Flag coverage label overlays (show_flags mode) ---
+  // In show_flags mode, render the protecting flag's name as a small text
+  // overlay in the centre of each protected block, so players can see at a
+  // glance which flag covers which block without cross-referencing the JSON.
+  if (show_flags && flagBlockLabelMap.size > 0) {
+    const labelFontSize = Math.max(5, Math.round(7 * CS / 30));
+    ctx.font = `${labelFontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const group of cellMap.values()) {
+      for (const cell of group) {
+        const { x: gx, y: gy, level } = cell;
+        const label = flagBlockLabelMap.get(`${gx},${gy},${level}`);
+        if (!label) continue;
+        const sz = levelSizes[Math.min(level, MAX_LEVEL)];
+        const isMoat = cell.type === 'moat';
+        const drawSize = isMoat ? CS : sz;
+        if (drawSize < 14) continue; // too small to fit readable text
+        const ox = isMoat ? px(gx) : px(gx) + (CS - drawSize) / 2;
+        const oy = isMoat ? gy * CS : gy * CS + (CS - drawSize) / 2;
+        const maxChars = Math.max(3, Math.floor(drawSize / (labelFontSize * 0.6)));
+        const displayLabel = label.length > maxChars ? label.slice(0, maxChars - 1) + '…' : label;
+        const tx = ox + drawSize / 2;
+        const ty = oy + drawSize / 2;
+        // Shadow
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillText(displayLabel, tx + 0.5, ty + 0.5);
+        // Label text in white for contrast on the golden tint
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(displayLabel, tx, ty);
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   // --- 6. Flags ---
