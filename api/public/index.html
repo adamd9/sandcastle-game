@@ -491,6 +491,31 @@
     #history-chevron.open { transform: rotate(180deg); }
     #history-body { display: block; }
     #history-body.collapsed { display: none; }
+    #history-range {
+      padding: 6px 12px;
+      font-size: 0.72rem;
+      color: #8a7350;
+      border-bottom: 1px solid #3a2a0e;
+      line-height: 1.5;
+    }
+    #history-range .range-ticks { color: #f5c842; font-weight: bold; }
+    #history-range .range-dates { color: #b5a67a; }
+    #history-range .range-duration { color: #87ceeb; }
+    #history-load-more {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      background: #2b1f0a;
+      border: 1px dashed #5a3e1b;
+      border-radius: 4px;
+      color: #f5c842;
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-align: center;
+      margin: 4px 0;
+    }
+    #history-load-more:hover { background: #3a2a0a; }
     #history-list { padding: 8px 0; max-height: 640px; overflow-y: auto; }
     .history-round {
       border-bottom: 1px solid #3a2a0e;
@@ -650,6 +675,17 @@
     }
     .timeline-arrow-btn:hover { background: #3a2a0a; }
     .timeline-arrow-btn:disabled { opacity: 0.3; cursor: default; }
+    #timeline-play.playing { background: #f5c842; color: #1a1000; }
+    #timeline-speed {
+      padding: 2px 4px;
+      background: #2b1f0a;
+      border: 1px solid #5a3e1b;
+      border-radius: 4px;
+      color: #e8d5a3;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      cursor: pointer;
+    }
 
     /* ── Responsive / Mobile ────────────────────────────────────────────── */
 
@@ -781,6 +817,13 @@
     <div id="timeline-markers" style="position:relative;height:8px;margin-top:2px;"></div>
   </div>
   <button class="timeline-arrow-btn" id="timeline-next" title="Next tick / live">▶</button>
+  <button class="timeline-arrow-btn" id="timeline-play" title="Auto-play history">⏵</button>
+  <select id="timeline-speed" title="Playback speed">
+    <option value="2000">0.5×</option>
+    <option value="1000" selected>1×</option>
+    <option value="500">2×</option>
+    <option value="250">4×</option>
+  </select>
   <div id="timeline-info">
     <span id="timeline-label">now</span>
     <button id="timeline-reset-btn">↩ now</button>
@@ -867,6 +910,7 @@
     <span id="history-chevron" class="open">▲</span>
   </div>
   <div id="history-body">
+    <div id="history-range" style="display:none;"></div>
     <div id="history-list"><div id="history-empty">No history yet.</div></div>
   </div>
 </div>
@@ -1314,8 +1358,9 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const state = await res.json();
       if (histRes.ok) {
-        const { history } = await histRes.json();
-        state.history = history;
+        const histData = await histRes.json();
+        state.history = histData.history;
+        state.historyTotal = histData.total;
       }
 
       lastCells = state.cells;
@@ -1412,6 +1457,42 @@
   const timelineResetBtn = document.getElementById('timeline-reset-btn');
   const timelinePrev     = document.getElementById('timeline-prev');
   const timelineNext     = document.getElementById('timeline-next');
+  const timelinePlayBtn  = document.getElementById('timeline-play');
+  const timelineSpeedSel = document.getElementById('timeline-speed');
+  let autoPlayTimer = null;
+
+  function stopAutoPlay() {
+    if (autoPlayTimer) {
+      clearInterval(autoPlayTimer);
+      autoPlayTimer = null;
+    }
+    timelinePlayBtn.textContent = '⏵';
+    timelinePlayBtn.classList.remove('playing');
+    timelinePlayBtn.title = 'Auto-play history';
+  }
+
+  function startAutoPlay() {
+    stopAutoPlay();
+    // If at live or near the end, start from beginning
+    if (scrubbingIndex === -1 || scrubbingIndex >= historySnapshots.length - 1) {
+      applyTimelineIndex(0);
+    }
+    const speed = parseInt(timelineSpeedSel.value, 10) || 1000;
+    timelinePlayBtn.textContent = '⏸';
+    timelinePlayBtn.classList.add('playing');
+    timelinePlayBtn.title = 'Pause playback';
+    autoPlayTimer = setInterval(() => {
+      const cur = scrubbingIndex === -1 ? historySnapshots.length : scrubbingIndex;
+      const next = cur + 1;
+      if (next >= historySnapshots.length) {
+        // Reached the end — jump to live and stop
+        applyTimelineIndex(historySnapshots.length);
+        stopAutoPlay();
+        return;
+      }
+      applyTimelineIndex(next);
+    }, speed);
+  }
 
   function applyTimelineIndex(idx) {
     const totalPositions = historySnapshots.length + 1;
@@ -1478,6 +1559,7 @@
   }
 
   timelineScrubber.addEventListener('input', () => {
+    stopAutoPlay();
     applyTimelineIndex(parseInt(timelineScrubber.value, 10));
   });
 
@@ -1493,6 +1575,22 @@
 
   timelineResetBtn.addEventListener('click', () => {
     applyTimelineIndex(historySnapshots.length);
+  });
+
+  // ── Auto-play ──────────────────────────────────────────────────────
+  timelinePlayBtn.addEventListener('click', () => {
+    if (autoPlayTimer) {
+      stopAutoPlay();
+    } else {
+      startAutoPlay();
+    }
+  });
+
+  // Update speed while playing
+  timelineSpeedSel.addEventListener('change', () => {
+    if (autoPlayTimer) {
+      startAutoPlay();  // restart with new speed
+    }
   });
 
   // ── God Mode ──────────────────────────────────────────────────────
@@ -2035,6 +2133,9 @@
     return winner === 'tie' ? 'Tie' : winner === 'player1' ? 'P1 wins' : 'P2 wins';
   }
 
+  const HISTORY_INITIAL_DISPLAY = 20;  // How many ticks to show initially
+  let historyDisplayCount = HISTORY_INITIAL_DISPLAY;
+
   function renderHistory(history) {
     const newHistory = history ?? [];
     // Skip re-render when history data hasn't changed — preserves expanded/collapsed
@@ -2049,13 +2150,46 @@
     }
     lastHistory = newHistory;
     const list = document.getElementById('history-list');
+    const rangeEl = document.getElementById('history-range');
+
     if (lastHistory.length === 0) {
       list.innerHTML = '<div id="history-empty">No history yet.</div>';
+      rangeEl.style.display = 'none';
       return;
     }
 
-    const rounds = lastHistory.slice(-10).reverse();
-    const html = rounds.map(round => {
+    // --- Timescale / range display ---
+    const firstEntry = lastHistory[0];
+    const latestEntry = lastHistory[lastHistory.length - 1];
+    const firstDate = firstEntry.timestamp ? new Date(firstEntry.timestamp) : null;
+    const latestDate = latestEntry.timestamp ? new Date(latestEntry.timestamp) : null;
+    let durationStr = '';
+    if (firstDate && latestDate && firstDate.getTime() !== latestDate.getTime()) {
+      const diffMs = latestDate - firstDate;
+      const diffHrs = Math.floor(diffMs / 3600000);
+      const diffMins = Math.floor((diffMs % 3600000) / 60000);
+      if (diffHrs > 24) {
+        const diffDays = Math.floor(diffHrs / 24);
+        durationStr = `${diffDays}d ${diffHrs % 24}h`;
+      } else if (diffHrs > 0) {
+        durationStr = `${diffHrs}h ${diffMins}m`;
+      } else {
+        durationStr = `${diffMins}m`;
+      }
+    }
+    const dateOpts = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    const firstDateStr = firstDate ? firstDate.toLocaleString(undefined, dateOpts) : '?';
+    const latestDateStr = latestDate ? latestDate.toLocaleString(undefined, dateOpts) : '?';
+    rangeEl.innerHTML = `<span class="range-ticks">${lastHistory.length} tick${lastHistory.length !== 1 ? 's' : ''}</span> · `
+      + `<span class="range-dates">${firstDateStr} — ${latestDateStr}</span>`
+      + (durationStr ? ` · <span class="range-duration">${durationStr}</span>` : '');
+    rangeEl.style.display = 'block';
+
+    // --- Render rounds (newest first), limited for performance with "load more" ---
+    const displayRounds = lastHistory.slice(-historyDisplayCount).reverse();
+    const hasMore = lastHistory.length > historyDisplayCount;
+
+    const html = displayRounds.map(round => {
       const w = round.weather ?? {};
       const timestampStr = round.timestamp
         ? new Date(round.timestamp).toLocaleString(undefined, { timeStyle: 'short' })
@@ -2157,7 +2291,21 @@
       </div>`;
     }).join('');
 
-    list.innerHTML = html;
+    const loadMoreHtml = hasMore
+      ? `<button id="history-load-more" onclick="this.remove()">▼ Load ${Math.min(lastHistory.length - historyDisplayCount, 20)} more (${lastHistory.length - historyDisplayCount} remaining)</button>`
+      : '';
+
+    list.innerHTML = html + loadMoreHtml;
+
+    // Bind "load more" button
+    const loadMoreBtn = list.querySelector('#history-load-more');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        historyDisplayCount += 20;
+        lastHistory = [];  // Force re-render
+        renderHistory(history);
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
