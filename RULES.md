@@ -30,7 +30,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `courtyard` | 30 | Paved interior floor; level 0 only; grants 25% prestige bonus to adjacent tower blocks (L2+) |
 | `buttress` | 20 | Fragile support block; level 0 only; grants +10 max HP (cap 60→70) and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top |
 
-Blocks can be **reinforced** (+15 HP per action, up to max 60 HP) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
+Blocks can be **reinforced** (+15 HP per action, up to max 60 HP; critically damaged blocks below 20 HP receive +30 HP instead) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
 
 ---
 

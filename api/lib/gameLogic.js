@@ -4,6 +4,8 @@ import {
   BLOCK_TYPES,
   VALID_ACTIONS,
   REINFORCE_AMOUNT,
+  REINFORCE_CRITICAL_THRESHOLD,
+  REINFORCE_AMOUNT_CRITICAL,
   MAX_HEALTH,
   REPAIR_KIT_COOLDOWN,
   GRID_WIDTH,
@@ -836,7 +838,8 @@ export function applyMove(state, player, action) {
     case 'REINFORCE': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
       const maxHealth = MAX_HEALTH + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
-      cell.health = Math.min(cell.health + REINFORCE_AMOUNT, maxHealth);
+      const healAmount = cell.health < REINFORCE_CRITICAL_THRESHOLD ? REINFORCE_AMOUNT_CRITICAL : REINFORCE_AMOUNT;
+      cell.health = Math.min(cell.health + healAmount, maxHealth);
       break;
     }
     case 'REPAIR_KIT': {
