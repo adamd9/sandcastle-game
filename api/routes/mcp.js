@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCoverage, computeDamagePreview } from '../lib/gameLogic.js';
+import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCoverage, computeDamagePreview, buildZoneGrid } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
@@ -123,6 +123,7 @@ const RULES_DOC = {
   },
   mcp_tools: {
     get_state: 'Get current game state with recent turn history and weather events, structured for AI consumption.',
+    get_my_zone_state: 'Get a compact 2D grid of your zone showing top-level block {level, health, type} or null at each (x,y) cell.',
     get_rules: 'Get these rules.',
     submit_turn: 'Submit all moves for this tick as a batch array. Auto-commits your turn.',
     suggest_improvement: 'Submit a game improvement suggestion that gets raised as a GitHub issue.',
@@ -197,6 +198,27 @@ export function createMcpRouter() {
         };
 
         return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] };
+      },
+    );
+
+    server.tool(
+      'get_my_zone_state',
+      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type} or null for empty cells. Use this to quickly identify which cells need reinforcing, which can have height added, and the overall state of your castle.',
+      {},
+      async () => {
+        const state = await getState();
+        const zone = ZONES[player];
+        const grid = buildZoneGrid(state.cells, player);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              player,
+              zone: { x_min: zone.x_min, x_max: zone.x_max },
+              zone_grid: grid,
+            }, null, 2),
+          }],
+        };
       },
     );
 

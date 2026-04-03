@@ -30,6 +30,7 @@ describe('POST /mcp', () => {
     expect(names).toContain('get_state');
     expect(names).toContain('get_rules');
     expect(names).toContain('submit_turn');
+    expect(names).toContain('get_my_zone_state');
   });
 
   it('get_rules includes flag mechanics', async () => {
@@ -324,5 +325,100 @@ describe('POST /mcp', () => {
       });
     expect(res.status).toBe(200); // MCP errors are 200 with isError:true
     expect(res.body.result?.isError).toBe(true);
+  });
+
+  it('get_my_zone_state returns a 20x10 grid of nulls for empty zone', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const text = res.body.result?.content?.[0]?.text;
+    expect(text).toBeDefined();
+    const parsed = JSON.parse(text);
+    expect(parsed).toHaveProperty('player', 'player1');
+    expect(parsed).toHaveProperty('zone');
+    expect(parsed.zone).toMatchObject({ x_min: 0, x_max: 9 });
+    expect(parsed).toHaveProperty('zone_grid');
+    const grid = parsed.zone_grid;
+    expect(Array.isArray(grid)).toBe(true);
+    expect(grid).toHaveLength(20);
+    expect(grid[0]).toHaveLength(10);
+    for (const row of grid) {
+      for (const cell of row) {
+        expect(cell).toBeNull();
+      }
+    }
+  });
+
+  it('get_my_zone_state shows top block after placement', async () => {
+    // Place a block first
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: { moves: [{ action: 'PLACE', x: 4, y: 8, block_type: 'packed_sand' }] },
+        },
+      });
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    // row y=8, col index 4 (x_min=0, so col=x-0=4)
+    const cell = parsed.zone_grid[8][4];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('level', 0);
+    expect(cell).toHaveProperty('type', 'packed_sand');
+    expect(cell).toHaveProperty('health');
+  });
+
+  it('get_my_zone_state is scoped to the calling player zone', async () => {
+    // player2 places a block in their zone
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p2')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: { moves: [{ action: 'PLACE', x: 12, y: 5, block_type: 'packed_sand' }] },
+        },
+      });
+
+    // player2 calls get_my_zone_state — should only see their own zone
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p2')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(parsed.player).toBe('player2');
+    expect(parsed.zone).toMatchObject({ x_min: 10, x_max: 19 });
+    expect(parsed.zone_grid).toHaveLength(20);
+    expect(parsed.zone_grid[0]).toHaveLength(10);
+    // col index = x - x_min = 12 - 10 = 2, row = 5
+    const cell = parsed.zone_grid[5][2];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('type', 'packed_sand');
   });
 });

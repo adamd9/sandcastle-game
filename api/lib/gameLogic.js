@@ -331,6 +331,35 @@ function inGrid(x, y) {
 }
 
 // ---------------------------------------------------------------------------
+// buildZoneGrid — compact 2D grid of top-level block per cell in a player zone
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a 2D array [y][x_offset] where each entry is
+ * {level, health, type} for the top-most block owned by player at that cell,
+ * or null if the cell is empty.
+ * Dimensions: GRID_HEIGHT rows × (x_max - x_min + 1) columns.
+ */
+export function buildZoneGrid(cells, player) {
+  const zone = ZONES[player];
+  const grid = [];
+  for (let y = 0; y < GRID_HEIGHT; y++) {
+    const row = [];
+    for (let x = zone.x_min; x <= zone.x_max; x++) {
+      const blocksAtCell = cells.filter(c => c.x === x && c.y === y && c.owner === player);
+      if (blocksAtCell.length === 0) {
+        row.push(null);
+      } else {
+        const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
+        row.push({ level: top.level, health: top.health, type: top.type });
+      }
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+
+// ---------------------------------------------------------------------------
 // Flag protection — connected component analysis via union-find
 // ---------------------------------------------------------------------------
 

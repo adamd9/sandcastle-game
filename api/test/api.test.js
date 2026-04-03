@@ -201,6 +201,86 @@ describe('GET /state/:player/my_blocks', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /state/:player/zone_grid
+// ---------------------------------------------------------------------------
+describe('GET /state/:player/zone_grid', () => {
+  it('returns zone_grid with nulls when player has no blocks', async () => {
+    const res = await request(app).get('/state/player1/zone_grid');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('player', 'player1');
+    expect(res.body).toHaveProperty('zone_grid');
+    const grid = res.body.zone_grid;
+    expect(Array.isArray(grid)).toBe(true);
+    // 20 rows (y=0..19)
+    expect(grid).toHaveLength(20);
+    // 10 columns per row (player1 x=0..9)
+    expect(grid[0]).toHaveLength(10);
+    // All cells are null when no blocks placed
+    for (const row of grid) {
+      for (const cell of row) {
+        expect(cell).toBeNull();
+      }
+    }
+  });
+
+  it('returns correct top-level block info after placing a block', async () => {
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ action: 'PLACE', x: 2, y: 5, type: 'packed_sand' });
+
+    const res = await request(app).get('/state/player1/zone_grid');
+    expect(res.status).toBe(200);
+    // Row y=5, column offset x=2 (x_min=0 so col index=2)
+    const cell = res.body.zone_grid[5][2];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('level', 0);
+    expect(cell).toHaveProperty('type', 'packed_sand');
+    expect(cell).toHaveProperty('health');
+  });
+
+  it('returns top-most level when blocks are stacked', async () => {
+    await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [
+        { action: 'PLACE', x: 3, y: 6, block_type: 'packed_sand', level: 0 },
+        { action: 'PLACE', x: 3, y: 6, block_type: 'wet_sand', level: 1 },
+      ] });
+
+    const res = await request(app).get('/state/player1/zone_grid');
+    expect(res.status).toBe(200);
+    // Top level at (x=3, y=6) should be level 1
+    const cell = res.body.zone_grid[6][3];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('level', 1);
+    expect(cell).toHaveProperty('type', 'wet_sand');
+  });
+
+  it('does not include opponent blocks in player zone_grid', async () => {
+    // Place a block for player2 within their own zone
+    await request(app)
+      .post('/move')
+      .set('X-Api-Key', 'test-key-p2')
+      .send({ action: 'PLACE', x: 15, y: 5, type: 'packed_sand' });
+
+    const res = await request(app).get('/state/player1/zone_grid');
+    expect(res.status).toBe(200);
+    // Player1 zone grid should be all nulls
+    for (const row of res.body.zone_grid) {
+      for (const cell of row) {
+        expect(cell).toBeNull();
+      }
+    }
+  });
+
+  it('returns 400 for invalid player name', async () => {
+    const res = await request(app).get('/state/unknownplayer/zone_grid');
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /move
 // ---------------------------------------------------------------------------
 describe('POST /move', () => {

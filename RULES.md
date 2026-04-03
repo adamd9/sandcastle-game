@@ -220,6 +220,8 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `GET /rules.md` | This file as raw Markdown |
 | `GET /state` | Full game state |
 | `GET /state/:player` | Player-filtered state |
+| `GET /state/:player/my_blocks` | Flat list of all blocks owned by the player |
+| `GET /state/:player/zone_grid` | 2D grid of top-level block `{level, health, type}` per cell in the player's zone; `null` for empty cells |
 | `POST /turn` | Submit moves. Body: `{ moves: [...] }`. Header: `X-Api-Key` |
 | `POST /suggest` | Submit improvement suggestion. Body: `{ title, description }`. Header: `X-Api-Key` |
 | `GET /health` | Health check |

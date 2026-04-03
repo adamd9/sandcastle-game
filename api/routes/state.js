@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getState } from '../lib/db.js';
 import { generateForecast } from '../lib/forecast.js';
-import { computeStructureScore } from '../lib/gameLogic.js';
+import { computeStructureScore, buildZoneGrid } from '../lib/gameLogic.js';
 
 const router = Router();
 
@@ -31,6 +31,21 @@ router.get('/history', async (req, res) => {
       : (state.history || []);
     res.set('Cache-Control', 'no-store');
     res.json({ history, total: (state.history || []).length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:player/zone_grid', async (req, res) => {
+  const { player } = req.params;
+  if (player !== 'player1' && player !== 'player2') {
+    return res.status(400).json({ error: 'player must be player1 or player2' });
+  }
+  try {
+    const state = await getState();
+    const zone_grid = buildZoneGrid(state.cells || [], player);
+    res.set('Cache-Control', 'no-store');
+    res.json({ player, zone_grid });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
