@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { getState } from '../lib/db.js';
 import { generateForecast } from '../lib/forecast.js';
-import { computeStructureScore } from '../lib/gameLogic.js';
-import { ZONES, GRID_HEIGHT } from '../lib/rules.js';
+import { computeStructureScore, buildZoneGrid } from '../lib/gameLogic.js';
 
 const router = Router();
 
@@ -36,25 +35,6 @@ router.get('/history', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-function buildZoneGrid(cells, player) {
-  const zone = ZONES[player];
-  const grid = [];
-  for (let y = 0; y < GRID_HEIGHT; y++) {
-    const row = [];
-    for (let x = zone.x_min; x <= zone.x_max; x++) {
-      const blocksAtCell = cells.filter(c => c.x === x && c.y === y && c.owner === player);
-      if (blocksAtCell.length === 0) {
-        row.push(null);
-      } else {
-        const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
-        row.push({ level: top.level, health: top.health, type: top.type });
-      }
-    }
-    grid.push(row);
-  }
-  return grid;
-}
 
 router.get('/:player/zone_grid', async (req, res) => {
   const { player } = req.params;

@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { Router } from 'express';
 import { z } from 'zod';
 import { getState, saveState } from '../lib/db.js';
-import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCoverage, computeDamagePreview } from '../lib/gameLogic.js';
+import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCoverage, computeDamagePreview, buildZoneGrid } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
 import {
   GRID_WIDTH, GRID_HEIGHT, ZONES, ACTIONS_PER_TICK,
@@ -208,20 +208,7 @@ export function createMcpRouter() {
       async () => {
         const state = await getState();
         const zone = ZONES[player];
-        const grid = [];
-        for (let y = 0; y < GRID_HEIGHT; y++) {
-          const row = [];
-          for (let x = zone.x_min; x <= zone.x_max; x++) {
-            const blocksAtCell = state.cells.filter(c => c.x === x && c.y === y && c.owner === player);
-            if (blocksAtCell.length === 0) {
-              row.push(null);
-            } else {
-              const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
-              row.push({ level: top.level, health: top.health, type: top.type });
-            }
-          }
-          grid.push(row);
-        }
+        const grid = buildZoneGrid(state.cells, player);
         return {
           content: [{
             type: 'text',
