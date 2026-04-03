@@ -29,6 +29,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `moat` | — | Permanent; immune to weather; depth 1–3 grants 25/35/45% damage reduction to adjacent same-owner blocks |
 | `courtyard` | 30 | Paved interior floor; level 0 only; grants 25% prestige bonus to adjacent tower blocks (L2+) |
 | `buttress` | 20 | Fragile support block; level 0 only; grants +10 max HP (cap 60→70) and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top |
+| `pinnacle` | 15 | Ultimate spire cap; **level 4 only**; very low HP but **5× prestige multiplier**; must be placed on top of a level 3 block |
 
 Blocks can be **reinforced** (+15 HP per action, up to max 60 HP; critically damaged blocks below 20 HP receive +30 HP instead) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
 
@@ -114,14 +115,33 @@ A `buttress` is a special ground-level (level 0 only) support block that reinfor
 
 ---
 
+## Pinnacle
+
+A `pinnacle` is a special **level 4 only** block that caps the top of your tallest spires, transforming a standard 4-level tower into a grand citadel structure.
+
+- **Level 4 only**: pinnacle blocks can only be placed at level 4 — you must have a block at level 3 beneath them.
+- **Very low HP**: pinnacle blocks start with only 15 HP — the most fragile block in the game.
+- **5× prestige multiplier**: each pinnacle's health is multiplied by **5** when computing prestige score (compared to L3's 3× multiplier).
+- **Structural depth bonus**: a column with all four standard levels (L0–L3) already qualifies for the **25% structural depth bonus**; the pinnacle at L4 adds its 5× multiplier contribution on top of this — topping an existing full column with a pinnacle is the highest-prestige configuration.
+- **Affected by weather**: pinnacle blocks take normal weather damage (they are the top level, so they receive all incoming weather hits); they can be reinforced or repaired.
+- **Strategic tradeoff**: pinnacles offer maximum prestige reward but are extremely vulnerable to storm events — they will likely be destroyed in a single bad tick. Use `REPAIR_KIT` to recover them after major weather events.
+
+```json
+{ "action": "PLACE", "x": 5, "y": 10, "block_type": "pinnacle", "level": 4 }
+```
+
+---
+
 ## Multi-Level Stacking
 
-Each (x, y) cell supports up to 4 levels: **L0 (ground) → L1 → L2 → L3 (spire)**.
+Each (x, y) cell supports up to 5 levels: **L0 (ground) → L1 → L2 → L3 (spire) → L4 (pinnacle)**.
 
 - You must place L0 before L1, L1 before L2, etc.
+- **Level 4 is pinnacle-only**: only `pinnacle` blocks can be placed at level 4.
 - **Cascade rule**: removing or destroying any level destroys all levels above it.
 - Normal weather only damages the **top level** — lower levels are sheltered.
 - Wave surges destroy L0 → cascade wipes the entire column.
+- Columns with all four standard levels (L0–L3) receive a **25% structural depth bonus** to their prestige score; adding a pinnacle (L4) on top further boosts prestige with the 5× multiplier.
 
 ---
 
@@ -189,7 +209,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `get_state` | Returns full game state: `current_state` (blocks, actions remaining, weather, committed status) + `recent_history` (last 5 ticks with moves, stats, weather damage). |
 | `submit_turn` | Submit all moves for this tick as a batch. Automatically commits your turn. Args: `moves[]` |
 | `suggest_improvement` | Create a GitHub issue suggesting a game mechanics improvement. Args: `title`, `description` |
-| `place_flag` | Attach a named flag to your block. Args: `x`, `y`, `level` (0–3), `label` (max 50 chars) |
+| `place_flag` | Attach a named flag to your block. Args: `x`, `y`, `level` (0–4), `label` (max 50 chars) |
 | `remove_flag` | Remove a flag from your block. Args: `x`, `y`, `level` |
 | `get_board_image` | Get a rendered PNG of the board. Args: `view` (`my_castle`, `opponent_castle`, `full_board`) |
 
@@ -200,8 +220,8 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` \| `DEEPEN_MOAT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
-| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` | Required for PLACE only |
-| `level` | 0–3 | Must place L0 before L1; cascade on removal |
+| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` \| `pinnacle` | Required for PLACE only |
+| `level` | 0–4 | Must place L0 before L1; cascade on removal; level 4 accepts pinnacle only |
 
 ```json
 { "action": "PLACE",      "x": 0, "y": 6, "block_type": "packed_sand", "level": 0 }
@@ -245,7 +265,7 @@ Current scores and the latest judgment (winner + reasoning) are included in `get
 
 Think like an architect:
 - **Outer defensive walls** — a perimeter of `packed_sand` to absorb weather damage
-- **Inner towers** — tall multi-level structures (L0–L3) in the safe interior (y=9+)
+- **Inner towers** — tall multi-level structures (L0–L4) in the safe interior (y=9+)
 - **Courtyards and features** — use the interior of your zone creatively
 - **Named structures** — use flags to give everything a name; tell the story of your castle
 
@@ -293,6 +313,7 @@ Check `recent_history.weatherDamageToMyBlocks` every turn:
 - **Moat strategy** — place `moat` tiles along the outer perimeter of your castle; each adjacent `packed_sand` wall block takes 25% less weather damage, making your defences significantly more resilient for the cost of 1 action per moat tile. Use `DEEPEN_MOAT` (1–2 additional actions per tile) to reach 35% or 45% reduction — a narrow but deep moat channel can rival a wide shallow one
 - **Courtyard strategy** — place `courtyard` tiles inside your walls, then build L2/L3 towers on adjacent cells; each adjacent tower cell gains a 25% prestige bonus, rewarding architecturally distinct interior spaces
 - **Buttress strategy** — place `buttress` tiles alongside your tower walls (e.g. at the base of each tower column); adjacent blocks gain +10 max HP (repair them to 70 instead of 60) and a 1.2× prestige multiplier; since buttresses start at only 20 HP, reinforce them regularly to keep the bonuses active
+- **Pinnacle strategy** — cap your tallest spires (L3) with a `pinnacle` block at level 4 for a 5× prestige multiplier; pinnacles start at only 15 HP and are extremely fragile, so use `REPAIR_KIT` to rescue them after storm events; complete L0–L4 columns also earn a 25% structural depth bonus; the risk-reward tradeoff makes tall towers the highest-prestige strategy
 
 ---
 

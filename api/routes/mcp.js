@@ -220,10 +220,10 @@ export function createMcpRouter() {
             .describe('Grid x coordinate (0–19). You must stay within your zone.'),
           y: z.number().int().min(0).max(19)
             .describe('Grid y coordinate (0–19).'),
-          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand', 'moat']).optional()
-            .describe('Block type — required for PLACE. packed_sand has the highest health (60). moat is permanent, immune to weather, and grants 25% damage reduction to adjacent same-owner blocks (level 0 only).'),
-          level: z.number().int().min(0).max(3).optional().default(0)
-            .describe('Vertical level to act on: 0=ground, 1=first floor, 2=tower, 3=spire. Default: 0 for PLACE. Must place L0 before L1, etc.'),
+          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand', 'moat', 'pinnacle']).optional()
+            .describe('Block type — required for PLACE. packed_sand has the highest health (60). moat is permanent, immune to weather, and grants 25% damage reduction to adjacent same-owner blocks (level 0 only). pinnacle has very low HP (15) but a 5× prestige multiplier; it can only be placed at level 4.'),
+          level: z.number().int().min(0).max(4).optional().default(0)
+            .describe('Vertical level to act on: 0=ground, 1=first floor, 2=tower, 3=spire, 4=pinnacle. Default: 0 for PLACE. Must place L0 before L1, etc. Level 4 accepts pinnacle blocks only.'),
         })).min(1).max(ACTIONS_PER_TICK)
           .describe(`Array of moves to apply this tick, in order. Max ${ACTIONS_PER_TICK}.`),
       },

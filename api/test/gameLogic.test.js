@@ -199,6 +199,68 @@ describe('validateMove', () => {
     });
   });
 
+  describe('pinnacle validation', () => {
+    it('allows PLACE pinnacle at level 4 with L3 foundation', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 2 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 3 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'pinnacle', level: 4 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects PLACE pinnacle at level < 4', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'pinnacle', level: 1 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/pinnacle/i);
+    });
+
+    it('rejects PLACE pinnacle at level 0', () => {
+      const state = freshState();
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'pinnacle', level: 0 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/pinnacle/i);
+    });
+
+    it('rejects PLACE non-pinnacle block at level 4', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 2 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 3 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'packed_sand', level: 4 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/pinnacle/i);
+    });
+
+    it('rejects PLACE pinnacle at level 4 without L3 foundation', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 2 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'pinnacle', level: 4 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/foundation/i);
+    });
+
+    it('allows REINFORCE on a pinnacle block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'pinnacle', health: 10, owner: 'player1', level: 4 });
+      const r = validateMove(state, 'player1', { action: 'REINFORCE', x: 5, y: 5, level: 4 });
+      expect(r.valid).toBe(true);
+    });
+
+    it('allows REPAIR_KIT on a pinnacle block', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'pinnacle', health: 5, owner: 'player1', level: 4 });
+      const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 5, y: 5, level: 4 });
+      expect(r.valid).toBe(true);
+    });
+  });
+
   describe('DEEPEN_MOAT validation', () => {
     it('allows DEEPEN_MOAT on own moat block at default depth', () => {
       const state = freshState();
@@ -1071,6 +1133,46 @@ describe('computeStructureScore — prestige_score', () => {
 
   it('returns prestige_score 0 for empty board', () => {
     expect(computeStructureScore([], 'player1').prestige_score).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — pinnacle prestige multiplier
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — pinnacle prestige multiplier', () => {
+  it('applies 5× prestige multiplier to a pinnacle block at level 4', () => {
+    const cells = [
+      { x: 5, y: 10, level: 4, type: 'pinnacle', health: 15, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // pinnacle at L4: 15 * 5 = 75
+    expect(score.prestige_score).toBe(75);
+  });
+
+  it('computes prestige for a full L0–L4 tower with pinnacle (including L0–L3 depth bonus)', () => {
+    const cells = [
+      { x: 5, y: 10, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 10, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 10, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 10, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 10, level: 4, type: 'pinnacle', health: 15, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // L0: 60*1=60, L1: 60*1.5=90, L2: 60*2=120, L3: 60*3=180, L4 pinnacle: 15*5=75
+    // column raw sum = 60+90+120+180+75 = 525
+    // full L0–L3 column → 25% depth bonus applied to entire column: 525*1.25 = 656.25
+    // total = Math.round(656.25) = 656
+    expect(score.prestige_score).toBe(656);
+  });
+
+  it('pinnacle block itself contributes to prestige based on its health', () => {
+    const cells = [
+      { x: 5, y: 10, level: 4, type: 'pinnacle', health: 8, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // pinnacle at L4: 8 * 5 = 40
+    expect(score.prestige_score).toBe(40);
   });
 });
 
