@@ -11,7 +11,7 @@ export const ZONES = {
 export const ACTIONS_PER_TICK = 20;
 
 export const WATER_ROWS = 3;   // rows y=0,1,2 are ocean — no building allowed
-export const MAX_LEVEL  = 3;   // levels 0 (ground) through 3 (spire)
+export const MAX_LEVEL  = 4;   // levels 0 (ground) through 4 (pinnacle)
 
 export const BLOCK_TYPES = {
   dry_sand:    { initial_health: 25 },
@@ -20,6 +20,7 @@ export const BLOCK_TYPES = {
   moat:        { initial_health: 0, permanent: true }, // immune to weather; cannot stack; tiered depth (1-3) grants 25/35/45% damage reduction to adjacent same-owner blocks
   courtyard:   { initial_health: 30, level0Only: true }, // paved interior floor; cannot stack; grants 25% prestige bonus to adjacent tower blocks (L2+)
   buttress:    { initial_health: 20, level0Only: true }, // fragile support block; level 0 only; grants +10 max HP and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top
+  pinnacle:    { initial_health: 15, level4Only: true }, // ultimate spire cap; level 4 only; very low HP but 5× prestige multiplier; must be placed on top of a level 3 block
 };
 
 export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT', 'DEEPEN_MOAT'];
@@ -93,9 +94,9 @@ export const WEATHER_EVENTS = [
 ];
 
 // Prestige scoring — height-weighted score computed inside computeStructureScore
-// Index = level (0–3); value = multiplier applied to block health
-export const PRESTIGE_LEVEL_MULTIPLIERS = [1, 1.5, 2, 3];
-// Extra multiplier awarded to a column when all four levels (L0–L3) are filled
+// Index = level (0–4); value = multiplier applied to block health
+export const PRESTIGE_LEVEL_MULTIPLIERS = [1, 1.5, 2, 3, 5];
+// Extra multiplier awarded to a column when all four standard levels (L0–L3) are filled
 export const STRUCTURAL_DEPTH_BONUS = 0.25;
 
 // Visual scoring — every JUDGE_INTERVAL ticks, an LLM judges the castles

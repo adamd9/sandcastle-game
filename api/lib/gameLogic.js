@@ -204,9 +204,9 @@ export function computeStructureScore(cells, player, flags = []) {
   }
 
   // (12) Prestige score: height-weighted health sum, with a structural depth bonus
-  //      for complete columns (blocks at all four levels L0–L3).
-  //      Level multipliers: L0=1×, L1=1.5×, L2=2×, L3=3×.
-  //      Columns with all 4 levels receive an additional 25% bonus.
+  //      for complete columns (blocks at all four standard levels L0–L3).
+  //      Level multipliers: L0=1×, L1=1.5×, L2=2×, L3=3×, L4=5× (pinnacle).
+  //      Columns with all 4 standard levels (L0–L3) receive an additional 25% bonus.
   //      Tower blocks (L2+) adjacent to same-owner courtyard tiles receive a
   //      25% courtyard prestige bonus on top of their normal contribution.
   const nonMoatCells = playerCells.filter(c => c.type !== 'moat');
@@ -730,6 +730,12 @@ export function validateMove(state, player, action) {
       }
       if (blockType === 'buttress' && level > 0) {
         return { valid: false, reason: 'Buttress blocks cannot be stacked — they can only be placed at level 0.' };
+      }
+      if (blockType === 'pinnacle' && level !== 4) {
+        return { valid: false, reason: 'Pinnacle blocks can only be placed at level 4 — the ultimate spire cap.' };
+      }
+      if (blockType !== 'pinnacle' && level === 4) {
+        return { valid: false, reason: 'Only pinnacle blocks can be placed at level 4.' };
       }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
