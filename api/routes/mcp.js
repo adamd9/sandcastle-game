@@ -123,6 +123,7 @@ const RULES_DOC = {
   },
   mcp_tools: {
     get_state: 'Get current game state with recent turn history and weather events, structured for AI consumption.',
+    get_my_zone_state: 'Get a compact 2D grid of your zone showing top-level block {level, health, type} or null at each (x,y) cell.',
     get_rules: 'Get these rules.',
     submit_turn: 'Submit all moves for this tick as a batch array. Auto-commits your turn.',
     suggest_improvement: 'Submit a game improvement suggestion that gets raised as a GitHub issue.',
@@ -197,6 +198,40 @@ export function createMcpRouter() {
         };
 
         return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] };
+      },
+    );
+
+    server.tool(
+      'get_my_zone_state',
+      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type} or null for empty cells. Use this to quickly identify which cells need reinforcing, which can have height added, and the overall state of your castle.',
+      {},
+      async () => {
+        const state = await getState();
+        const zone = ZONES[player];
+        const grid = [];
+        for (let y = 0; y < GRID_HEIGHT; y++) {
+          const row = [];
+          for (let x = zone.x_min; x <= zone.x_max; x++) {
+            const blocksAtCell = state.cells.filter(c => c.x === x && c.y === y && c.owner === player);
+            if (blocksAtCell.length === 0) {
+              row.push(null);
+            } else {
+              const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
+              row.push({ level: top.level, health: top.health, type: top.type });
+            }
+          }
+          grid.push(row);
+        }
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              player,
+              zone: { x_min: zone.x_min, x_max: zone.x_max },
+              zone_grid: grid,
+            }, null, 2),
+          }],
+        };
       },
     );
 

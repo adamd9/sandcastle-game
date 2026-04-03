@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getState } from '../lib/db.js';
 import { generateForecast } from '../lib/forecast.js';
 import { computeStructureScore } from '../lib/gameLogic.js';
+import { ZONES, GRID_HEIGHT } from '../lib/rules.js';
 
 const router = Router();
 
@@ -31,6 +32,40 @@ router.get('/history', async (req, res) => {
       : (state.history || []);
     res.set('Cache-Control', 'no-store');
     res.json({ history, total: (state.history || []).length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+function buildZoneGrid(cells, player) {
+  const zone = ZONES[player];
+  const grid = [];
+  for (let y = 0; y < GRID_HEIGHT; y++) {
+    const row = [];
+    for (let x = zone.x_min; x <= zone.x_max; x++) {
+      const blocksAtCell = cells.filter(c => c.x === x && c.y === y && c.owner === player);
+      if (blocksAtCell.length === 0) {
+        row.push(null);
+      } else {
+        const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
+        row.push({ level: top.level, health: top.health, type: top.type });
+      }
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+
+router.get('/:player/zone_grid', async (req, res) => {
+  const { player } = req.params;
+  if (player !== 'player1' && player !== 'player2') {
+    return res.status(400).json({ error: 'player must be player1 or player2' });
+  }
+  try {
+    const state = await getState();
+    const zone_grid = buildZoneGrid(state.cells || [], player);
+    res.set('Cache-Control', 'no-store');
+    res.json({ player, zone_grid });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
