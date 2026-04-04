@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Router } from 'express';
 import { z } from 'zod';
-import { getState, saveState } from '../lib/db.js';
+import { getState, saveState, getHistory } from '../lib/db.js';
 import { validateMove, applyMove, commitTurn, computeStructureScore, buildFlagCoverage, computeDamagePreview, buildZoneGrid } from '../lib/gameLogic.js';
 import { renderBoard } from '../lib/renderer.js';
 import {
@@ -110,7 +110,7 @@ const RULES_DOC = {
     moat_usage: 'Dig moat blocks (block_type: "moat") at level 0 around your castle perimeter. Moat blocks are PERMANENT (never destroyed by weather) and grant 25% damage reduction to every adjacent same-owner block. They cost one action each and require no maintenance — an excellent investment for long-term castle defense.',
   },
   history_format: {
-    description: 'state.history contains up to 20 rounds. Each round has:',
+    description: 'Recent turn history (last 5-20 rounds queried separately). Each round has:',
     fields: {
       tick: 'Tick number when this round was recorded (the tick that just completed)',
       weather: '{ rain_mm, wind_speed_kph, wind_direction, event_name, event_type, event_emoji } — weather that fired this tick',
@@ -156,7 +156,8 @@ export function createMcpRouter() {
       {},
       async () => {
         const state = await getState();
-        const recentHistory = (state.history || []).slice(-5).map(round => ({
+        const recentHistoryRaw = await getHistory(5);
+        const recentHistory = recentHistoryRaw.map(round => ({
           tick: round.tick,
           weather: round.weather,
           myMoves: round.moves?.[player] || [],

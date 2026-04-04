@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getState } from '../lib/db.js';
+import { getState, getHistory, getHistoryCount } from '../lib/db.js';
 import { generateForecast } from '../lib/forecast.js';
 import { computeStructureScore, buildZoneGrid } from '../lib/gameLogic.js';
 
@@ -24,13 +24,11 @@ router.get('/', async (_req, res) => {
 // Must be defined before /:player to avoid being captured as player='history'
 router.get('/history', async (req, res) => {
   try {
-    const state = await getState();
     const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
-    const history = limit > 0
-      ? (state.history || []).slice(-limit)
-      : (state.history || []);
+    const history = await getHistory(limit);
+    const total = await getHistoryCount();
     res.set('Cache-Control', 'no-store');
-    res.json({ history, total: (state.history || []).length });
+    res.json({ history, total });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -120,8 +118,7 @@ router.get('/:player/history', async (req, res) => {
     return res.status(400).json({ error: 'player must be player1 or player2' });
   }
   try {
-    const state = await getState();
-    const rawHistory = (state.history || []).slice(-10);
+    const rawHistory = await getHistory(10);
     const history = rawHistory.map((round, i) => {
       const prev = i > 0 ? rawHistory[i - 1] : null;
 
