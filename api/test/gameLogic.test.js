@@ -210,7 +210,7 @@ describe('validateMove', () => {
       state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
       const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter', level: 1 });
       expect(r.valid).toBe(false);
-      expect(r.reason).toMatch(/storm.shelter/i);
+      expect(r.reason).toMatch(/storm shelter/i);
     });
 
     it('rejects PLACE storm_shelter when only 1 action remains', () => {

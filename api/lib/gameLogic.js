@@ -360,6 +360,14 @@ export function buildZoneGrid(cells, player) {
 }
 
 // ---------------------------------------------------------------------------
+// Wave immunity helper — true if a cell is immune to wave surge cascade
+// ---------------------------------------------------------------------------
+
+function isWaveImmuneCell(cell) {
+  return cell.level === 0 && !!BLOCK_TYPES[cell.type]?.waveImmune;
+}
+
+// ---------------------------------------------------------------------------
 // Flag protection — connected component analysis via union-find
 // ---------------------------------------------------------------------------
 
@@ -635,7 +643,7 @@ export function computeDamagePreview(state) {
     let note;
 
     if (weatherEvent.specialEffect === 'wave_surge') {
-      const isWaveImmune = cell.level === 0 && BLOCK_TYPES[cell.type]?.waveImmune;
+      const isWaveImmune = isWaveImmuneCell(cell);
       if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
         // Rows 3–5: instant destroy unless flag-protected or wave-immune (→ heavy damage instead)
         if (isWaveImmune) {
@@ -1023,7 +1031,7 @@ export function applyWeather(state) {
         waveSurgeDirectZone.add(`${cell.x},${cell.y}`);
         if (cell.level === 0) {
           const cellKey = `${cell.x},${cell.y},${cell.level}`;
-          const isWaveImmune = BLOCK_TYPES[cell.type]?.waveImmune;
+          const isWaveImmune = isWaveImmuneCell(cell);
           if (!protectedSet.has(cellKey) && !isWaveImmune) {
             cascadePositions.add(`${cell.x},${cell.y}`);
           }
@@ -1038,7 +1046,7 @@ export function applyWeather(state) {
         const posKey = `${cell.x},${cell.y}`;
         const isProtected = protectedSet.has(cellKey);
         const isMoatProtected = moatProtectedPositions.has(posKey);
-        const isWaveImmune = BLOCK_TYPES[cell.type]?.waveImmune;
+        const isWaveImmune = isWaveImmuneCell(cell);
         let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
         if (!isWaveImmune && cell.health - dmg <= 0) {
@@ -1053,7 +1061,7 @@ export function applyWeather(state) {
       const cellKey = `${cell.x},${cell.y},${cell.level}`;
       const isProtected = protectedSet.has(cellKey);
       const isMoatProtected = moatProtectedPositions.has(posKey);
-      const isWaveImmune = cell.level === 0 && BLOCK_TYPES[cell.type]?.waveImmune;
+      const isWaveImmune = isWaveImmuneCell(cell);
       const healthBefore = cell.health;
 
       if (cascadePositions.has(posKey)) {
