@@ -360,6 +360,14 @@ export function buildZoneGrid(cells, player) {
 }
 
 // ---------------------------------------------------------------------------
+// Wave immunity helper — true if a cell is immune to wave surge cascade
+// ---------------------------------------------------------------------------
+
+function isWaveImmuneCell(cell) {
+  return cell.level === 0 && !!BLOCK_TYPES[cell.type]?.waveImmune;
+}
+
+// ---------------------------------------------------------------------------
 // Flag protection — connected component analysis via union-find
 // ---------------------------------------------------------------------------
 
@@ -635,9 +643,16 @@ export function computeDamagePreview(state) {
     let note;
 
     if (weatherEvent.specialEffect === 'wave_surge') {
+      const isWaveImmune = isWaveImmuneCell(cell);
       if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
-        // Rows 3–5: instant destroy unless flag-protected (→ heavy damage instead)
-        if (isProtected) {
+        // Rows 3–5: instant destroy unless flag-protected or wave-immune (→ heavy damage instead)
+        if (isWaveImmune) {
+          let dmg = 40;
+          if (isProtected) dmg = Math.floor(dmg * FLAG_DAMAGE_REDUCTION);
+          if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+          expectedDamage = dmg;
+          note = 'wave_surge: wave-immune — takes heavy damage but survives, no cascade';
+        } else if (isProtected) {
           let dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
           if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
           expectedDamage = dmg;
@@ -648,10 +663,13 @@ export function computeDamagePreview(state) {
         }
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5) {
         if (cell.level === 0) {
-          // L0 in rows 6–8: 40 damage with reductions
+          // L0 in rows 6–8: 40 damage with reductions; wave-immune blocks never cascade
           let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
           if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
           expectedDamage = dmg;
+          if (isWaveImmune) {
+            note = 'wave_surge: wave-immune — takes heavy damage but survives, no cascade';
+          }
         } else {
           // Upper levels in rows 6–8 are sheltered if L0 survives; risk of cascade if L0 dies
           expectedDamage = 0;
@@ -760,6 +778,13 @@ export function validateMove(state, player, action) {
       if (blockType === 'buttress' && level > 0) {
         return { valid: false, reason: 'Buttress blocks cannot be stacked — they can only be placed at level 0.' };
       }
+      if (blockType === 'storm_shelter' && level > 0) {
+        return { valid: false, reason: 'Storm shelter blocks cannot be stacked — they can only be placed at level 0.' };
+      }
+      const blockActionCost = BLOCK_TYPES[blockType]?.actionCost ?? 1;
+      if (blockActionCost > 1 && playerState.actionsThisTick + blockActionCost > ACTIONS_PER_TICK) {
+        return { valid: false, reason: `Placing a ${blockType} costs ${blockActionCost} actions. Not enough actions remaining (${ACTIONS_PER_TICK - playerState.actionsThisTick} left).` };
+      }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
         if (!foundation) {
@@ -839,7 +864,10 @@ export function validateMove(state, player, action) {
 export function applyMove(state, player, action) {
   const { action: type, x, y, type: blockType, level = 0 } = action;
 
-  state.players[player].actionsThisTick += 1;
+  const actionCost = (type === 'PLACE' && blockType && BLOCK_TYPES[blockType]?.actionCost)
+    ? BLOCK_TYPES[blockType].actionCost
+    : 1;
+  state.players[player].actionsThisTick += actionCost;
 
   if (!state.currentTurnMoves) state.currentTurnMoves = { player1: [], player2: [] };
   state.currentTurnMoves[player].push({ action: type, x, y, level, block_type: blockType });
@@ -996,27 +1024,32 @@ export function applyWeather(state) {
     // Track positions in the wave surge direct-wipe zone (rows 3-5)
     const waveSurgeDirectZone = new Set();
 
-    // Rows WATER_ROWS to WATER_ROWS+2: direct wipe (unless flag-protected)
+    // Rows WATER_ROWS to WATER_ROWS+2: direct wipe (unless flag-protected or wave-immune)
+    // Only L0 determines whether a position cascades; upper levels are sheltered by L0's protection.
     for (const cell of regularCells) {
       if (cell.y >= WATER_ROWS && cell.y <= WATER_ROWS + 2) {
         waveSurgeDirectZone.add(`${cell.x},${cell.y}`);
-        const cellKey = `${cell.x},${cell.y},${cell.level}`;
-        if (!protectedSet.has(cellKey)) {
-          cascadePositions.add(`${cell.x},${cell.y}`);
+        if (cell.level === 0) {
+          const cellKey = `${cell.x},${cell.y},${cell.level}`;
+          const isWaveImmune = isWaveImmuneCell(cell);
+          if (!protectedSet.has(cellKey) && !isWaveImmune) {
+            cascadePositions.add(`${cell.x},${cell.y}`);
+          }
         }
       }
     }
 
-    // Rows WATER_ROWS+3 to WATER_ROWS+5: 40 damage (reduced if protected) to L0; if L0 dies → cascade
+    // Rows WATER_ROWS+3 to WATER_ROWS+5: 40 damage (reduced if protected) to L0; if L0 dies → cascade (unless wave-immune)
     for (const cell of regularCells) {
       if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
         const cellKey = `${cell.x},${cell.y},${cell.level}`;
         const posKey = `${cell.x},${cell.y}`;
         const isProtected = protectedSet.has(cellKey);
         const isMoatProtected = moatProtectedPositions.has(posKey);
+        const isWaveImmune = isWaveImmuneCell(cell);
         let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
-        if (cell.health - dmg <= 0) {
+        if (!isWaveImmune && cell.health - dmg <= 0) {
           cascadePositions.add(posKey);
         }
       }
@@ -1028,6 +1061,7 @@ export function applyWeather(state) {
       const cellKey = `${cell.x},${cell.y},${cell.level}`;
       const isProtected = protectedSet.has(cellKey);
       const isMoatProtected = moatProtectedPositions.has(posKey);
+      const isWaveImmune = isWaveImmuneCell(cell);
       const healthBefore = cell.health;
 
       if (cascadePositions.has(posKey)) {
@@ -1039,6 +1073,23 @@ export function applyWeather(state) {
           health_before: healthBefore, health_after: 0,
           event: weatherEvent.id,
         });
+      } else if (waveSurgeDirectZone.has(posKey) && isWaveImmune) {
+        // Wave-immune block in direct wipe zone — takes heavy damage but survives (min 1 HP), no cascade
+        let dmg = 40;
+        if (isProtected) dmg = Math.floor(dmg * FLAG_DAMAGE_REDUCTION);
+        if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+        const healthAfter = Math.max(1, healthBefore - dmg);
+        events.push({
+          type: 'damaged',
+          x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
+          rain_damage: dmg, wind_damage: 0, total_damage: dmg,
+          health_before: healthBefore, health_after: healthAfter,
+          event: weatherEvent.id,
+          wave_immune: true,
+          ...(isProtected ? { flag_protected: true } : {}),
+          ...(isMoatProtected ? { moat_protected: true } : {}),
+        });
+        survivingCells.push({ ...cell, health: healthAfter });
       } else if (waveSurgeDirectZone.has(posKey) && isProtected) {
         // Flag-protected block in direct wipe zone — heavy damage instead of instant destroy
         let dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
@@ -1055,16 +1106,17 @@ export function applyWeather(state) {
         });
         if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
-        // L0 survived the damage
+        // L0 survived the damage (wave-immune or enough HP)
         let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
-        const healthAfter = cell.health - dmg;
+        const healthAfter = isWaveImmune ? Math.max(1, cell.health - dmg) : cell.health - dmg;
         events.push({
           type: 'damaged',
           x: cell.x, y: cell.y, level: cell.level, owner: cell.owner, block_type: cell.type,
           rain_damage: dmg, wind_damage: 0, total_damage: dmg,
           health_before: healthBefore, health_after: healthAfter,
           event: weatherEvent.id,
+          ...(isWaveImmune ? { wave_immune: true } : {}),
           ...(isProtected ? { flag_protected: true } : {}),
           ...(isMoatProtected ? { moat_protected: true } : {}),
         });
