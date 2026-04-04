@@ -118,6 +118,14 @@ describe('GET /state/:player', () => {
     const res = await request(app).get('/state/unknownplayer');
     expect(res.status).toBe(400);
   });
+
+  it('includes score_trend as an empty array when no judgments exist', async () => {
+    const res = await request(app).get('/state/player1');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('score_trend');
+    expect(Array.isArray(res.body.score_trend)).toBe(true);
+    expect(res.body.score_trend).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -147,6 +155,40 @@ describe('GET /state/:player/history', () => {
   it('returns 400 for invalid player name', async () => {
     const res = await request(app).get('/state/unknownplayer/history');
     expect(res.status).toBe(400);
+  });
+
+  it('includes score_breakdown in each history entry after a tick', async () => {
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+
+    const res = await request(app).get('/state/player1/history');
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBeGreaterThan(0);
+    const entry = res.body.history[res.body.history.length - 1];
+    expect(entry).toHaveProperty('score_breakdown');
+    expect(entry.score_breakdown).toHaveProperty('total_blocks');
+    expect(entry.score_breakdown).toHaveProperty('max_height');
+    expect(entry.score_breakdown).toHaveProperty('courtyard_bonus');
+    expect(entry.score_breakdown).toHaveProperty('prestige_score');
+  });
+
+  it('includes score_delta comparing to previous entry after two ticks', async () => {
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+    await request(app).post('/tick').set('X-Api-Key', 'test-key-tick');
+
+    const res = await request(app).get('/state/player1/history');
+    expect(res.status).toBe(200);
+    expect(res.body.history.length).toBeGreaterThanOrEqual(2);
+    // First entry has no previous → no score_delta
+    expect(res.body.history[0]).not.toHaveProperty('score_delta');
+    // Second entry has a previous → has score_delta
+    const secondEntry = res.body.history[1];
+    expect(secondEntry).toHaveProperty('score_delta');
+    expect(secondEntry.score_delta).toHaveProperty('total_blocks');
+    expect(secondEntry.score_delta).toHaveProperty('max_height');
+    expect(secondEntry.score_delta).toHaveProperty('courtyard_bonus');
+    expect(secondEntry.score_delta).toHaveProperty('avg_health');
+    expect(secondEntry.score_delta).toHaveProperty('prestige_score');
+    expect(secondEntry.score_delta).toHaveProperty('moat_courtyard_bonus');
   });
 });
 
