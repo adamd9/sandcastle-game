@@ -13,7 +13,7 @@
  * Run with: node api/backfill-history.js  (from repo root)
  */
 
-import { getState, saveState } from './lib/db.js';
+import { getState, saveState, getHistory, saveHistoryEntries } from './lib/db.js';
 
 const REINFORCE_AMOUNT = 15;
 
@@ -82,14 +82,15 @@ function undoMoves(cells, moves) {
 
 async function main() {
   const state = await getState();
+  const history = await getHistory(0); // 0 = all history
 
-  if (!state.history || state.history.length === 0) {
+  if (!history || history.length === 0) {
     console.log('No history entries found.');
     return;
   }
 
-  const missing = state.history.filter(h => !h.cells).length;
-  console.log(`History entries: ${state.history.length}, missing cell snapshots: ${missing}`);
+  const missing = history.filter(h => !h.cells).length;
+  console.log(`History entries: ${history.length}, missing cell snapshots: ${missing}`);
 
   if (missing === 0) {
     console.log('Nothing to backfill.');
@@ -100,7 +101,7 @@ async function main() {
   let cells = structuredClone(state.cells);
 
   // Process history from newest to oldest
-  const historyDesc = [...state.history].reverse();
+  const historyDesc = [...history].reverse();
 
   for (const round of historyDesc) {
     // Undo weather events from this round (they happened AFTER recordRound captured state)
@@ -119,7 +120,8 @@ async function main() {
     }
   }
 
-  await saveState(state);
+  // Save updated history entries directly as separate documents
+  await saveHistoryEntries(history);
   console.log(`\nDone. Backfilled ${missing} history entries.`);
 }
 

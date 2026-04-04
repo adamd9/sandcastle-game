@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getState, saveState } from '../lib/db.js';
+import { getState, saveState, getHistory, getHistoryCount, saveHistoryEntries } from '../lib/db.js';
 import { validateMove, applyMove, applyWeather, validateCommit, commitTurn, recordRound } from '../lib/gameLogic.js';
 import { getAllWeatherEvents, getWeatherEventById, selectRandomWeatherEvent } from '../lib/weather.js';
 import { getSchedulerStatus, recordExternalTick } from '../lib/scheduler.js';
@@ -478,7 +478,7 @@ router.post('/backfill-history', async (req, res) => {
 
   try {
     const state = await getState();
-    const history = state.history || [];
+    const history = await getHistory(0); // all history
     const missing = history.filter(h => !h.cells).length;
 
     if (missing === 0) return res.json({ ok: true, message: 'Nothing to backfill.', backfilled: 0 });
@@ -498,7 +498,9 @@ router.post('/backfill-history', async (req, res) => {
       }
     }
 
-    await saveState(state);
+    // Save updated history entries directly as separate documents
+    await saveHistoryEntries(history);
+
     res.json({ ok: true, backfilled: missing, log });
   } catch (err) {
     res.status(500).json({ error: err.message });

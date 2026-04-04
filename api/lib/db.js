@@ -8,5 +8,8 @@ const mod = process.env.COSMOS_ENDPOINT
   ? await import('./cosmos.js')
   : await import('./store.js');
 
-export const getState  = mod.getState;
-export const saveState = mod.saveState;
+export const getState      = mod.getState;
+export const saveState     = mod.saveState;
+export const getHistory    = mod.getHistory;
+export const getHistoryCount = mod.getHistoryCount;
+export const saveHistoryEntries = mod.saveHistoryEntries;

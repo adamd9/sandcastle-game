@@ -937,7 +937,7 @@ export function recordRound(state) {
     score_breakdown: { player1: p1Breakdown, player2: p2Breakdown },
   };
   state.history.push(round);
-  // In-memory history is unbounded; cosmos.js trims to MAX_HISTORY_IN_STORE on every save.
+  // History entries are stored as separate documents by saveState(); no trimming needed.
   return state;
 }
 

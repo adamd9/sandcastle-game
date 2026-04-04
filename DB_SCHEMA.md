@@ -9,6 +9,25 @@
 
 ---
 
+## Storage Model
+
+History entries are stored as **separate documents** (one per tick) in the same
+Cosmos DB container, using `id = "history_tick_{N}"` and partition key `"game"`.
+This avoids the 2 MB Cosmos DB document size limit and allows unlimited history.
+
+The main game state document (`id = "game"`) no longer contains a `history` array.
+On first startup after migration, any existing inline `history[]` on the main game
+document is automatically split into separate per-tick documents.
+
+### Document Types
+
+| `id` pattern | `docType` | Purpose |
+|---|---|---|
+| `game` | _(none)_ | Main game state |
+| `history_tick_{N}` | `history` | Per-tick history entry |
+
+---
+
 ## Top-Level State Object
 
 ```json
@@ -23,10 +42,14 @@
   },
   "scores": { "player1": 3, "player2": 2 },
   "judgments": [ /* array of Judgment (trimmed to MAX_JUDGMENTS_HISTORY) */ ],
-  "history": [ /* array of RoundRecord — NEVER TRIMMED */ ],
+  "history": [],
   "currentTurnMoves": { "player1": [], "player2": [] },
   "lastUpdated": "2026-03-18T20:00:00.000Z"
 }
+```
+
+> **Note:** `history` is always `[]` on the main document. History is queried
+> via `getHistory(limit)` which reads from separate per-tick documents.
 ```
 
 ---
@@ -139,10 +162,12 @@
 
 ## History Retention Policy
 
-- **All history is retained indefinitely** — `recordRound()` does not cap the array.
+- **All history is retained indefinitely** — each tick creates a separate document (`history_tick_{N}`).
+- No document size limits apply since each tick is its own document.
 - The `/state/history` endpoint returns the **last 20 by default**; use `?limit=N` for more, or `?limit=0` for all.
 - The `/:player/history` MCP endpoint returns the last 10 (sufficient for agent turn context).
 - The top-level `judgments` array is trimmed to `MAX_JUDGMENTS_HISTORY` (separate from history).
+- **Migration**: On first startup, any inline `history[]` on the main game document is automatically migrated to separate per-tick documents.
 
 ---
 
