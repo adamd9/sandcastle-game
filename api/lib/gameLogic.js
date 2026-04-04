@@ -913,6 +913,9 @@ export function commitTurn(state, player) {
 
 export function recordRound(state) {
   if (!state.history) state.history = [];
+  const flags = state.flags || [];
+  const { courtyard_cells: _cc1, ...p1Breakdown } = computeStructureScore(state.cells, 'player1', flags);
+  const { courtyard_cells: _cc2, ...p2Breakdown } = computeStructureScore(state.cells, 'player2', flags);
   const round = {
     tick: state.tick,
     timestamp: new Date().toISOString(),
@@ -931,6 +934,7 @@ export function recordRound(state) {
     weatherEvents: [],
     cells: structuredClone(state.cells),
     flags_snapshot: structuredClone(state.flags || []),
+    score_breakdown: { player1: p1Breakdown, player2: p2Breakdown },
   };
   state.history.push(round);
   // In-memory history is unbounded; cosmos.js trims to MAX_HISTORY_IN_STORE on every save.

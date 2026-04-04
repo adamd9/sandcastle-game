@@ -83,6 +83,13 @@ router.get('/:player', async (req, res) => {
       ? state.judgments[state.judgments.length - 1]
       : null;
 
+    // Last 5 judgment scores for trend tracking
+    const score_trend = (state.judgments || []).slice(-5).map(j => ({
+      tick: j.tick,
+      winner: j.winner,
+      scores: j.scores,
+    }));
+
     const flags = state.flags || [];
 
     res.set('Cache-Control', 'no-store');
@@ -95,6 +102,7 @@ router.get('/:player', async (req, res) => {
       cells: state.cells,
       scores: state.scores ?? { player1: 0, player2: 0 },
       lastJudgment,
+      score_trend,
       forecast: generateForecast(),
       score_breakdown: {
         [player]: computeStructureScore(state.cells, player, flags),
@@ -113,17 +121,39 @@ router.get('/:player/history', async (req, res) => {
   }
   try {
     const state = await getState();
-    const history = (state.history || []).slice(-10).map(round => ({
-      tick: round.tick,
-      timestamp: round.timestamp,
-      weather: round.weather,
-      myMoves: (round.moves?.[player] || []),
-      myStats: round[player] || {},
-      myWeatherEvents: (round.weatherEvents || []).filter(e => e.owner === player),
-      opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
-      opponentWeatherEvents: (round.weatherEvents || []).filter(e => e.owner !== player),
-      ...(round.judgment && { judgment: round.judgment }),
-    }));
+    const rawHistory = (state.history || []).slice(-10);
+    const history = rawHistory.map((round, i) => {
+      const prev = i > 0 ? rawHistory[i - 1] : null;
+
+      // Compute score_delta vs previous tick for the requesting player
+      let score_delta = null;
+      const myBreakdown = round.score_breakdown?.[player];
+      const prevBreakdown = prev?.score_breakdown?.[player];
+      if (myBreakdown && prevBreakdown) {
+        score_delta = {
+          total_blocks:        myBreakdown.total_blocks        - prevBreakdown.total_blocks,
+          max_height:          myBreakdown.max_height          - prevBreakdown.max_height,
+          courtyard_bonus:     myBreakdown.courtyard_bonus     - prevBreakdown.courtyard_bonus,
+          avg_health:          +((myBreakdown.avg_health       - prevBreakdown.avg_health).toFixed(2)),
+          prestige_score:      myBreakdown.prestige_score      - prevBreakdown.prestige_score,
+          moat_courtyard_bonus: myBreakdown.moat_courtyard_bonus - prevBreakdown.moat_courtyard_bonus,
+        };
+      }
+
+      return {
+        tick: round.tick,
+        timestamp: round.timestamp,
+        weather: round.weather,
+        myMoves: (round.moves?.[player] || []),
+        myStats: round[player] || {},
+        myWeatherEvents: (round.weatherEvents || []).filter(e => e.owner === player),
+        opponentStats: round[player === 'player1' ? 'player2' : 'player1'] || {},
+        opponentWeatherEvents: (round.weatherEvents || []).filter(e => e.owner !== player),
+        ...(round.judgment && { judgment: round.judgment }),
+        ...(myBreakdown && { score_breakdown: myBreakdown }),
+        ...(score_delta && { score_delta }),
+      };
+    });
     res.set('Cache-Control', 'no-store');
     res.json({ history });
   } catch (err) {
