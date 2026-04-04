@@ -13,7 +13,7 @@
  * Run with: node api/backfill-history.js  (from repo root)
  */
 
-import { getState, saveState, getHistory } from './lib/db.js';
+import { getState, saveState, getHistory, saveHistoryEntries } from './lib/db.js';
 
 const REINFORCE_AMOUNT = 15;
 
@@ -120,10 +120,8 @@ async function main() {
     }
   }
 
-  // Re-save all history entries through saveState (which writes them as separate docs)
-  const freshState = await getState();
-  freshState.history = history;
-  await saveState(freshState);
+  // Save updated history entries directly as separate documents
+  await saveHistoryEntries(history);
   console.log(`\nDone. Backfilled ${missing} history entries.`);
 }
 

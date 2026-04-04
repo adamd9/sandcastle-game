@@ -12,3 +12,4 @@ export const getState      = mod.getState;
 export const saveState     = mod.saveState;
 export const getHistory    = mod.getHistory;
 export const getHistoryCount = mod.getHistoryCount;
+export const saveHistoryEntries = mod.saveHistoryEntries;

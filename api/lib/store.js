@@ -98,11 +98,13 @@ export function getState() {
   }
   const state = readFile();
   // Load separate history file on first access for file-backed mode
-  if (!_migrationDone) {
+  const needsLoad = !_migrationDone;
+  if (needsLoad) {
     _memHistory = readHistoryFile();
   }
   const migrated = migrateInlineHistory(state);
-  if (migrated !== state || !_migrationDone) {
+  // Persist if migration changed the state (stripped inline history)
+  if (migrated.history !== state.history || needsLoad) {
     writeFileSync(STATE_FILE, JSON.stringify(migrated, null, 2), 'utf8');
   }
   migrated.history = [];
@@ -149,6 +151,28 @@ export function getHistory(limit = 10) {
  */
 export function getHistoryCount() {
   return _memHistory.length;
+}
+
+/**
+ * Directly save (upsert) an array of history entries into the separate store.
+ * Useful for backfill operations that only need to update history without
+ * loading/saving the entire game state.
+ */
+export function saveHistoryEntries(entries) {
+  const existingTicks = new Set(_memHistory.map(h => h.tick));
+  for (const entry of entries) {
+    if (existingTicks.has(entry.tick)) {
+      const idx = _memHistory.findIndex(h => h.tick === entry.tick);
+      if (idx >= 0) _memHistory[idx] = structuredClone(entry);
+    } else {
+      _memHistory.push(structuredClone(entry));
+    }
+  }
+  _memHistory.sort((a, b) => a.tick - b.tick);
+
+  if (!IS_TEST) {
+    writeHistoryFile(_memHistory);
+  }
 }
 
 /** Reset to initial state — used in tests. */

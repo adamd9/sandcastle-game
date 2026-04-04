@@ -113,8 +113,9 @@ export async function saveState(newState) {
 }
 
 /**
- * Retrieve the most recent N history entries, ordered by tick descending.
- * Returns them in ascending tick order (oldest first) for compatibility.
+ * Retrieve the most recent N history entries.
+ * Queries by tick descending internally but returns in ascending tick order
+ * (oldest first) for compatibility with existing consumers.
  * @param {number} limit - max entries to return (0 = all)
  */
 export async function getHistory(limit = 10) {
@@ -136,4 +137,22 @@ export async function getHistoryCount() {
   };
   const { resources } = await container.items.query(query, { partitionKey: PARTITION_KEY }).fetchAll();
   return resources[0] ?? 0;
+}
+
+/**
+ * Directly save (upsert) an array of history entries as separate documents.
+ * Useful for backfill operations that only need to update history without
+ * loading/saving the entire game state.
+ */
+export async function saveHistoryEntries(entries) {
+  for (const entry of entries) {
+    const doc = {
+      id: `history_tick_${entry.tick}`,
+      partitionKey: PARTITION_KEY,
+      docType: 'history',
+      tick: entry.tick,
+      ...entry,
+    };
+    await container.items.upsert(doc);
+  }
 }
