@@ -690,7 +690,7 @@ describe('applyWeather', () => {
       expect(shelter.health).toBeGreaterThanOrEqual(1);
     });
 
-    it('regular packed_sand at y=4 is destroyed by wave surge (cascade)', () => {
+    it('regular packed_sand at y=4 is destroyed by wave surge and triggers cascade', () => {
       const state = freshState();
       // Regular packed_sand at y=4 — should cascade
       state.cells.push({ x: 5, y: 4, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
