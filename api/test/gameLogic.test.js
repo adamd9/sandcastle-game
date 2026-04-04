@@ -199,6 +199,43 @@ describe('validateMove', () => {
     });
   });
 
+  describe('storm_shelter validation', () => {
+    it('allows PLACE storm_shelter at level 0', () => {
+      const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('rejects PLACE storm_shelter at level > 0', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter', level: 1 });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/storm.shelter/i);
+    });
+
+    it('rejects PLACE storm_shelter when only 1 action remains', () => {
+      const state = freshState();
+      state.players.player1.actionsThisTick = 19; // only 1 action left, need 2
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter' });
+      expect(r.valid).toBe(false);
+      expect(r.reason).toMatch(/2 actions/i);
+    });
+
+    it('allows PLACE storm_shelter when exactly 2 actions remain', () => {
+      const state = freshState();
+      state.players.player1.actionsThisTick = 18; // 2 actions left
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter' });
+      expect(r.valid).toBe(true);
+    });
+
+    it('allows normal blocks to be stacked on top of a storm_shelter', () => {
+      const state = freshState();
+      state.cells.push({ x: 5, y: 5, type: 'storm_shelter', health: 40, owner: 'player1', level: 0 });
+      const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'packed_sand', level: 1 });
+      expect(r.valid).toBe(true);
+    });
+  });
+
   describe('DEEPEN_MOAT validation', () => {
     it('allows DEEPEN_MOAT on own moat block at default depth', () => {
       const state = freshState();
@@ -476,6 +513,27 @@ describe('applyMove', () => {
       expect(next.players.player1.actionsThisTick).toBe(1);
     });
   });
+
+  describe('storm_shelter placement cost', () => {
+    it('PLACE storm_shelter creates block with initial_health 40', () => {
+      const state = freshState();
+      const next = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter' });
+      expect(next.cells[0].health).toBe(40);
+      expect(next.cells[0].type).toBe('storm_shelter');
+    });
+
+    it('PLACE storm_shelter costs 2 actions', () => {
+      const state = freshState();
+      const next = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'storm_shelter' });
+      expect(next.players.player1.actionsThisTick).toBe(2);
+    });
+
+    it('PLACE packed_sand still costs 1 action', () => {
+      const state = freshState();
+      const next = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'packed_sand' });
+      expect(next.players.player1.actionsThisTick).toBe(1);
+    });
+  });
 });
 
 describe('applyWeather', () => {
@@ -603,6 +661,79 @@ describe('applyWeather', () => {
       // Flag-protected: takes floor(40 * 0.5) = 20 damage instead of instant destroy
       expect(next.cells).toHaveLength(1);
       expect(next.cells[0].health).toBe(40);
+    });
+  });
+
+  describe('storm_shelter wave immunity', () => {
+    it('storm_shelter in wave surge direct zone (y=3-5) survives with at least 1 HP', () => {
+      const state = freshState();
+      // storm_shelter at y=4 (direct wipe zone rows 3-5), starting at 40 HP
+      state.cells.push({ x: 5, y: 4, type: 'storm_shelter', health: 40, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // Wave-immune: takes 40 damage but survives at min 1 HP (40 - 40 = 0 → clamped to 1)
+      expect(next.cells).toHaveLength(1);
+      expect(next.cells[0].health).toBe(1);
+    });
+
+    it('storm_shelter in wave surge direct zone (y=3-5) does not cascade upper levels', () => {
+      const state = freshState();
+      // storm_shelter at y=4 with packed_sand tower above
+      state.cells.push({ x: 5, y: 4, type: 'storm_shelter', health: 40, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 4, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.cells.push({ x: 5, y: 4, type: 'packed_sand', health: 60, owner: 'player1', level: 2 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // All 3 cells survive (shelter survives → no cascade)
+      expect(next.cells).toHaveLength(3);
+      const shelter = next.cells.find(c => c.level === 0);
+      expect(shelter.health).toBeGreaterThanOrEqual(1);
+    });
+
+    it('regular packed_sand at y=4 is destroyed by wave surge (cascade)', () => {
+      const state = freshState();
+      // Regular packed_sand at y=4 — should cascade
+      state.cells.push({ x: 5, y: 4, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 4, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // Regular block is destroyed → cascade wipes level 1 too
+      expect(next.cells).toHaveLength(0);
+    });
+
+    it('storm_shelter at y=6 (rows 6-8 zone) takes 40 damage but does not cascade', () => {
+      const state = freshState();
+      // storm_shelter at y=6 (rows 6-8 zone), starting at 40 HP
+      state.cells.push({ x: 5, y: 6, type: 'storm_shelter', health: 40, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 6, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // storm_shelter takes 40 damage (40 HP → 1 HP min), no cascade, upper level survives
+      expect(next.cells).toHaveLength(2);
+      const shelter = next.cells.find(c => c.level === 0);
+      expect(shelter.health).toBe(1);
+    });
+
+    it('regular wet_sand at y=6 with exact 40 HP is destroyed and cascades', () => {
+      const state = freshState();
+      // wet_sand at y=6 with 40 HP — takes exactly 40 damage → cascade
+      state.cells.push({ x: 5, y: 6, type: 'wet_sand', health: 40, owner: 'player1', level: 0 });
+      state.cells.push({ x: 5, y: 6, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // wet_sand destroyed → cascades level 1 too
+      expect(next.cells).toHaveLength(0);
+    });
+
+    it('storm_shelter with high HP at y=4 retains HP after wave damage', () => {
+      const state = freshState();
+      // storm_shelter repaired to 60 HP (via buttress), at y=4
+      state.cells.push({ x: 5, y: 4, type: 'storm_shelter', health: 60, owner: 'player1', level: 0 });
+      state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'wave_surge' };
+      const next = applyWeather(structuredClone(state));
+      // Takes 40 damage → survives at 20 HP
+      expect(next.cells).toHaveLength(1);
+      expect(next.cells[0].health).toBe(20);
     });
   });
 

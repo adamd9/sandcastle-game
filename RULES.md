@@ -29,6 +29,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `moat` | — | Permanent; immune to weather; depth 1–3 grants 25/35/45% damage reduction to adjacent same-owner blocks |
 | `courtyard` | 30 | Paved interior floor; level 0 only; grants 25% prestige bonus to adjacent tower blocks (L2+) |
 | `buttress` | 20 | Fragile support block; level 0 only; grants +10 max HP (cap 60→70) and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top |
+| `storm_shelter` | 40 | Reinforced foundation; level 0 only; **costs 2 actions to place**; wave-immune — takes heavy damage from wave surges but can never be cascade-destroyed; normal blocks can be stacked on top |
 
 Blocks can be **reinforced** (+15 HP per action, up to max 60 HP; critically damaged blocks below 20 HP receive +30 HP instead) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
 
@@ -155,6 +156,8 @@ Weather is applied every tick. One event is selected per tick (weighted random):
 | **Rogue Wave** | 1–2 random columns | All blocks at all levels destroyed |
 
 ⚠️ **Cascade warning**: a wave surge that kills L0 at y=3 takes your entire tower with it. Avoid tall towers at y=3–8 unless you accept the risk.
+
+💡 **Storm shelter**: a `storm_shelter` block at L0 is **wave-immune** — it takes heavy damage from wave surges (40 damage) but can never be cascade-destroyed and always survives with at least 1 HP. This protects the entire column above it. Costs 2 actions to place.
 
 ---
 
