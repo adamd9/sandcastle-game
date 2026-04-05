@@ -204,7 +204,7 @@ export function createMcpRouter() {
 
     server.tool(
       'get_my_zone_state',
-      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type} or null for empty cells. Use this to quickly identify which cells need reinforcing, which can have height added, and the overall state of your castle.',
+      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type, next_level, can_place_next_level} or null for empty cells. `level` is the index of the topmost block (0=ground, 3=spire). `next_level` is the level value to pass to a PLACE action to build on top (null if already at max height). `can_place_next_level` is true when further stacking is possible. Use this to quickly identify which cells need reinforcing, which can have height added, and the overall state of your castle.',
       {},
       async () => {
         const state = await getState();

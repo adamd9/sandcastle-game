@@ -385,6 +385,8 @@ describe('POST /mcp', () => {
     expect(cell).toHaveProperty('level', 0);
     expect(cell).toHaveProperty('type', 'packed_sand');
     expect(cell).toHaveProperty('health');
+    expect(cell).toHaveProperty('next_level', 1);
+    expect(cell).toHaveProperty('can_place_next_level', true);
   });
 
   it('get_my_zone_state is scoped to the calling player zone', async () => {

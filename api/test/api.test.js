@@ -281,6 +281,8 @@ describe('GET /state/:player/zone_grid', () => {
     expect(cell).toHaveProperty('level', 0);
     expect(cell).toHaveProperty('type', 'packed_sand');
     expect(cell).toHaveProperty('health');
+    expect(cell).toHaveProperty('next_level', 1);
+    expect(cell).toHaveProperty('can_place_next_level', true);
   });
 
   it('returns top-most level when blocks are stacked', async () => {
@@ -299,6 +301,29 @@ describe('GET /state/:player/zone_grid', () => {
     expect(cell).not.toBeNull();
     expect(cell).toHaveProperty('level', 1);
     expect(cell).toHaveProperty('type', 'wet_sand');
+    expect(cell).toHaveProperty('next_level', 2);
+    expect(cell).toHaveProperty('can_place_next_level', true);
+  });
+
+  it('returns can_place_next_level=false and next_level=null when at max height', async () => {
+    await request(app)
+      .post('/turn')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({ moves: [
+        { action: 'PLACE', x: 4, y: 7, block_type: 'packed_sand', level: 0 },
+        { action: 'PLACE', x: 4, y: 7, block_type: 'packed_sand', level: 1 },
+        { action: 'PLACE', x: 4, y: 7, block_type: 'packed_sand', level: 2 },
+        { action: 'PLACE', x: 4, y: 7, block_type: 'packed_sand', level: 3 },
+      ] });
+
+    const res = await request(app).get('/state/player1/zone_grid');
+    expect(res.status).toBe(200);
+    // Top level at (x=4, y=7) should be level 3 (MAX_LEVEL)
+    const cell = res.body.zone_grid[7][4];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('level', 3);
+    expect(cell).toHaveProperty('next_level', null);
+    expect(cell).toHaveProperty('can_place_next_level', false);
   });
 
   it('does not include opponent blocks in player zone_grid', async () => {

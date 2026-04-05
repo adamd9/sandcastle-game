@@ -351,7 +351,14 @@ export function buildZoneGrid(cells, player) {
         row.push(null);
       } else {
         const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
-        row.push({ level: top.level, health: top.health, type: top.type });
+        const canPlaceNext = top.level < MAX_LEVEL;
+        row.push({
+          level: top.level,
+          health: top.health,
+          type: top.type,
+          next_level: canPlaceNext ? top.level + 1 : null,
+          can_place_next_level: canPlaceNext,
+        });
       }
     }
     grid.push(row);
