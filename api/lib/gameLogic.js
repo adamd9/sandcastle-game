@@ -549,15 +549,15 @@ function getBehindDirection(x, y) {
   const distBottom = GRID_HEIGHT - 1 - y;
   const minDist = Math.min(distLeft, distRight, distTop, distBottom);
   // Prefer x-axis over y-axis when tied
-  if (minDist === distLeft)   return { dx: 1,  dy: 0  }; // nearest is left edge  → go right
-  if (minDist === distRight)  return { dx: -1, dy: 0  }; // nearest is right edge → go left
-  if (minDist === distTop)    return { dx: 0,  dy: 1  }; // nearest is top edge   → go down
-  return                             { dx: 0,  dy: -1 }; // nearest is bottom edge → go up
+  if (minDist === distLeft)   return { dx: 1,  dy: 0  }; // nearest is left edge — go right
+  if (minDist === distRight)  return { dx: -1, dy: 0  }; // nearest is right edge — go left
+  if (minDist === distTop)    return { dx: 0,  dy: 1  }; // nearest is top edge — go down
+  return                             { dx: 0,  dy: -1 }; // nearest is bottom edge — go up
 }
 
 // ---------------------------------------------------------------------------
 // buildReinforcedWallProtectedPositions — returns a Map of "x,y" -> reduction
-// fraction for blocks protected by an adjacent reinforced_wall.  Only same-owner
+// fraction for blocks protected by an adjacent reinforced_wall. Only same-owner
 // blocks that sit in the "behind" direction of a reinforced_wall are protected.
 // ---------------------------------------------------------------------------
 
