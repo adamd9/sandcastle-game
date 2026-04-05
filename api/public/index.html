@@ -491,7 +491,7 @@
     #history-chevron.open { transform: rotate(180deg); }
     #history-body { display: block; }
     #history-body.collapsed { display: none; }
-    #history-list { padding: 8px 0; max-height: 640px; overflow-y: auto; }
+    #history-list { padding: 8px 0; max-height: 800px; overflow-y: auto; }
     .history-round {
       border-bottom: 1px solid #3a2a0e;
     }
@@ -551,6 +551,7 @@
     .history-judgment { color: #c0a030; margin-top: 6px; font-size: 0.75rem; padding: 4px 8px; background: rgba(192,160,48,0.1); border-left: 3px solid #c0a030; border-radius: 3px; }
     .history-round-header .h-judgment-badge { color: #f5c842; font-size: 0.68rem; background: rgba(192,160,48,0.2); border: 1px solid #c0a030; border-radius: 3px; padding: 1px 5px; flex-shrink: 0; }
     .history-round.has-judgment > .history-round-header { border-left: 3px solid #c0a030; }
+    .history-round.reconstructed > .history-round-header { opacity: 0.8; border-left: 3px solid #5a7a5a; }
     .timeline-judgment-marker { position: absolute; top: -5px; width: 10px; height: 10px; background: #c0a030; transform: translateX(-50%) rotate(45deg); cursor: pointer; z-index: 1; border: 1px solid #f5c842; }
     #history-empty { padding: 16px; color: #5a4a2a; font-style: italic; text-align: center; }
 
@@ -1309,13 +1310,14 @@
     try {
       const [res, histRes] = await Promise.all([
         fetch(`${API_BASE}/state`, { cache: 'no-store' }),
-        fetch(`${API_BASE}/state/history`, { cache: 'no-store' }),
+        fetch(`${API_BASE}/state/history?limit=100`, { cache: 'no-store' }),
       ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const state = await res.json();
       if (histRes.ok) {
-        const { history } = await histRes.json();
-        state.history = history;
+        const histData = await histRes.json();
+        state.history = histData.history;
+        state._historyTotal = histData.total;
       }
 
       lastCells = state.cells;
@@ -1354,7 +1356,7 @@
       document.getElementById('stat-p1-score').textContent = state.scores?.player1 ?? 0;
       document.getElementById('stat-p2-score').textContent = state.scores?.player2 ?? 0;
 
-      document.getElementById('stat-rounds').textContent = (state.history ?? []).length;
+      document.getElementById('stat-rounds').textContent = state._historyTotal ?? (state.history ?? []).length;
       renderHistory(state.history);
 
       // Update timeline — expand each history round into two points:
@@ -2054,27 +2056,34 @@
       return;
     }
 
-    const rounds = lastHistory.slice(-10).reverse();
+    const rounds = lastHistory.slice(-50).reverse();
     const html = rounds.map(round => {
       const w = round.weather ?? {};
       const timestampStr = round.timestamp
         ? new Date(round.timestamp).toLocaleString(undefined, { timeStyle: 'short' })
         : '';
+      const isReconstructed = !!round._reconstructed;
 
       // Block counts: show before→after if post-weather count is available
-      function blockCountLabel(playerStats) {
-        const before = playerStats?.blocks ?? '?';
+      // For reconstructed entries (blocks=0), show move counts instead
+      function blockCountLabel(playerKey, playerStats) {
+        const before = playerStats?.blocks ?? 0;
         const after  = playerStats?.blocks_after;
+        if (isReconstructed || before === 0) {
+          const moves = round.moves?.[playerKey] ?? [];
+          return moves.length > 0 ? `${moves.length} moves` : '—';
+        }
         if (after == null || after === before) return `${before}`;
         const delta = after - before;
         const sign  = delta > 0 ? '+' : '';
         return `${before}→${after} (${sign}${delta})`;
       }
-      const p1BlockLabel = blockCountLabel(round.player1);
-      const p2BlockLabel = blockCountLabel(round.player2);
+      const p1BlockLabel = blockCountLabel('player1', round.player1);
+      const p2BlockLabel = blockCountLabel('player2', round.player2);
 
       const eventEmoji = w.event_emoji ?? '';
-      const eventLabel = w.event_name ?? w.event_label ?? 'Clear';
+      // For weather display: use event_name, fall back to event_type, then 'Clear'
+      const eventLabel = w.event_name ?? (w.event_type && w.event_type !== 'normal' ? w.event_type : null) ?? w.event_label ?? 'Clear';
       const fullEventLabel = (eventEmoji ? eventEmoji + ' ' : '') + eventLabel;
 
       // --- Player section helper (moves only — damage is in weather section) ---
@@ -2146,8 +2155,8 @@
         ? `<div class="history-judgment">⚖️ <strong>${round.judgment.winner === 'tie' ? 'Tie' : round.judgment.winner === 'player1' ? 'Player 1 wins' : 'Player 2 wins'}</strong> (P1: ${round.judgment.scores?.player1 ?? 0} | P2: ${round.judgment.scores?.player2 ?? 0})<br>${round.judgment.reasoning ?? ''}${round.judgment.p1_feedback ? `<br><em>P1:</em> ${round.judgment.p1_feedback}` : ''}${round.judgment.p2_feedback ? `<br><em>P2:</em> ${round.judgment.p2_feedback}` : ''}</div>`
         : '';
 
-      return `<div class="history-round${round.judgment ? ' has-judgment' : ''}">
-        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">Tick #${round.tick} · ${fullEventLabel} · P1: ${p1BlockLabel} · P2: ${p2BlockLabel}</span>${round.judgment ? `<span class="h-judgment-badge">⚖️ ${judgmentWinnerLabel(round.judgment.winner)}</span>` : ''}<span class="h-time">${timestampStr}</span></div>
+      return `<div class="history-round${round.judgment ? ' has-judgment' : ''}${isReconstructed ? ' reconstructed' : ''}">
+        <div class="history-round-header"><span class="h-chevron">▶</span><span class="h-summary">${isReconstructed ? '📋 ' : ''}Tick #${round.tick} · ${fullEventLabel} · P1: ${p1BlockLabel} · P2: ${p2BlockLabel}</span>${round.judgment ? `<span class="h-judgment-badge">⚖️ ${judgmentWinnerLabel(round.judgment.winner)}</span>` : ''}<span class="h-time">${timestampStr}</span></div>
         <div class="history-round-body collapsed">
           ${p1Section}
           ${p2Section}
