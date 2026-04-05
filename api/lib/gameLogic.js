@@ -25,6 +25,9 @@ import {
   BUTTRESS_SCORE_MULTIPLIER,
   PARAPET_WIND_REDUCTION,
   PARAPET_PRESTIGE_BONUS,
+  REINFORCED_WALL_DAMAGE_REDUCTION,
+  REINFORCED_WALL_MAX_LEVEL,
+  REINFORCED_WALL_ACTION_COST,
   PRESTIGE_LEVEL_MULTIPLIERS,
   STRUCTURAL_DEPTH_BONUS,
 } from './rules.js';
@@ -538,7 +541,45 @@ function hasButtressAdjacent(cells, x, y, owner) {
 }
 
 // ---------------------------------------------------------------------------
-// buildFlagCoverage — per-flag connected component info for get_state
+// getBehindDirection — returns the direction vector (dx, dy) pointing away
+// from the nearest grid edge, used to find the block "behind" a reinforced_wall.
+// ---------------------------------------------------------------------------
+
+function getBehindDirection(x, y) {
+  const distLeft   = x;
+  const distRight  = GRID_WIDTH - 1 - x;
+  const distTop    = y;
+  const distBottom = GRID_HEIGHT - 1 - y;
+  const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+  // Prefer x-axis over y-axis when tied
+  if (minDist === distLeft)   return { dx: 1,  dy: 0  }; // nearest is left edge — go right
+  if (minDist === distRight)  return { dx: -1, dy: 0  }; // nearest is right edge — go left
+  if (minDist === distTop)    return { dx: 0,  dy: 1  }; // nearest is top edge — go down
+  return                             { dx: 0,  dy: -1 }; // nearest is bottom edge — go up
+}
+
+// ---------------------------------------------------------------------------
+// buildReinforcedWallProtectedPositions — returns a Map of "x,y" -> reduction
+// fraction for blocks protected by an adjacent reinforced_wall. Only same-owner
+// blocks that sit in the "behind" direction of a reinforced_wall are protected.
+// ---------------------------------------------------------------------------
+
+function buildReinforcedWallProtectedPositions(cells) {
+  const rwProtected = new Map(); // "x,y" -> reduction fraction
+
+  for (const cell of cells) {
+    if (cell.type !== 'reinforced_wall') continue;
+    const { dx, dy } = getBehindDirection(cell.x, cell.y);
+    const behindKey = `${cell.x + dx},${cell.y + dy}`;
+    // Store the highest reduction available (multiple walls can stack to same cap)
+    if ((rwProtected.get(behindKey) ?? 0) < REINFORCED_WALL_DAMAGE_REDUCTION) {
+      rwProtected.set(behindKey, REINFORCED_WALL_DAMAGE_REDUCTION);
+    }
+  }
+
+  return rwProtected;
+}
+
 // Returns [{ flag, protected_blocks: [{ x, y, level, type, health }] }]
 // ---------------------------------------------------------------------------
 
@@ -649,6 +690,7 @@ export function computeDamagePreview(state) {
 
   const protectedSet = buildFlagProtectedSet(state.cells, state.flags || []);
   const moatProtectedPositions = buildMoatProtectedPositions(state.cells);
+  const rwProtectedPositions = buildReinforcedWallProtectedPositions(state.cells);
 
   const regularCells = state.cells.filter(c => c.type !== 'moat');
   const parapetProtectedColumns = buildParapetProtectedColumns(regularCells, wind_direction, weatherEvent.windAffectsAll ?? false);
@@ -673,6 +715,7 @@ export function computeDamagePreview(state) {
     const posKey = `${cell.x},${cell.y}`;
     const isProtected = protectedSet.has(cellKey);
     const isMoatProtected = moatProtectedPositions.has(posKey);
+    const isRwProtected = rwProtectedPositions.has(posKey);
 
     let expectedDamage;
     let note;
@@ -683,6 +726,7 @@ export function computeDamagePreview(state) {
         if (isProtected) {
           let dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
           if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+          if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
           expectedDamage = dmg;
           note = 'wave_surge: flag-protected — heavy damage instead of instant destroy';
         } else {
@@ -694,6 +738,7 @@ export function computeDamagePreview(state) {
           // L0 in rows 6–8: 40 damage with reductions
           let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
           if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+          if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
           expectedDamage = dmg;
         } else {
           // Upper levels in rows 6–8 are sheltered if L0 survives; risk of cascade if L0 dies
@@ -705,6 +750,7 @@ export function computeDamagePreview(state) {
         let dmg = Math.round(baseRain * mult);
         if (isProtected) dmg = Math.floor(dmg * FLAG_DAMAGE_REDUCTION);
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+        if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
         expectedDamage = dmg;
       }
     } else if (weatherEvent.specialEffect === 'rogue_wave') {
@@ -712,6 +758,7 @@ export function computeDamagePreview(state) {
       let dmg = Math.round(baseRain * mult);
       if (isProtected) dmg = Math.floor(dmg * FLAG_DAMAGE_REDUCTION);
       if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+      if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
       expectedDamage = dmg;
       note = 'rogue_wave: random column(s) may be completely destroyed; rain damage shown as minimum estimate';
     } else {
@@ -726,6 +773,7 @@ export function computeDamagePreview(state) {
       let totalDamage = rainDmg + windDmg;
       if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
       if (isMoatProtected) totalDamage = Math.floor(totalDamage * (1 - moatProtectedPositions.get(posKey)));
+      if (isRwProtected) totalDamage = Math.floor(totalDamage * (1 - rwProtectedPositions.get(posKey)));
       expectedDamage = totalDamage;
     }
 
@@ -739,6 +787,7 @@ export function computeDamagePreview(state) {
       expected_damage: expectedDamage,
       flag_protected: isProtected,
       moat_protected: isMoatProtected,
+      reinforced_wall_protected: isRwProtected,
       parapet_protected: parapetProtectedColumns.has(posKey),
     };
     if (note !== undefined) entry.note = note;
@@ -809,6 +858,27 @@ export function validateMove(state, player, action) {
       }
       if (blockType === 'parapet' && (level < 1 || level > 2)) {
         return { valid: false, reason: 'Parapet blocks can only be placed at level 1 or 2 (atop a wall, like battlements).' };
+      }
+      if (blockType === 'reinforced_wall' && level > REINFORCED_WALL_MAX_LEVEL) {
+        return { valid: false, reason: `Reinforced wall blocks can only be placed at level 0–${REINFORCED_WALL_MAX_LEVEL} (walls shouldn't be spires).` };
+      }
+      if (blockType === 'reinforced_wall') {
+        // Costs 2 actions — check sufficient budget even if general check passed
+        if (playerState.actionsThisTick + REINFORCED_WALL_ACTION_COST > ACTIONS_PER_TICK) {
+          return { valid: false, reason: `Reinforced wall requires ${REINFORCED_WALL_ACTION_COST} actions to place but only ${ACTIONS_PER_TICK - playerState.actionsThisTick} action(s) remain.` };
+        }
+        // Must be adjacent to a packed_sand or reinforced_wall block at the same level
+        const DX = [-1, 0, 1, 0];
+        const DY = [0, -1, 0, 1];
+        const hasRequiredNeighbor = DX.some((dx, i) =>
+          state.cells.some(c =>
+            c.x === x + dx && c.y === y + DY[i] && c.level === level &&
+            (c.type === 'packed_sand' || c.type === 'reinforced_wall') && c.owner === player
+          )
+        );
+        if (!hasRequiredNeighbor) {
+          return { valid: false, reason: 'Reinforced wall must be placed adjacent to an existing packed_sand or reinforced_wall block (same level).' };
+        }
       }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
@@ -896,6 +966,10 @@ export function applyMove(state, player, action) {
 
   switch (type) {
     case 'PLACE': {
+      // reinforced_wall costs an extra action (total: REINFORCED_WALL_ACTION_COST)
+      if (blockType === 'reinforced_wall') {
+        state.players[player].actionsThisTick += REINFORCED_WALL_ACTION_COST - 1;
+      }
       const newCell = {
         x,
         y,
@@ -916,14 +990,16 @@ export function applyMove(state, player, action) {
     }
     case 'REINFORCE': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
-      const maxHealth = MAX_HEALTH + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
+      const typeMaxHealth = BLOCK_TYPES[cell.type]?.max_health ?? MAX_HEALTH;
+      const maxHealth = typeMaxHealth + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
       const healAmount = cell.health < REINFORCE_CRITICAL_THRESHOLD ? REINFORCE_AMOUNT_CRITICAL : REINFORCE_AMOUNT;
       cell.health = Math.min(cell.health + healAmount, maxHealth);
       break;
     }
     case 'REPAIR_KIT': {
       const cell = state.cells.find(c => c.x === x && c.y === y && c.level === level);
-      const maxHealth = MAX_HEALTH + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
+      const typeMaxHealth = BLOCK_TYPES[cell.type]?.max_health ?? MAX_HEALTH;
+      const maxHealth = typeMaxHealth + (hasButtressAdjacent(state.cells, x, y, player) ? BUTTRESS_HP_BONUS : 0);
       cell.health = maxHealth;
       state.players[player].repairKitLastUsedTick = state.tick;
       break;
@@ -1028,6 +1104,9 @@ export function applyWeather(state) {
   // Determine which positions are adjacent to a same-owner moat (25% damage reduction)
   const moatProtectedPositions = buildMoatProtectedPositions(state.cells);
 
+  // Determine which positions are behind a same-owner reinforced_wall (15% damage reduction)
+  const rwProtectedPositions = buildReinforcedWallProtectedPositions(state.cells);
+
   // Moat cells are permanent and immune to all weather — separate them before processing
   const moatCells = state.cells.filter(c => c.type === 'moat');
   const regularCells = state.cells.filter(c => c.type !== 'moat');
@@ -1070,8 +1149,10 @@ export function applyWeather(state) {
         const posKey = `${cell.x},${cell.y}`;
         const isProtected = protectedSet.has(cellKey);
         const isMoatProtected = moatProtectedPositions.has(posKey);
+        const isRwProtected = rwProtectedPositions.has(posKey);
         let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+        if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
         if (cell.health - dmg <= 0) {
           cascadePositions.add(posKey);
         }
@@ -1084,6 +1165,7 @@ export function applyWeather(state) {
       const cellKey = `${cell.x},${cell.y},${cell.level}`;
       const isProtected = protectedSet.has(cellKey);
       const isMoatProtected = moatProtectedPositions.has(posKey);
+      const isRwProtected = rwProtectedPositions.has(posKey);
       const healthBefore = cell.health;
 
       if (cascadePositions.has(posKey)) {
@@ -1099,6 +1181,7 @@ export function applyWeather(state) {
         // Flag-protected block in direct wipe zone — heavy damage instead of instant destroy
         let dmg = Math.floor(40 * FLAG_DAMAGE_REDUCTION);
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+        if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
         const healthAfter = healthBefore - dmg;
         events.push({
           type: healthAfter <= 0 ? 'destroyed' : 'damaged',
@@ -1108,12 +1191,14 @@ export function applyWeather(state) {
           event: weatherEvent.id,
           flag_protected: true,
           ...(isMoatProtected ? { moat_protected: true } : {}),
+          ...(isRwProtected ? { reinforced_wall_protected: true } : {}),
         });
         if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level === 0) {
         // L0 survived the damage
         let dmg = isProtected ? Math.floor(40 * FLAG_DAMAGE_REDUCTION) : 40;
         if (isMoatProtected) dmg = Math.floor(dmg * (1 - moatProtectedPositions.get(posKey)));
+        if (isRwProtected) dmg = Math.floor(dmg * (1 - rwProtectedPositions.get(posKey)));
         const healthAfter = cell.health - dmg;
         events.push({
           type: 'damaged',
@@ -1123,6 +1208,7 @@ export function applyWeather(state) {
           event: weatherEvent.id,
           ...(isProtected ? { flag_protected: true } : {}),
           ...(isMoatProtected ? { moat_protected: true } : {}),
+          ...(isRwProtected ? { reinforced_wall_protected: true } : {}),
         });
         survivingCells.push({ ...cell, health: healthAfter });
       } else if (cell.y >= WATER_ROWS + 3 && cell.y <= WATER_ROWS + 5 && cell.level > 0) {
@@ -1135,6 +1221,7 @@ export function applyWeather(state) {
           let rainDmg = Math.round(baseRain * mult);
           if (isProtected) rainDmg = Math.floor(rainDmg * FLAG_DAMAGE_REDUCTION);
           if (isMoatProtected) rainDmg = Math.floor(rainDmg * (1 - moatProtectedPositions.get(posKey)));
+          if (isRwProtected) rainDmg = Math.floor(rainDmg * (1 - rwProtectedPositions.get(posKey)));
           const healthAfter = healthBefore - rainDmg;
           if (rainDmg > 0) {
             events.push({
@@ -1145,6 +1232,7 @@ export function applyWeather(state) {
               event: weatherEvent.id,
               ...(isProtected ? { flag_protected: true } : {}),
               ...(isMoatProtected ? { moat_protected: true } : {}),
+              ...(isRwProtected ? { reinforced_wall_protected: true } : {}),
             });
           }
           if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -1178,6 +1266,7 @@ export function applyWeather(state) {
       const posKey = `${cell.x},${cell.y}`;
       const isProtected = protectedSet.has(cellKey);
       const isMoatProtected = moatProtectedPositions.has(posKey);
+      const isRwProtected = rwProtectedPositions.has(posKey);
       if (cols.has(cell.x)) {
         events.push({
           type: 'destroyed',
@@ -1194,6 +1283,7 @@ export function applyWeather(state) {
           let rainDmg = Math.round(baseRain * mult);
           if (isProtected) rainDmg = Math.floor(rainDmg * FLAG_DAMAGE_REDUCTION);
           if (isMoatProtected) rainDmg = Math.floor(rainDmg * (1 - moatProtectedPositions.get(posKey)));
+          if (isRwProtected) rainDmg = Math.floor(rainDmg * (1 - rwProtectedPositions.get(posKey)));
           const healthAfter = healthBefore - rainDmg;
           if (rainDmg > 0) {
             events.push({
@@ -1205,6 +1295,7 @@ export function applyWeather(state) {
               rogue_cols: [...cols],
               ...(isProtected ? { flag_protected: true } : {}),
               ...(isMoatProtected ? { moat_protected: true } : {}),
+              ...(isRwProtected ? { reinforced_wall_protected: true } : {}),
             });
           }
           if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
@@ -1233,6 +1324,7 @@ export function applyWeather(state) {
         const cellKey = `${cell.x},${cell.y},${cell.level}`;
         const isProtected = protectedSet.has(cellKey);
         const isMoatProtected = moatProtectedPositions.has(key);
+        const isRwProtected = rwProtectedPositions.has(key);
         const isParapetProtected = parapetProtectedColumns.has(key);
         const rainDmg = Math.round(baseRain * mult);
         const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
@@ -1243,6 +1335,7 @@ export function applyWeather(state) {
         let totalDamage = rainDmg + windDmg;
         if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
         if (isMoatProtected) totalDamage = Math.floor(totalDamage * (1 - moatProtectedPositions.get(key)));
+        if (isRwProtected) totalDamage = Math.floor(totalDamage * (1 - rwProtectedPositions.get(key)));
         const healthBefore = cell.health;
         const healthAfter = cell.health - totalDamage;
         if (totalDamage > 0) {
@@ -1254,6 +1347,7 @@ export function applyWeather(state) {
             event: weatherEvent.id,
             ...(isProtected ? { flag_protected: true } : {}),
             ...(isMoatProtected ? { moat_protected: true } : {}),
+            ...(isRwProtected ? { reinforced_wall_protected: true } : {}),
             ...(isParapetProtected ? { parapet_protected: true } : {}),
           });
         }

@@ -20,7 +20,8 @@ export const BLOCK_TYPES = {
   moat:        { initial_health: 0, permanent: true }, // immune to weather; cannot stack; tiered depth (1-3) grants 25/35/45% damage reduction to adjacent same-owner blocks
   courtyard:   { initial_health: 30, level0Only: true }, // paved interior floor; cannot stack; grants 25% prestige bonus to adjacent tower blocks (L2+)
   buttress:    { initial_health: 20, level0Only: true }, // fragile support block; level 0 only; grants +10 max HP and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top
-  parapet:     { initial_health: 35, level1or2Only: true }, // elevated battlements; level 1-2 only; on windward edge reduces wind damage to column by 50%; topped columns get 10% prestige bonus
+  parapet:         { initial_health: 35, level1or2Only: true }, // elevated battlements; level 1-2 only; on windward edge reduces wind damage to column by 50%; topped columns get 10% prestige bonus
+  reinforced_wall: { initial_health: 80, max_health: 80, maxLevel: 2, actionCost: 2 }, // premium defensive wall; max level 2; costs 2 actions; must be adjacent to packed_sand or reinforced_wall; grants 15% damage reduction to the block behind it (away from nearest grid edge)
 };
 
 export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT', 'DEEPEN_MOAT'];
@@ -39,6 +40,9 @@ export const BUTTRESS_HP_BONUS = 10; // adjacent same-owner blocks get +10 max H
 export const BUTTRESS_SCORE_MULTIPLIER = 1.2; // adjacent same-owner blocks get 1.2× prestige score
 export const PARAPET_WIND_REDUCTION = 0.5; // wind damage reduction for columns with a parapet on the windward edge
 export const PARAPET_PRESTIGE_BONUS = 0.1; // 10% prestige bonus for columns whose topmost block is a parapet
+export const REINFORCED_WALL_DAMAGE_REDUCTION = 0.15; // 15% damage reduction granted to the block behind a reinforced_wall
+export const REINFORCED_WALL_MAX_LEVEL = 2; // reinforced_wall can only be placed at level 0 or 1 (max level 2)
+export const REINFORCED_WALL_ACTION_COST = 2; // placing a reinforced_wall costs 2 actions
 export const FLAGS_MAX_LABEL_LENGTH = 50;
 export const FLAG_MIN_SPACING = 4; // flags must be >= 4 grid units apart (Euclidean), unless separated by empty cells
 export const FLAG_DAMAGE_REDUCTION = 0.5; // flagged structures take 50% damage

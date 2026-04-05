@@ -30,8 +30,9 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `courtyard` | 30 | Paved interior floor; level 0 only; grants 25% prestige bonus to adjacent tower blocks (L2+) |
 | `buttress` | 20 | Fragile support block; level 0 only; grants +10 max HP (cap 60→70) and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top |
 | `parapet` | 35 | Elevated battlements; level 1–2 only; on windward edge reduces wind damage to entire column by 50%; columns topped with a parapet receive 10% prestige bonus |
+| `reinforced_wall` | 80 | Premium defensive wall; max level 2; costs **2 actions** to place; must be adjacent (same level) to packed_sand or reinforced_wall; grants 15% damage reduction to the block behind it (away from nearest grid edge) |
 
-Blocks can be **reinforced** (+15 HP per action, up to max 60 HP; critically damaged blocks below 20 HP receive +30 HP instead) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired.
+Blocks can be **reinforced** (+15 HP per action, up to max 60 HP; critically damaged blocks below 20 HP receive +30 HP instead) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired. Reinforced wall blocks can be reinforced and repaired up to their 80 HP maximum.
 
 ---
 
@@ -111,6 +112,24 @@ A `buttress` is a special ground-level (level 0 only) support block that reinfor
 
 ```json
 { "action": "PLACE", "x": 5, "y": 10, "block_type": "buttress", "level": 0 }
+```
+
+---
+
+## Reinforced Wall
+
+A `reinforced_wall` is a premium defensive block designed to protect an inner keep from weather damage.
+
+- **Max level 2**: reinforced walls can only be placed at level 0 or 1 — they are meant for outer walls, not spires.
+- **Adjacency requirement**: must be placed orthogonally adjacent (same level) to an existing `packed_sand` or `reinforced_wall` block owned by the same player. Cannot be placed in isolation.
+- **Action cost**: placing a reinforced wall costs **2 actions** instead of the normal 1.
+- **High durability**: starts at 80 HP — significantly tougher than packed_sand (60 HP).
+- **Directional protection**: the block immediately behind the wall — in the direction **away from the nearest grid edge** — receives **15% damage reduction** each tick. This simulates a wall shielding an inner keep from the elements.
+- **Repair and reinforce**: reinforced walls can be reinforced (+15 HP, capped at 80) and repaired (restored to 80 HP).
+- **Strategic use**: build a line of reinforced walls along the outer edge of your zone to shield the critical inner towers behind them. Combine with moats for stacked protection.
+
+```json
+{ "action": "PLACE", "x": 2, "y": 10, "block_type": "reinforced_wall", "level": 0 }
 ```
 
 ---
@@ -219,7 +238,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` \| `DEEPEN_MOAT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
-| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` \| `parapet` | Required for PLACE only |
+| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` \| `parapet` \| `reinforced_wall` | Required for PLACE only |
 | `level` | 0–3 | Must place L0 before L1; cascade on removal |
 
 ```json

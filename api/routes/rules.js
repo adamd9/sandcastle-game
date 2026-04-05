@@ -16,6 +16,9 @@ import {
   WEATHER_EVENTS,
   FLAG_DAMAGE_REDUCTION,
   MOAT_DAMAGE_REDUCTION,
+  REINFORCED_WALL_DAMAGE_REDUCTION,
+  REINFORCED_WALL_MAX_LEVEL,
+  REINFORCED_WALL_ACTION_COST,
 } from '../lib/rules.js';
 import { getAllWeatherEvents } from '../lib/weather.js';
 
@@ -67,6 +70,14 @@ const COMPUTED = {
     damage_reduction: MOAT_DAMAGE_REDUCTION,
     score_contribution: 'Moat blocks do not contribute to structural score (health = 0).',
     cannot_reinforce: true,
+  },
+  reinforced_wall_mechanics: {
+    description: 'Reinforced wall is a premium defensive block with 80 HP. It must be placed adjacent to an existing packed_sand or reinforced_wall block and costs 2 actions to place.',
+    placement: `Level 0–${REINFORCED_WALL_MAX_LEVEL} only (walls should not be spires). Must be adjacent (same level) to packed_sand or reinforced_wall owned by the same player.`,
+    action_cost: REINFORCED_WALL_ACTION_COST,
+    directional_protection: `The block in the direction away from the nearest grid edge (the "inner keep" direction) takes ${REINFORCED_WALL_DAMAGE_REDUCTION * 100}% less weather damage.`,
+    damage_reduction: REINFORCED_WALL_DAMAGE_REDUCTION,
+    max_level: REINFORCED_WALL_MAX_LEVEL,
   },
 };
 
