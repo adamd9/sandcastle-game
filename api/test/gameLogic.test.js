@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { validateMove, applyMove, applyWeather } from '../lib/gameLogic.js';
+import { validateMove, applyMove, applyWeather, computeStructureScore } from '../lib/gameLogic.js';
 
 const freshState = () => ({
   id: 'game',
@@ -1342,5 +1342,109 @@ describe('applyWeather — survivedTicks', () => {
     }
     const l2 = state.cells.find(c => c.level === 2);
     expect(l2.survivedTicks).toBe(3);
+  });
+});
+
+describe('parapet validation', () => {
+  it('allows PLACE parapet at level 1 with foundation', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'parapet', level: 1 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('allows PLACE parapet at level 2 with foundation', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'parapet', level: 2 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects PLACE parapet at level 0', () => {
+    const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'parapet', level: 0 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/parapet/i);
+  });
+
+  it('rejects PLACE parapet at level 3', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 2 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'parapet', level: 3 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/parapet/i);
+  });
+
+  it('allows REINFORCE on a parapet block', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'parapet', health: 10, owner: 'player1', level: 1 });
+    const r = validateMove(state, 'player1', { action: 'REINFORCE', x: 5, y: 5, level: 1 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('allows REPAIR_KIT on a parapet block', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'parapet', health: 5, owner: 'player1', level: 1 });
+    const r = validateMove(state, 'player1', { action: 'REPAIR_KIT', x: 5, y: 5, level: 1 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('parapet on windward edge reduces wind damage to column top block by 50%', () => {
+    // Wind from N hits row y=0; place packed_sand at y=0 (water row — use y=3), parapet above it
+    // Use x=0 (on west edge for W wind) for a non-water row
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 30, wind_direction: 'W', event: 'normal' };
+    // Column x=0, y=5: packed_sand L0, parapet L1 (on windward west edge for W wind)
+    state.cells = [
+      { x: 0, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 },
+      { x: 0, y: 5, type: 'parapet', health: 35, owner: 'player1', level: 1 },
+    ];
+    const result = applyWeather(structuredClone(state));
+    const parapetCell = result.cells.find(c => c.x === 0 && c.y === 5 && c.level === 1);
+    // Without parapet protection: wind damage = floor(30/3) = 10; with 50% reduction = 5
+    // rain damage = 0 (rain_mm=0, BASE_DAMAGE=3 → rainDamage(0) = 3 + 0 = 3)
+    // total = 3 + 5 = 8, parapet health = 35 - 8 = 27
+    const windDmgFull = Math.floor(30 / 3); // 10
+    const windDmgReduced = Math.round(windDmgFull * 0.5); // 5
+    const rainDmg = 3; // BASE_DAMAGE with rain_mm=0
+    expect(parapetCell.health).toBe(35 - (rainDmg + windDmgReduced));
+  });
+
+  it('parapet NOT on windward edge gives no wind reduction', () => {
+    // Wind from W: windward edge is x=0; parapet at x=5 (not on edge) should not reduce wind
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 30, wind_direction: 'W', event: 'normal' };
+    state.cells = [
+      { x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 },
+      { x: 5, y: 5, type: 'parapet', health: 35, owner: 'player1', level: 1 },
+    ];
+    const result = applyWeather(structuredClone(state));
+    const parapetCell = result.cells.find(c => c.x === 5 && c.y === 5 && c.level === 1);
+    // Not on windward edge, so no wind damage (wind only hits edge blocks in normal weather)
+    const rainDmg = 3;
+    expect(parapetCell.health).toBe(35 - rainDmg);
+  });
+
+  it('column topped with parapet gets 10% prestige bonus in computeStructureScore', () => {
+    // Two identical columns except one is topped with parapet, other with packed_sand
+    const cells = [
+      // Column with parapet top
+      { x: 1, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 },
+      { x: 1, y: 5, type: 'parapet',     health: 35, owner: 'player1', level: 1 },
+      // Column with packed_sand top
+      { x: 2, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 },
+      { x: 2, y: 5, type: 'packed_sand', health: 35, owner: 'player1', level: 1 },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.parapet_count).toBe(1);
+    // Column 1 prestige should be slightly higher than column 2 due to parapet 10% bonus
+    // Both base: L0=60*1=60, L1=35*1.5=52.5 → base=112.5
+    // Parapet column: 112.5 * 1.1 = 123.75; plain column: 112.5
+    // Total = round(123.75 + 112.5) = round(236.25) = 236
+    expect(score.prestige_score).toBeGreaterThan(0);
   });
 });

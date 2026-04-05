@@ -8,6 +8,7 @@ const BLOCK_DRAW_COLORS = {
   dry_sand:    { player1: '#e8d5a3', player2: '#a3e8a3' },
   moat:        { player1: '#2a8c80', player2: '#2a8c80' }, // ocean-matching teal water channel
   courtyard:   { player1: '#b5813a', player2: '#7a9e4a' }, // warm terracotta / olive paved floor
+  parapet:     { player1: '#6b4226', player2: '#2e5e26' }, // dark stone battlements
 };
 
 // Depth-tiered moat colors: shallow (1) = teal, standard (2) = deeper blue-green, deep (3) = dark blue
@@ -204,6 +205,23 @@ export async function renderBoard(state, options = {}) {
           ctx.globalAlpha = LEVEL_SHADE[Math.min(level, MAX_LEVEL)];
           ctx.fillStyle = '#000000';
           ctx.fillRect(ox, oy, drawSize, drawSize);
+          ctx.globalAlpha = 1;
+        }
+
+        // Crenellation rendering for parapet blocks
+        if (type === 'parapet') {
+          const merlonW = Math.max(2, Math.round(drawSize * 0.18));
+          const merlonH = Math.max(2, Math.round(drawSize * 0.22));
+          const gap = Math.max(1, Math.round(drawSize * 0.12));
+          const merlonColor = (colors && colors[owner]) || '#888888';
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = merlonColor;
+          // Draw 3 merlons across the top of the block
+          const totalMerlonW = merlonW * 3 + gap * 2;
+          const startX = ox + (drawSize - totalMerlonW) / 2;
+          for (let m = 0; m < 3; m++) {
+            ctx.fillRect(startX + m * (merlonW + gap), oy, merlonW, merlonH);
+          }
           ctx.globalAlpha = 1;
         }
       }

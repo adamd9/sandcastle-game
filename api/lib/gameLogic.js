@@ -23,6 +23,8 @@ import {
   COURTYARD_TOWER_BONUS,
   BUTTRESS_HP_BONUS,
   BUTTRESS_SCORE_MULTIPLIER,
+  PARAPET_WIND_REDUCTION,
+  PARAPET_PRESTIGE_BONUS,
   PRESTIGE_LEVEL_MULTIPLIERS,
   STRUCTURAL_DEPTH_BONUS,
 } from './rules.js';
@@ -247,10 +249,24 @@ export function computeStructureScore(cells, player, flags = []) {
     columnLevels.get(posKey).add(cell.level);
   }
   // Apply 25% depth bonus to fully-stacked columns
+  // Apply 10% prestige bonus for columns whose topmost block is a parapet
+  const topBlockByColumn = new Map(); // posKey -> topmost non-moat cell
+  for (const cell of nonMoatCells) {
+    const posKey = `${cell.x},${cell.y}`;
+    if (!topBlockByColumn.has(posKey) || cell.level > topBlockByColumn.get(posKey).level) {
+      topBlockByColumn.set(posKey, cell);
+    }
+  }
+  let parapet_count = 0;
   for (const [posKey, levelsHere] of columnLevels) {
     const isFullColumn = levelsHere.has(0) && levelsHere.has(1) && levelsHere.has(2) && levelsHere.has(3);
     if (isFullColumn) {
       columnPrestige.set(posKey, columnPrestige.get(posKey) * (1 + STRUCTURAL_DEPTH_BONUS));
+    }
+    const topCell = topBlockByColumn.get(posKey);
+    if (topCell && topCell.type === 'parapet') {
+      columnPrestige.set(posKey, columnPrestige.get(posKey) * (1 + PARAPET_PRESTIGE_BONUS));
+      parapet_count++;
     }
   }
   const prestige_score = Math.round([...columnPrestige.values()].reduce((sum, s) => sum + s, 0));
@@ -305,7 +321,7 @@ export function computeStructureScore(cells, player, flags = []) {
     footprint, perimeter, perimeter_integrity, perimeter_gaps,
     height_variety, architectural_complexity,
     flag_diversity, courtyard_bonus, courtyard_cells,
-    prestige_score, moat_courtyard_bonus, longevity_bonus,
+    prestige_score, moat_courtyard_bonus, longevity_bonus, parapet_count,
   };
 }
 
@@ -478,6 +494,25 @@ function buildMoatProtectedPositions(cells) {
 }
 
 // ---------------------------------------------------------------------------
+// buildParapetProtectedColumns — returns a Set of "x,y" column keys where a
+// parapet block provides wind protection (50% wind damage reduction).
+// A column is parapet-protected when it contains a parapet block AND that
+// column position is on the windward edge (or windAffectsAll is true).
+// ---------------------------------------------------------------------------
+
+function buildParapetProtectedColumns(regularCells, wind_direction, windAffectsAll) {
+  const protected_columns = new Set();
+  for (const cell of regularCells) {
+    if (cell.type === 'parapet') {
+      if (windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)) {
+        protected_columns.add(`${cell.x},${cell.y}`);
+      }
+    }
+  }
+  return protected_columns;
+}
+
+// ---------------------------------------------------------------------------
 // hasButtressAdjacent — returns true if any orthogonally adjacent cell (same owner)
 // is a buttress block, granting the +10 max HP bonus.
 // ---------------------------------------------------------------------------
@@ -609,6 +644,7 @@ export function computeDamagePreview(state) {
   const moatProtectedPositions = buildMoatProtectedPositions(state.cells);
 
   const regularCells = state.cells.filter(c => c.type !== 'moat');
+  const parapetProtectedColumns = buildParapetProtectedColumns(regularCells, wind_direction, weatherEvent.windAffectsAll ?? false);
 
   // Build top-block map: (x,y) -> highest-level block
   const topBlocks = new Map();
@@ -676,7 +712,10 @@ export function computeDamagePreview(state) {
       const rainDmg = Math.round(baseRain * mult);
       const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
         ? baseWind : 0;
-      const windDmg = Math.round(rawWind * mult);
+      const isParapetProtected = parapetProtectedColumns.has(posKey);
+      const windDmg = isParapetProtected
+        ? Math.round(rawWind * mult * (1 - PARAPET_WIND_REDUCTION))
+        : Math.round(rawWind * mult);
       let totalDamage = rainDmg + windDmg;
       if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
       if (isMoatProtected) totalDamage = Math.floor(totalDamage * (1 - moatProtectedPositions.get(posKey)));
@@ -693,6 +732,7 @@ export function computeDamagePreview(state) {
       expected_damage: expectedDamage,
       flag_protected: isProtected,
       moat_protected: isMoatProtected,
+      parapet_protected: parapetProtectedColumns.has(posKey),
     };
     if (note !== undefined) entry.note = note;
     damage_per_top_block.push(entry);
@@ -759,6 +799,9 @@ export function validateMove(state, player, action) {
       }
       if (blockType === 'buttress' && level > 0) {
         return { valid: false, reason: 'Buttress blocks cannot be stacked — they can only be placed at level 0.' };
+      }
+      if (blockType === 'parapet' && (level < 1 || level > 2)) {
+        return { valid: false, reason: 'Parapet blocks can only be placed at level 1 or 2 (atop a wall, like battlements).' };
       }
       if (level > 0) {
         const foundation = state.cells.find(c => c.x === x && c.y === y && c.level === level - 1);
@@ -982,6 +1025,8 @@ export function applyWeather(state) {
   const moatCells = state.cells.filter(c => c.type === 'moat');
   const regularCells = state.cells.filter(c => c.type !== 'moat');
 
+  // Determine which columns have a parapet on the windward edge (50% wind reduction)
+  const parapetProtectedColumns = buildParapetProtectedColumns(regularCells, wind_direction, weatherEvent.windAffectsAll ?? false);
   const events = [];
   let survivingCells;
 
@@ -1181,10 +1226,13 @@ export function applyWeather(state) {
         const cellKey = `${cell.x},${cell.y},${cell.level}`;
         const isProtected = protectedSet.has(cellKey);
         const isMoatProtected = moatProtectedPositions.has(key);
+        const isParapetProtected = parapetProtectedColumns.has(key);
         const rainDmg = Math.round(baseRain * mult);
         const rawWind = (baseWind > 0 && (weatherEvent.windAffectsAll || isWindwardEdge(cell.x, cell.y, wind_direction)))
           ? baseWind : 0;
-        const windDmg = Math.round(rawWind * mult);
+        const windDmg = isParapetProtected
+          ? Math.round(rawWind * mult * (1 - PARAPET_WIND_REDUCTION))
+          : Math.round(rawWind * mult);
         let totalDamage = rainDmg + windDmg;
         if (isProtected) totalDamage = Math.floor(totalDamage * FLAG_DAMAGE_REDUCTION);
         if (isMoatProtected) totalDamage = Math.floor(totalDamage * (1 - moatProtectedPositions.get(key)));
@@ -1199,6 +1247,7 @@ export function applyWeather(state) {
             event: weatherEvent.id,
             ...(isProtected ? { flag_protected: true } : {}),
             ...(isMoatProtected ? { moat_protected: true } : {}),
+            ...(isParapetProtected ? { parapet_protected: true } : {}),
           });
         }
         if (healthAfter > 0) survivingCells.push({ ...cell, health: healthAfter });
