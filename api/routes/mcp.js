@@ -243,8 +243,8 @@ export function createMcpRouter() {
             .describe('Grid x coordinate (0–19). You must stay within your zone.'),
           y: z.number().int().min(0).max(19)
             .describe('Grid y coordinate (0–19).'),
-          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand', 'moat']).optional()
-            .describe('Block type — required for PLACE. packed_sand has the highest health (60). moat is permanent, immune to weather, and grants 25% damage reduction to adjacent same-owner blocks (level 0 only).'),
+          block_type: z.enum(['dry_sand', 'wet_sand', 'packed_sand', 'moat', 'courtyard', 'buttress', 'parapet']).optional()
+            .describe('Block type — required for PLACE. packed_sand has the highest health (60). moat is permanent, immune to weather, and grants 25% damage reduction to adjacent same-owner blocks (level 0 only). courtyard is level 0 only and grants 25% prestige bonus to adjacent tower blocks (L2+). buttress is level 0 only and grants +10 max HP and 1.2× prestige to adjacent same-owner blocks. parapet (level 1-2 only) acts as battlements: on windward edge reduces wind damage to the column by 50% and topped columns get 10% prestige bonus.'),
           level: z.number().int().min(0).max(3).optional().default(0)
             .describe('Vertical level to act on: 0=ground, 1=first floor, 2=tower, 3=spire. Default: 0 for PLACE. Must place L0 before L1, etc.'),
         })).min(1).max(ACTIONS_PER_TICK)
