@@ -1394,7 +1394,6 @@ describe('parapet validation', () => {
   });
 
   it('parapet on windward edge reduces wind damage to column top block by 50%', () => {
-    // Wind from N hits row y=0; place packed_sand at y=0 (water row — use y=3), parapet above it
     // Use x=0 (on west edge for W wind) for a non-water row
     const state = freshState();
     state.weather = { rain_mm: 0, wind_speed_kph: 30, wind_direction: 'W', event: 'normal' };
@@ -1405,12 +1404,12 @@ describe('parapet validation', () => {
     ];
     const result = applyWeather(structuredClone(state));
     const parapetCell = result.cells.find(c => c.x === 0 && c.y === 5 && c.level === 1);
-    // Without parapet protection: wind damage = floor(30/3) = 10; with 50% reduction = 5
-    // rain damage = 0 (rain_mm=0, BASE_DAMAGE=3 → rainDamage(0) = 3 + 0 = 3)
+    // wind damage = floor(30/3) = 10; with 50% parapet reduction = round(10 * 0.5) = 5
+    // rain damage: rainDamage(0) = BASE_DAMAGE(3) + floor(0 * 10) = 3 (base erosion always applies)
     // total = 3 + 5 = 8, parapet health = 35 - 8 = 27
     const windDmgFull = Math.floor(30 / 3); // 10
     const windDmgReduced = Math.round(windDmgFull * 0.5); // 5
-    const rainDmg = 3; // BASE_DAMAGE with rain_mm=0
+    const rainDmg = 3; // BASE_DAMAGE always applies regardless of rain_mm
     expect(parapetCell.health).toBe(35 - (rainDmg + windDmgReduced));
   });
 

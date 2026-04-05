@@ -316,6 +316,10 @@ export function computeStructureScore(cells, player, flags = []) {
     .filter(c => c.level >= 2)
     .reduce((sum, c) => sum + (c.survivedTicks || 0), 0);
 
+  // parapet_count: number of columns whose topmost block is a parapet.
+  //   These columns already received a 10% prestige bonus above.
+  //   Exposed here so callers (e.g. get_state) can surface the architectural stat.
+
   return {
     total_blocks, total_hp, avg_health, max_height,
     footprint, perimeter, perimeter_integrity, perimeter_gaps,
