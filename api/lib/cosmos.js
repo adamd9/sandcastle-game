@@ -123,7 +123,9 @@ export async function getHistory(limit = 10) {
   const query = {
     query: `SELECT ${top} * FROM c WHERE c.docType = "history" ORDER BY c.tick DESC`,
   };
-  const { resources } = await container.items.query(query, { partitionKey: PARTITION_KEY }).fetchAll();
+  // Cross-partition query: history docs are partitioned by /id (e.g. "history_tick_N"),
+  // not by the "game" partition, so we must omit the partitionKey filter.
+  const { resources } = await container.items.query(query).fetchAll();
   // Return in ascending order (oldest first)
   return resources.sort((a, b) => a.tick - b.tick);
 }
@@ -135,7 +137,8 @@ export async function getHistoryCount() {
   const query = {
     query: 'SELECT VALUE COUNT(1) FROM c WHERE c.docType = "history"',
   };
-  const { resources } = await container.items.query(query, { partitionKey: PARTITION_KEY }).fetchAll();
+  // Cross-partition query (history docs live in their own /id partitions)
+  const { resources } = await container.items.query(query).fetchAll();
   return resources[0] ?? 0;
 }
 
