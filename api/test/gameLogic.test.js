@@ -1447,3 +1447,162 @@ describe('parapet validation', () => {
     expect(score.prestige_score).toBeGreaterThan(0);
   });
 });
+
+describe('reinforced_wall validation', () => {
+  it('allows PLACE reinforced_wall at level 0 when adjacent to packed_sand', () => {
+    const state = freshState();
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('allows PLACE reinforced_wall adjacent to another reinforced_wall', () => {
+    const state = freshState();
+    state.cells.push({ x: 4, y: 5, type: 'reinforced_wall', health: 80, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects PLACE reinforced_wall at level 1 without level-0 foundation at that position', () => {
+    const state = freshState();
+    // (4,5) has both level 0 and 1 — making it adjacent at level 1 — but (5,6) has no L0 foundation
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 6, type: 'reinforced_wall', level: 1 });
+    expect(r.valid).toBe(false); // No foundation at (5,6) level 0
+  });
+
+  it('rejects PLACE reinforced_wall without adjacent qualifying block', () => {
+    const state = freshState();
+    // Only dry_sand nearby — not packed_sand or reinforced_wall
+    state.cells.push({ x: 4, y: 5, type: 'dry_sand', health: 25, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/adjacent/i);
+  });
+
+  it('rejects PLACE reinforced_wall in isolation (no neighbors)', () => {
+    const r = validateMove(freshState(), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/adjacent/i);
+  });
+
+  it('rejects PLACE reinforced_wall adjacent to opponent packed_sand', () => {
+    const state = freshState();
+    // Adjacent packed_sand belongs to player2 — should not count
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player2', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/adjacent/i);
+  });
+
+  it('rejects PLACE reinforced_wall at level 3', () => {
+    const state = freshState();
+    // Build a column up to level 2
+    for (let l = 0; l < 3; l++) {
+      state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: l });
+    }
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 3 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/reinforced wall/i);
+  });
+
+  it('reinforced_wall costs 2 actions (rejects when only 1 action left)', () => {
+    const state = freshState();
+    state.players.player1.actionsThisTick = 19; // 1 left
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/2 actions/i);
+  });
+
+  it('reinforced_wall costs 2 actions (allowed when 2 actions left)', () => {
+    const state = freshState();
+    state.players.player1.actionsThisTick = 18; // 2 left
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('placing reinforced_wall increments actionsThisTick by 2', () => {
+    const state = freshState();
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const newState = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    expect(newState.players.player1.actionsThisTick).toBe(2);
+  });
+
+  it('reinforced_wall has initial_health of 80', () => {
+    const state = freshState();
+    state.cells.push({ x: 4, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const newState = applyMove(structuredClone(state), 'player1', { action: 'PLACE', x: 5, y: 5, type: 'reinforced_wall', level: 0 });
+    const wall = newState.cells.find(c => c.type === 'reinforced_wall');
+    expect(wall).toBeDefined();
+    expect(wall.health).toBe(80);
+  });
+
+  it('REINFORCE on reinforced_wall caps at 80 HP', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'reinforced_wall', health: 75, owner: 'player1', level: 0 });
+    const newState = applyMove(structuredClone(state), 'player1', { action: 'REINFORCE', x: 5, y: 5, level: 0 });
+    const wall = newState.cells.find(c => c.type === 'reinforced_wall');
+    expect(wall.health).toBe(80); // capped at 80, not 90 (75 + 15)
+  });
+
+  it('REPAIR_KIT on reinforced_wall restores to 80 HP', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'reinforced_wall', health: 10, owner: 'player1', level: 0 });
+    const newState = applyMove(structuredClone(state), 'player1', { action: 'REPAIR_KIT', x: 5, y: 5, level: 0 });
+    const wall = newState.cells.find(c => c.type === 'reinforced_wall');
+    expect(wall.health).toBe(80);
+  });
+
+  it('reinforced_wall grants 15% damage reduction to block behind it (away from nearest edge)', () => {
+    // Player1 zone x=0-9; reinforced_wall at x=0 means nearest edge is x=0 (left)
+    // "behind" = direction away from left edge = x+1, so block at x=1 gets protection
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+    state.cells = [
+      { x: 0, y: 5, type: 'reinforced_wall', health: 80, owner: 'player1', level: 0 },
+      { x: 1, y: 5, type: 'packed_sand',     health: 60, owner: 'player1', level: 0 },
+    ];
+    const result = applyWeather(structuredClone(state));
+    // Base damage = BASE_DAMAGE(3) + rain(0) = 3; with 15% reduction = floor(3 * 0.85) = 2
+    const inner = result.cells.find(c => c.x === 1 && c.y === 5);
+    expect(inner).toBeDefined();
+    expect(inner.health).toBe(60 - Math.floor(3 * (1 - 0.15))); // 60 - 2 = 58
+  });
+
+  it('reinforced_wall itself takes full damage (no self-protection)', () => {
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+    state.cells = [
+      { x: 0, y: 5, type: 'reinforced_wall', health: 80, owner: 'player1', level: 0 },
+      { x: 1, y: 5, type: 'packed_sand',     health: 60, owner: 'player1', level: 0 },
+    ];
+    const result = applyWeather(structuredClone(state));
+    // reinforced_wall itself: base damage = 3 (no reduction for the wall itself)
+    const wall = result.cells.find(c => c.x === 0 && c.y === 5);
+    expect(wall).toBeDefined();
+    expect(wall.health).toBe(77); // 80 - 3
+  });
+
+  it('block on wrong side of reinforced_wall does NOT get protection', () => {
+    // Wall at x=0; nearest edge is left (x=0), so "behind" direction is x+1
+    // Block at x=-1 would be "in front" but x=-1 is off grid
+    // Block at (0, 4) is north of the wall; it should NOT get protection
+    const state = freshState();
+    state.weather = { rain_mm: 0, wind_speed_kph: 0, wind_direction: 'N', event: 'normal' };
+    state.cells = [
+      { x: 0, y: 5, type: 'reinforced_wall', health: 80, owner: 'player1', level: 0 },
+      { x: 0, y: 4, type: 'packed_sand',     health: 60, owner: 'player1', level: 0 },
+    ];
+    const result = applyWeather(structuredClone(state));
+    // (0, 4) is to the NORTH of the wall, not behind it — no protection
+    const north = result.cells.find(c => c.x === 0 && c.y === 4);
+    expect(north).toBeDefined();
+    expect(north.health).toBe(57); // 60 - 3 (full damage, no reduction)
+  });
+});
+
