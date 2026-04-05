@@ -31,6 +31,7 @@ describe('POST /mcp', () => {
     expect(names).toContain('get_rules');
     expect(names).toContain('submit_turn');
     expect(names).toContain('get_my_zone_state');
+    expect(names).toContain('get_flags');
   });
 
   it('get_rules includes flag mechanics', async () => {
@@ -385,6 +386,121 @@ describe('POST /mcp', () => {
     expect(cell).toHaveProperty('level', 0);
     expect(cell).toHaveProperty('type', 'packed_sand');
     expect(cell).toHaveProperty('health');
+    expect(cell).toHaveProperty('flag_protected', false);
+  });
+
+  it('get_my_zone_state includes flag_protected: true for flag-covered blocks', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    s.cells.push({ x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.flags.push({ id: 'flag_t1', x: 3, y: 5, level: 0, owner: 'player1', label: 'Main' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    // col index = x - x_min = 3 - 0 = 3, row y=5
+    const cell = parsed.zone_grid[5][3];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('flag_protected', true);
+    // flags array should include the placed flag
+    expect(parsed.flags).toEqual(expect.arrayContaining([
+      expect.objectContaining({ x: 3, y: 5, level: 0, owner: 'player1', label: 'Main' }),
+    ]));
+  });
+
+  it('get_my_zone_state includes flags array and unflagged cells have flag_protected: false', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    // Two adjacent blocks, only one flagged
+    s.cells.push({ x: 2, y: 7, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.cells.push({ x: 6, y: 7, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.flags.push({ id: 'flag_t2', x: 2, y: 7, level: 0, owner: 'player1', label: 'East' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(parsed.zone_grid[7][2]).toHaveProperty('flag_protected', true);
+    expect(parsed.zone_grid[7][6]).toHaveProperty('flag_protected', false);
+    expect(parsed.flags).toHaveLength(1);
+    expect(parsed.flags[0]).toMatchObject({ x: 2, y: 7 });
+  });
+
+  it('get_flags returns player flag coverage', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    s.cells.push({ x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.cells.push({ x: 5, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.flags.push({ id: 'flag_t3', x: 4, y: 6, level: 0, owner: 'player1', label: 'Tower' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_flags', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(parsed).toHaveProperty('player', 'player1');
+    expect(parsed).toHaveProperty('flag_coverage');
+    expect(parsed.flag_coverage).toHaveLength(1);
+    const entry = parsed.flag_coverage[0];
+    expect(entry.flag).toMatchObject({ x: 4, y: 6, label: 'Tower' });
+    // Both adjacent blocks should be in protected_blocks (same connected component)
+    expect(entry.protected_blocks.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('get_flags returns empty coverage when player has no flags', async () => {
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_flags', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(parsed.flag_coverage).toEqual([]);
+  });
+
+  it('get_flags only returns calling player flags, not opponent flags', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    s.cells.push({ x: 4, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.cells.push({ x: 12, y: 6, level: 0, type: 'packed_sand', health: 60, owner: 'player2' });
+    s.flags.push({ id: 'flag_p1', x: 4, y: 6, level: 0, owner: 'player1', label: 'P1 Tower' });
+    s.flags.push({ id: 'flag_p2', x: 12, y: 6, level: 0, owner: 'player2', label: 'P2 Tower' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_flags', arguments: {} },
+      });
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(parsed.flag_coverage).toHaveLength(1);
+    expect(parsed.flag_coverage[0].flag.owner).toBe('player1');
   });
 
   it('get_my_zone_state is scoped to the calling player zone', async () => {

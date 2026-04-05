@@ -123,7 +123,8 @@ const RULES_DOC = {
   },
   mcp_tools: {
     get_state: 'Get current game state with recent turn history and weather events, structured for AI consumption.',
-    get_my_zone_state: 'Get a compact 2D grid of your zone showing top-level block {level, health, type} or null at each (x,y) cell.',
+    get_my_zone_state: 'Get a compact 2D grid of your zone showing top-level block {level, health, type, flag_protected} or null at each (x,y) cell. Also returns your active flags list.',
+    get_flags: 'Get your active flags with connected-component coverage (protected_blocks list per flag).',
     get_rules: 'Get these rules.',
     submit_turn: 'Submit all moves for this tick as a batch array. Auto-commits your turn.',
     suggest_improvement: 'Submit a game improvement suggestion that gets raised as a GitHub issue.',
@@ -204,12 +205,14 @@ export function createMcpRouter() {
 
     server.tool(
       'get_my_zone_state',
-      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type} or null for empty cells. Use this to quickly identify which cells need reinforcing, which can have height added, and the overall state of your castle.',
+      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type, flag_protected} or null for empty cells. flag_protected is true when the column is covered by a flag (50% weather damage reduction). Also returns your active flags list. Use this to quickly identify which cells need reinforcing, which can have height added, and which are protected by flags.',
       {},
       async () => {
         const state = await getState();
         const zone = ZONES[player];
-        const grid = buildZoneGrid(state.cells, player);
+        const flags = state.flags || [];
+        const grid = buildZoneGrid(state.cells, player, flags);
+        const myFlags = flags.filter(f => f.owner === player);
         return {
           content: [{
             type: 'text',
@@ -217,7 +220,25 @@ export function createMcpRouter() {
               player,
               zone: { x_min: zone.x_min, x_max: zone.x_max },
               zone_grid: grid,
+              flags: myFlags,
             }, null, 2),
+          }],
+        };
+      },
+    );
+
+    server.tool(
+      'get_flags',
+      'Get your active flags with the connected-component coverage each flag protects (50% weather damage reduction). Returns each flag with its label and the list of blocks in the same connected structure.',
+      {},
+      async () => {
+        const state = await getState();
+        const flags = state.flags || [];
+        const coverage = buildFlagCoverage(state.cells, flags).filter(entry => entry.flag.owner === player);
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ player, flag_coverage: coverage }, null, 2),
           }],
         };
       },
