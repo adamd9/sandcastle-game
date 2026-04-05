@@ -356,12 +356,14 @@ function inGrid(x, y) {
 
 /**
  * Returns a 2D array [y][x_offset] where each entry is
- * {level, health, type} for the top-most block owned by player at that cell,
+ * {level, health, type, flag_protected} for the top-most block owned by player at that cell,
  * or null if the cell is empty.
+ * flag_protected is true when at least one block at that (x,y) column is covered by a flag.
  * Dimensions: GRID_HEIGHT rows × (x_max - x_min + 1) columns.
  */
-export function buildZoneGrid(cells, player) {
+export function buildZoneGrid(cells, player, flags = []) {
   const zone = ZONES[player];
+  const protectedSet = buildFlagProtectedSet(cells, flags);
   const grid = [];
   for (let y = 0; y < GRID_HEIGHT; y++) {
     const row = [];
@@ -371,7 +373,8 @@ export function buildZoneGrid(cells, player) {
         row.push(null);
       } else {
         const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
-        row.push({ level: top.level, health: top.health, type: top.type });
+        const flag_protected = blocksAtCell.some(c => protectedSet.has(`${c.x},${c.y},${c.level}`));
+        row.push({ level: top.level, health: top.health, type: top.type, flag_protected });
       }
     }
     grid.push(row);
