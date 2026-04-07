@@ -358,25 +358,49 @@ function inGrid(x, y) {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a 2D array [y][x_offset] where each entry is
+ * Returns a 2D array [y][x - x_min] where each entry is
  * {level, health, type, flag_protected} for the top-most block owned by player at that cell,
  * or null if the cell is empty.
- * flag_protected is true when at least one block at that (x,y) column is covered by a flag.
+ *
+ * The mapping is a direct 1:1 correspondence: grid[y][x - zone.x_min] always reflects
+ * the game state at position (x, y) — no coordinate offsets are applied.
+ *
+ * Moat blocks (health = 0, permanent) are always included and never omitted.
+ *
+ * flag_protected is true when the column is part of a flag-protected connected structure.
  * Dimensions: GRID_HEIGHT rows × (x_max - x_min + 1) columns.
  */
 export function buildZoneGrid(cells, player, flags = []) {
   const zone = ZONES[player];
   const protectedSet = buildFlagProtectedSet(cells, flags);
+
+  // Pre-index the highest-level cell owned by this player at each (x,y) in their zone.
+  // Using a map avoids repeated O(n) scans and makes the y→row mapping explicit.
+  // Moat blocks (health=0) are intentionally included — they are permanent and must be shown.
+  const topByPos = new Map(); // key: "x,y" -> top cell
+  for (const cell of cells) {
+    if (cell.owner !== player) continue;
+    if (cell.x < zone.x_min || cell.x > zone.x_max) continue;
+    const key = `${cell.x},${cell.y}`;
+    const prev = topByPos.get(key);
+    if (!prev || cell.level > prev.level) {
+      topByPos.set(key, cell);
+    }
+  }
+
+  // Build the grid row-by-row: grid[y] holds the columns for game row y.
+  // grid[y][x - x_min] === data at game position (x, y).
   const grid = [];
   for (let y = 0; y < GRID_HEIGHT; y++) {
     const row = [];
     for (let x = zone.x_min; x <= zone.x_max; x++) {
-      const blocksAtCell = cells.filter(c => c.x === x && c.y === y && c.owner === player);
-      if (blocksAtCell.length === 0) {
+      const top = topByPos.get(`${x},${y}`) ?? null;
+      if (!top) {
         row.push(null);
       } else {
-        const top = blocksAtCell.reduce((a, b) => (b.level > a.level ? b : a));
-        const flag_protected = blocksAtCell.some(c => protectedSet.has(`${c.x},${c.y},${c.level}`));
+        // All cells at the same (x,y) share a union-find component, so checking
+        // the top block's protected status is equivalent to checking any block in the column.
+        const flag_protected = protectedSet.has(`${top.x},${top.y},${top.level}`);
         row.push({ level: top.level, health: top.health, type: top.type, flag_protected });
       }
     }

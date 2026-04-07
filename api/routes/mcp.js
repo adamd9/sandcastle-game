@@ -205,7 +205,7 @@ export function createMcpRouter() {
 
     server.tool(
       'get_my_zone_state',
-      'Get a compact 2D grid of your entire zone showing the top-level block at each (x,y) cell. Each entry is {level, health, type, flag_protected} or null for empty cells. flag_protected is true when the column is covered by a flag (50% weather damage reduction). Also returns your active flags list. Use this to quickly identify which cells need reinforcing, which can have height added, and which are protected by flags.',
+      'Get a compact 2D grid of your entire zone. zone_grid[y][x - x_min] always shows the game state at position (x, y) — a direct 1:1 mapping with no coordinate offsets. Each entry is {level, health, type, flag_protected} or null for empty cells. Moat blocks are permanent (cannot be destroyed) and appear with health=0; they must never be treated as empty. flag_protected is true when the column is covered by a flag (50% weather damage reduction). Also returns your active flags list. Use this to identify which cells need reinforcing, which can have height added, and which are protected by flags.',
       {},
       async () => {
         const state = await getState();

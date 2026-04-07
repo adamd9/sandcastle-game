@@ -440,6 +440,69 @@ describe('POST /mcp', () => {
     expect(parsed.flags[0]).toMatchObject({ x: 2, y: 7 });
   });
 
+  it('get_my_zone_state shows moat blocks (health=0) as non-null — regression for moat omission bug', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    // Place moat blocks at y=17, x=2-4 (player1 zone)
+    for (let x = 2; x <= 4; x++) {
+      s.cells.push({ x, y: 17, level: 0, type: 'moat', health: 0, owner: 'player1', moatDepth: 1 });
+    }
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    expect(parsed.zone).toMatchObject({ x_min: 0 }); // player1 zone starts at x=0
+
+    for (let x = 2; x <= 4; x++) {
+      const cell = parsed.zone_grid[17][x - parsed.zone.x_min];
+      expect(cell).not.toBeNull();
+      expect(cell).toHaveProperty('type', 'moat');
+      expect(cell).toHaveProperty('health', 0);
+    }
+  });
+
+  it('get_my_zone_state uses direct y→row mapping for y>=12 — regression for row-offset bug', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    // Place distinct block types at y=12 and y=13 to detect any off-by-one
+    s.cells.push({ x: 3, y: 12, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    s.cells.push({ x: 3, y: 13, level: 0, type: 'dry_sand',    health: 25, owner: 'player1' });
+    s.cells.push({ x: 3, y: 16, level: 0, type: 'wet_sand',    health: 40, owner: 'player1' });
+    s.cells.push({ x: 3, y: 19, level: 0, type: 'packed_sand', health: 60, owner: 'player1' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+
+    // grid[y][x] must reflect game position (x, y) with no offset
+    expect(parsed.zone_grid[12][3]).toMatchObject({ type: 'packed_sand' });
+    expect(parsed.zone_grid[13][3]).toMatchObject({ type: 'dry_sand' });
+    expect(parsed.zone_grid[16][3]).toMatchObject({ type: 'wet_sand' });
+    expect(parsed.zone_grid[19][3]).toMatchObject({ type: 'packed_sand' });
+    // Adjacent rows must be null (no accidental +1 or -1 shift)
+    expect(parsed.zone_grid[11][3]).toBeNull();
+    expect(parsed.zone_grid[14][3]).toBeNull();
+    expect(parsed.zone_grid[15][3]).toBeNull();
+    expect(parsed.zone_grid[17][3]).toBeNull();
+    expect(parsed.zone_grid[18][3]).toBeNull();
+  });
+
   it('get_flags returns player flag coverage', async () => {
     const { getState, saveState } = await import('../lib/store.js');
     const s = await getState();
