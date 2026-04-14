@@ -30,6 +30,7 @@ import {
   REINFORCED_WALL_ACTION_COST,
   PRESTIGE_LEVEL_MULTIPLIERS,
   STRUCTURAL_DEPTH_BONUS,
+  CROWN_PRESTIGE_MULTIPLIER,
 } from './rules.js';
 
 // ---------------------------------------------------------------------------
@@ -210,10 +211,11 @@ export function computeStructureScore(cells, player, flags = []) {
 
   // (12) Prestige score: height-weighted health sum, with a structural depth bonus
   //      for complete columns (blocks at all four levels L0–L3).
-  //      Level multipliers: L0=1×, L1=1.5×, L2=2×, L3=3×.
-  //      Columns with all 4 levels receive an additional 25% bonus.
+  //      Level multipliers: L0=1×, L1=1.2×, L2=1.5×, L3=2.0×.
+  //      Columns with all 4 levels receive an additional 50% bonus.
   //      Tower blocks (L2+) adjacent to same-owner courtyard tiles receive a
   //      25% courtyard prestige bonus on top of their normal contribution.
+  //      Columns topped with a crown block receive a 2× prestige multiplier.
   const nonMoatCells = playerCells.filter(c => c.type !== 'moat');
   // Collect courtyard positions owned by the player for adjacency lookup
   const courtyardXYSet = new Set(
@@ -251,8 +253,9 @@ export function computeStructureScore(cells, player, flags = []) {
     if (!columnLevels.has(posKey)) columnLevels.set(posKey, new Set());
     columnLevels.get(posKey).add(cell.level);
   }
-  // Apply 25% depth bonus to fully-stacked columns
+  // Apply 50% depth bonus to fully-stacked columns
   // Apply 10% prestige bonus for columns whose topmost block is a parapet
+  // Apply 2× prestige multiplier for columns topped with a crown block
   const topBlockByColumn = new Map(); // posKey -> topmost non-moat cell
   for (const cell of nonMoatCells) {
     const posKey = `${cell.x},${cell.y}`;
@@ -261,6 +264,7 @@ export function computeStructureScore(cells, player, flags = []) {
     }
   }
   let parapet_count = 0;
+  let crown_count = 0;
   for (const [posKey, levelsHere] of columnLevels) {
     const isFullColumn = levelsHere.has(0) && levelsHere.has(1) && levelsHere.has(2) && levelsHere.has(3);
     if (isFullColumn) {
@@ -270,6 +274,10 @@ export function computeStructureScore(cells, player, flags = []) {
     if (topCell && topCell.type === 'parapet') {
       columnPrestige.set(posKey, columnPrestige.get(posKey) * (1 + PARAPET_PRESTIGE_BONUS));
       parapet_count++;
+    }
+    if (topCell && topCell.type === 'crown') {
+      columnPrestige.set(posKey, columnPrestige.get(posKey) * CROWN_PRESTIGE_MULTIPLIER);
+      crown_count++;
     }
   }
   const prestige_score = Math.round([...columnPrestige.values()].reduce((sum, s) => sum + s, 0));
@@ -328,7 +336,7 @@ export function computeStructureScore(cells, player, flags = []) {
     footprint, perimeter, perimeter_integrity, perimeter_gaps,
     height_variety, architectural_complexity,
     flag_diversity, courtyard_bonus, courtyard_cells,
-    prestige_score, moat_courtyard_bonus, longevity_bonus, parapet_count,
+    prestige_score, moat_courtyard_bonus, longevity_bonus, parapet_count, crown_count,
   };
 }
 
@@ -882,6 +890,9 @@ export function validateMove(state, player, action) {
       }
       if (blockType === 'parapet' && (level < 1 || level > 2)) {
         return { valid: false, reason: 'Parapet blocks can only be placed at level 1 or 2 (atop a wall, like battlements).' };
+      }
+      if (blockType === 'crown' && level !== MAX_LEVEL) {
+        return { valid: false, reason: `Crown blocks can only be placed at level ${MAX_LEVEL} (spire height only).` };
       }
       if (blockType === 'reinforced_wall' && level > REINFORCED_WALL_MAX_LEVEL) {
         return { valid: false, reason: `Reinforced wall blocks can only be placed at level 0–${REINFORCED_WALL_MAX_LEVEL} (walls shouldn't be spires).` };

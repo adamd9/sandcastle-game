@@ -22,6 +22,7 @@ export const BLOCK_TYPES = {
   buttress:    { initial_health: 20, level0Only: true }, // fragile support block; level 0 only; grants +10 max HP and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top
   parapet:         { initial_health: 35, level1or2Only: true }, // elevated battlements; level 1-2 only; on windward edge reduces wind damage to column by 50%; topped columns get 10% prestige bonus
   reinforced_wall: { initial_health: 80, max_health: 80, maxLevel: 2, actionCost: 2 }, // premium defensive wall; max level 2; costs 2 actions; must be adjacent to packed_sand or reinforced_wall; grants 15% damage reduction to the block behind it (away from nearest grid edge)
+  crown:           { initial_health: 40, level3Only: true }, // decorative spire crown; level 3 only; grants 2× prestige multiplier to the entire column below it
 };
 
 export const VALID_ACTIONS = ['PLACE', 'REMOVE', 'REINFORCE', 'REPAIR_KIT', 'DEEPEN_MOAT'];
@@ -101,9 +102,11 @@ export const WEATHER_EVENTS = [
 
 // Prestige scoring — height-weighted score computed inside computeStructureScore
 // Index = level (0–3); value = multiplier applied to block health
-export const PRESTIGE_LEVEL_MULTIPLIERS = [1, 1.5, 2, 3];
+export const PRESTIGE_LEVEL_MULTIPLIERS = [1, 1.2, 1.5, 2.0];
 // Extra multiplier awarded to a column when all four levels (L0–L3) are filled
-export const STRUCTURAL_DEPTH_BONUS = 0.25;
+export const STRUCTURAL_DEPTH_BONUS = 0.5;
+// Crown block at L3 doubles the prestige of the entire column it sits on top of
+export const CROWN_PRESTIGE_MULTIPLIER = 2.0;
 
 // Visual scoring — every JUDGE_INTERVAL ticks, an LLM judges the castles
 export const JUDGE_INTERVAL = 4;
