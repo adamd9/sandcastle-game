@@ -123,7 +123,7 @@ const RULES_DOC = {
   },
   mcp_tools: {
     get_state: 'Get current game state with recent turn history and weather events, structured for AI consumption.',
-    get_my_zone_state: 'Get a compact 2D grid of your zone showing top-level block {level, health, type, flag_protected} or null at each (x,y) cell. Also returns your active flags list.',
+    get_my_zone_state: 'Get a compact 2D grid of your zone. Each non-null cell has {level, health, type, flag_protected, min_health, levels}. min_health shows the weakest non-moat block in the column; levels gives a per-level [{level, health, type}] breakdown. Also returns your active flags list.',
     get_flags: 'Get your active flags with connected-component coverage (protected_blocks list per flag).',
     get_rules: 'Get these rules.',
     submit_turn: 'Submit all moves for this tick as a batch array. Auto-commits your turn.',
@@ -205,7 +205,7 @@ export function createMcpRouter() {
 
     server.tool(
       'get_my_zone_state',
-      'Get a compact 2D grid of your entire zone. zone_grid[y][x - x_min] always shows the game state at position (x, y) — a direct 1:1 mapping with no coordinate offsets. Each entry is {level, health, type, flag_protected} or null for empty cells. Moat blocks are permanent (cannot be destroyed) and appear with health=0; they must never be treated as empty. flag_protected is true when the column is covered by a flag (50% weather damage reduction). Also returns your active flags list. Use this to identify which cells need reinforcing, which can have height added, and which are protected by flags.',
+      'Get a compact 2D grid of your entire zone. zone_grid[y][x - x_min] always shows the game state at position (x, y) — a direct 1:1 mapping with no coordinate offsets. Each entry is {level, health, type, flag_protected, min_health, levels} or null for empty cells. level/health/type describe the top-most block in the column. min_health is the minimum health across all non-moat blocks in the column — use this to spot structurally vulnerable columns where intermediate blocks are critically damaged. levels is a [{level, health, type}, ...] breakdown of every block in the column sorted by level, giving full per-level visibility. Moat blocks are permanent (cannot be destroyed) and appear with health=0; they must never be treated as empty. flag_protected is true when the column is covered by a flag (50% weather damage reduction). Also returns your active flags list. Use this to identify which cells need reinforcing, which can have height added, and which are protected by flags.',
       {},
       async () => {
         const state = await getState();

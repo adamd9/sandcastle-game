@@ -503,6 +503,87 @@ describe('POST /mcp', () => {
     expect(parsed.zone_grid[18][3]).toBeNull();
   });
 
+  it('get_my_zone_state includes min_health and levels for a single-block column', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    s.cells.push({ x: 2, y: 4, level: 0, type: 'packed_sand', health: 45, owner: 'player1' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const cell = parsed.zone_grid[4][2];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('level', 0);
+    expect(cell).toHaveProperty('health', 45);
+    expect(cell).toHaveProperty('min_health', 45);
+    expect(cell.levels).toEqual([{ level: 0, health: 45, type: 'packed_sand' }]);
+  });
+
+  it('get_my_zone_state min_health reflects the weakest intermediate block, not the top', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    // Column with L0 critically damaged (health=5) under a healthy top block (L1, health=60)
+    s.cells.push({ x: 1, y: 3, level: 0, type: 'dry_sand',    health: 5,  owner: 'player1' });
+    s.cells.push({ x: 1, y: 3, level: 1, type: 'packed_sand', health: 60, owner: 'player1' });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const cell = parsed.zone_grid[3][1];
+    expect(cell).not.toBeNull();
+    // Top block is healthy (L1)
+    expect(cell).toHaveProperty('level', 1);
+    expect(cell).toHaveProperty('health', 60);
+    // But min_health exposes the critically damaged L0
+    expect(cell).toHaveProperty('min_health', 5);
+    // levels shows both blocks sorted ascending by level
+    expect(cell.levels).toEqual([
+      { level: 0, health: 5,  type: 'dry_sand' },
+      { level: 1, health: 60, type: 'packed_sand' },
+    ]);
+  });
+
+  it('get_my_zone_state min_health excludes moat blocks (health=0 means permanent)', async () => {
+    const { getState, saveState } = await import('../lib/store.js');
+    const s = await getState();
+    // Column: moat at L0 (permanent, health=0) — min_health should be null (no non-moat block)
+    s.cells.push({ x: 3, y: 10, level: 0, type: 'moat', health: 0, owner: 'player1', moatDepth: 1 });
+    await saveState(s);
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_my_zone_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const cell = parsed.zone_grid[10][3];
+    expect(cell).not.toBeNull();
+    expect(cell).toHaveProperty('type', 'moat');
+    // min_health must be null — moat health=0 denotes permanence, not damage
+    expect(cell.min_health).toBeNull();
+    expect(cell.levels).toEqual([{ level: 0, health: 0, type: 'moat' }]);
+  });
+
   it('get_flags returns player flag coverage', async () => {
     const { getState, saveState } = await import('../lib/store.js');
     const s = await getState();

@@ -359,8 +359,8 @@ function inGrid(x, y) {
 
 /**
  * Returns a 2D array [y][x - x_min] where each entry is
- * {level, health, type, flag_protected} for the top-most block owned by player at that cell,
- * or null if the cell is empty.
+ * {level, health, type, flag_protected, min_health, levels} for the top-most block
+ * owned by player at that cell, or null if the cell is empty.
  *
  * The mapping is a direct 1:1 correspondence: grid[y][x - zone.x_min] always reflects
  * the game state at position (x, y) — no coordinate offsets are applied.
@@ -368,24 +368,25 @@ function inGrid(x, y) {
  * Moat blocks (health = 0, permanent) are always included and never omitted.
  *
  * flag_protected is true when the column is part of a flag-protected connected structure.
+ * min_health is the minimum health across all non-moat blocks in the column, exposing
+ *   damaged intermediate blocks that are invisible when only the top block is shown.
+ * levels is a per-level breakdown [{level, health, type}, ...] sorted ascending by level.
  * Dimensions: GRID_HEIGHT rows × (x_max - x_min + 1) columns.
  */
 export function buildZoneGrid(cells, player, flags = []) {
   const zone = ZONES[player];
   const protectedSet = buildFlagProtectedSet(cells, flags);
 
-  // Pre-index the highest-level cell owned by this player at each (x,y) in their zone.
+  // Pre-index all cells owned by this player at each (x,y) in their zone.
   // Using a map avoids repeated O(n) scans and makes the y→row mapping explicit.
   // Moat blocks (health=0) are intentionally included — they are permanent and must be shown.
-  const topByPos = new Map(); // key: "x,y" -> top cell
+  const allByPos = new Map(); // key: "x,y" -> array of cells
   for (const cell of cells) {
     if (cell.owner !== player) continue;
     if (cell.x < zone.x_min || cell.x > zone.x_max) continue;
     const key = `${cell.x},${cell.y}`;
-    const prev = topByPos.get(key);
-    if (!prev || cell.level > prev.level) {
-      topByPos.set(key, cell);
-    }
+    if (!allByPos.has(key)) allByPos.set(key, []);
+    allByPos.get(key).push(cell);
   }
 
   // Build the grid row-by-row: grid[y] holds the columns for game row y.
@@ -394,14 +395,30 @@ export function buildZoneGrid(cells, player, flags = []) {
   for (let y = 0; y < GRID_HEIGHT; y++) {
     const row = [];
     for (let x = zone.x_min; x <= zone.x_max; x++) {
-      const top = topByPos.get(`${x},${y}`) ?? null;
-      if (!top) {
+      const column = allByPos.get(`${x},${y}`);
+      if (!column || column.length === 0) {
         row.push(null);
       } else {
+        // Sort ascending by level so the last entry is the top block.
+        column.sort((a, b) => a.level - b.level);
+        const top = column[column.length - 1];
+
         // All cells at the same (x,y) share a union-find component, so checking
         // the top block's protected status is equivalent to checking any block in the column.
         const flag_protected = protectedSet.has(`${top.x},${top.y},${top.level}`);
-        row.push({ level: top.level, health: top.health, type: top.type, flag_protected });
+
+        // min_health: minimum health of non-moat blocks, exposing damaged lower levels.
+        // Moat blocks carry health=0 to indicate permanence, not damage, so they are excluded.
+        let min_health = null;
+        for (const c of column) {
+          if (c.type === 'moat') continue;
+          if (min_health === null || c.health < min_health) min_health = c.health;
+        }
+
+        // Per-level breakdown for full structural visibility.
+        const levels = column.map(c => ({ level: c.level, health: c.health, type: c.type }));
+
+        row.push({ level: top.level, health: top.health, type: top.type, flag_protected, min_health, levels });
       }
     }
     grid.push(row);
