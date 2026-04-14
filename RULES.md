@@ -31,6 +31,7 @@ SandCastle Wars is a top-down 20×20 grid game where two AI agents compete to bu
 | `buttress` | 20 | Fragile support block; level 0 only; grants +10 max HP (cap 60→70) and 1.2× prestige score to adjacent same-owner blocks; normal blocks can be stacked on top |
 | `parapet` | 35 | Elevated battlements; level 1–2 only; on windward edge reduces wind damage to entire column by 50%; columns topped with a parapet receive 10% prestige bonus |
 | `reinforced_wall` | 80 | Premium defensive wall; max level 2; costs **2 actions** to place; must be adjacent (same level) to packed_sand or reinforced_wall; grants 15% damage reduction to the block behind it (away from nearest grid edge) |
+| `crown` | 40 | Decorative spire crown; **level 3 only**; grants **2× prestige multiplier** to the entire column it tops — rewards maintaining a tall, complete spire |
 
 Blocks can be **reinforced** (+15 HP per action, up to max 60 HP; critically damaged blocks below 20 HP receive +30 HP instead) or **fully restored** with a Repair Kit. Health reaches 0 → block is destroyed. Moat blocks cannot be reinforced or repaired. Reinforced wall blocks can be reinforced and repaired up to their 80 HP maximum.
 
@@ -152,6 +153,24 @@ A `parapet` is a special elevated battlement block that sits atop a wall to crea
 
 ---
 
+## Crown
+
+A `crown` is a decorative spire-cap block placed at the very top of a tower (level 3 only).
+
+- **Level 3 only**: crowns can only be placed at the maximum height — on top of a complete spire.
+- **Prestige multiplier**: placing a crown on top of a column doubles the **entire column's prestige score** (2× multiplier applied after the structural depth bonus and all other bonuses).
+- **Durability**: crowns start at 40 HP — comparable to wet_sand, reflecting their exposed pinnacle position.
+- **Affected by weather**: crowns take normal weather damage; they can be reinforced or repaired.
+- **Foundation required**: like any L3 block, a crown must have an L2 block directly below it at the same (x, y).
+- **Visual**: rendered as a pointed turret cap or decorative pinnacle on the board image.
+- **Strategic use**: place crowns on your tallest, most central towers to dramatically boost their prestige contribution. Maintain them carefully — a destroyed crown removes the 2× bonus.
+
+```json
+{ "action": "PLACE", "x": 5, "y": 10, "block_type": "crown", "level": 3 }
+```
+
+---
+
 ## Multi-Level Stacking
 
 Each (x, y) cell supports up to 4 levels: **L0 (ground) → L1 → L2 → L3 (spire)**.
@@ -238,7 +257,7 @@ All player interactions with the game happen via MCP tools. Call `get_rules` eve
 | `action` | `PLACE` \| `REMOVE` \| `REINFORCE` \| `REPAIR_KIT` \| `DEEPEN_MOAT` | Required |
 | `x` | 0–9 (P1) or 10–19 (P2) | Must be in your zone |
 | `y` | 3–19 | Rows 0–2 are ocean — cannot build there |
-| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` \| `parapet` \| `reinforced_wall` | Required for PLACE only |
+| `block_type` | `packed_sand` \| `wet_sand` \| `dry_sand` \| `moat` \| `courtyard` \| `buttress` \| `parapet` \| `reinforced_wall` \| `crown` | Required for PLACE only |
 | `level` | 0–3 | Must place L0 before L1; cascade on removal |
 
 ```json
@@ -282,6 +301,33 @@ Every **4 ticks**, an AI judge visually evaluates both castles and awards **1 po
 Current scores and the latest judgment (winner + reasoning) are included in `get_state`. Each history round that included a judgment has a `judgment` field with `{ winner, reasoning, scores }`.
 
 **The goal is to accumulate the highest score.** Build impressively, not just defensively.
+
+### Prestige Scoring
+
+Your **prestige score** is a height-weighted measure of your structure's architectural quality. Each block contributes:
+
+```
+block_prestige = block_health × level_multiplier
+```
+
+| Level | Multiplier |
+|---|---|
+| L0 (ground) | 1.0× |
+| L1 | 1.2× |
+| L2 | 1.5× |
+| L3 (spire) | 2.0× |
+
+Additional bonuses stack multiplicatively on top of the base contribution:
+
+| Bonus | Condition | Effect |
+|---|---|---|
+| **Tower completeness** | Column has blocks at all 4 levels (L0–L3) | +50% to entire column prestige |
+| **Crown multiplier** | Column topped with a `crown` block at L3 | ×2.0 to entire column prestige |
+| **Parapet bonus** | Column's topmost block is a `parapet` | +10% to entire column prestige |
+| **Courtyard bonus** | L2+ block adjacent to same-owner `courtyard` | +25% to that block's prestige |
+| **Buttress bonus** | Block adjacent to same-owner `buttress` | ×1.2 to that block's prestige |
+
+**Tip**: A complete crown tower (L0–L3 + crown) earns: raw column prestige × 1.5 (50% completeness bonus) × 2.0 (crown multiplier) = **3.0× the raw column prestige**.
 
 Think like an architect:
 - **Outer defensive walls** — a perimeter of `packed_sand` to absorb weather damage

@@ -1027,7 +1027,7 @@ describe('computeStructureScore — breakdown fields', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeStructureScore — prestige_score', () => {
-  it('awards level multipliers: L0=1x, L1=1.5x, L2=2x, L3=3x', () => {
+  it('awards level multipliers: L0=1x, L1=1.2x, L2=1.5x, L3=2.0x', () => {
     const cells = [
       { x: 3, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
       { x: 4, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
@@ -1035,17 +1035,17 @@ describe('computeStructureScore — prestige_score', () => {
       { x: 6, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
     ];
     const score = computeStructureScore(cells, 'player1');
-    // 60*1 + 60*1.5 + 60*2 + 60*3 = 60 + 90 + 120 + 180 = 450
-    expect(score.prestige_score).toBe(450);
+    // 60*1 + 60*1.2 + 60*1.5 + 60*2.0 = 60 + 72 + 90 + 120 = 342
+    expect(score.prestige_score).toBe(342);
   });
 
-  it('grants 25% structural depth bonus for a fully-stacked column (L0–L3)', () => {
+  it('grants 50% structural depth bonus for a fully-stacked column (L0–L3)', () => {
     const cells = [0, 1, 2, 3].map(level => ({
       x: 5, y: 5, level, type: 'packed_sand', health: 60, owner: 'player1',
     }));
     const score = computeStructureScore(cells, 'player1');
-    // Raw column: 60*1 + 60*1.5 + 60*2 + 60*3 = 450; with 25% bonus: 450 * 1.25 = 562.5 → 563
-    expect(score.prestige_score).toBe(563);
+    // Raw column: 60*1 + 60*1.2 + 60*1.5 + 60*2.0 = 342; with 50% bonus: 342 * 1.5 = 513
+    expect(score.prestige_score).toBe(513);
   });
 
   it('does not apply depth bonus when column is incomplete', () => {
@@ -1055,8 +1055,8 @@ describe('computeStructureScore — prestige_score', () => {
       { x: 5, y: 5, level: 3, type: 'packed_sand', health: 60, owner: 'player1' },
     ];
     const score = computeStructureScore(cells, 'player1');
-    // No bonus: 60*1 + 60*3 = 240
-    expect(score.prestige_score).toBe(240);
+    // No bonus: 60*1 + 60*2.0 = 180
+    expect(score.prestige_score).toBe(180);
   });
 
   it('excludes moat cells from prestige score', () => {
@@ -1088,9 +1088,9 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
     ];
     const score = computeStructureScore(cells, 'player1');
     // courtyard at L0: 30*1 = 30 prestige
-    // tower col (6,10): L0=60*1=60, L1=60*1.5=90, L2=60*2=120 → L2 gets 25% bonus: 120*1.25=150
-    // total = 30 + 60 + 90 + 150 = 330
-    expect(score.prestige_score).toBe(330);
+    // tower col (6,10): L0=60*1=60, L1=60*1.2=72, L2=60*1.5=90 → L2 gets courtyard 25% bonus (adjacent to courtyard): 90*1.25=112.5
+    // total = 30 + 60 + 72 + 112.5 = 274.5 → 275
+    expect(score.prestige_score).toBe(275);
   });
 
   it('grants 25% prestige bonus to an L3 block adjacent to a courtyard', () => {
@@ -1103,10 +1103,10 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
     ];
     const score = computeStructureScore(cells, 'player1');
     // courtyard at (5,10): 30*1 = 30
-    // tower col (5,11): L0=60, L1=90, L2=120*1.25=150, L3=180*1.25=225 → raw sum=525
-    // full column (L0–L3) depth bonus applied to the raw sum: 525*1.25=656.25
-    // total prestige = Math.round(30 + 656.25) = 686
-    expect(score.prestige_score).toBe(686);
+    // tower col (5,11): L0=60*1=60, L1=60*1.2=72, L2=60*1.5*1.25=112.5, L3=60*2.0*1.25=150 → raw sum=394.5
+    // full column (L0–L3) depth bonus 50%: 394.5*1.5=591.75
+    // total prestige = Math.round(30 + 591.75) = 622
+    expect(score.prestige_score).toBe(622);
   });
 
   it('does NOT grant courtyard bonus to L0 or L1 blocks', () => {
@@ -1116,8 +1116,8 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
       { x: 6, y: 10, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
     ];
     const score = computeStructureScore(cells, 'player1');
-    // courtyard: 30, L0=60, L1=90 (no bonus for L0/L1)
-    expect(score.prestige_score).toBe(180);
+    // courtyard: 30, L0=60*1=60, L1=60*1.2=72 (no bonus for L0/L1)
+    expect(score.prestige_score).toBe(162);
   });
 
   it('does NOT grant courtyard bonus when courtyard belongs to the opponent', () => {
@@ -1128,8 +1128,8 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
       { x: 6, y: 10, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
     ];
     const score = computeStructureScore(cells, 'player1');
-    // player1 has no courtyard; no bonus: L0=60, L1=90, L2=120
-    expect(score.prestige_score).toBe(270);
+    // player1 has no courtyard; no bonus: L0=60*1=60, L1=60*1.2=72, L2=60*1.5=90
+    expect(score.prestige_score).toBe(222);
   });
 
   it('does NOT grant courtyard bonus when tower is not adjacent (diagonal only)', () => {
@@ -1140,8 +1140,8 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
       { x: 6, y: 11, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
     ];
     const score = computeStructureScore(cells, 'player1');
-    // courtyard: 30, L0=60, L1=90, L2=120 (no bonus since diagonal, not orthogonally adjacent)
-    expect(score.prestige_score).toBe(300);
+    // courtyard: 30, L0=60*1=60, L1=60*1.2=72, L2=60*1.5=90 (no bonus since diagonal, not orthogonally adjacent)
+    expect(score.prestige_score).toBe(252);
   });
 
   it('courtyard block itself contributes to prestige based on its health', () => {
@@ -1203,11 +1203,11 @@ describe('computeStructureScore — buttress prestige multiplier', () => {
     // courtyard (4,10): 30*1 = 30 (not adjacent to buttress — distance=2, not adjacent)
     // buttress (6,10): 20*1 = 20 (adjacent to sand col at (5,10) but does not receive courtyard bonus — courtyard at x=4 is not adjacent to buttress at x=6)
     // sand col (5,10): adjacent to both buttress(6,10) and courtyard(4,10)
-    //   L0: adjacent to buttress (6,10) → ×1.2 = 72; adjacent to courtyard (4,10) → level<2, no courtyard bonus
-    //   L1: adjacent to buttress (6,10) → ×1.2 = 108; adjacent to courtyard (4,10) → level<2, no courtyard bonus
-    //   L2: adjacent to buttress (6,10) → ×1.2 = 144; adjacent to courtyard (4,10) → level>=2, ×1.25 = 180
-    // total = 30 + 20 + 72 + 108 + 180 = 410
-    expect(score.prestige_score).toBe(410);
+    //   L0: 60*1*1.2 = 72; adjacent to courtyard (4,10) → level<2, no courtyard bonus
+    //   L1: 60*1.2*1.2 = 86.4; adjacent to courtyard (4,10) → level<2, no courtyard bonus
+    //   L2: 60*1.5*1.2 = 108; adjacent to courtyard (4,10) → level>=2, ×1.25 = 135
+    // total = 30 + 20 + 72 + 86.4 + 135 = 343.4 → 343
+    expect(score.prestige_score).toBe(343);
   });
 
   it('buttress block itself contributes to prestige based on its health', () => {
@@ -1217,6 +1217,88 @@ describe('computeStructureScore — buttress prestige multiplier', () => {
     const score = computeStructureScore(cells, 'player1');
     // buttress at L0: 20 * 1 = 20 (no adjacent buttress)
     expect(score.prestige_score).toBe(20);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStructureScore — crown prestige multiplier
+// ---------------------------------------------------------------------------
+
+describe('computeStructureScore — crown prestige multiplier', () => {
+  it('doubles the prestige of a column topped with a crown block', () => {
+    const cells = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 1, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 2, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 3, type: 'crown',       health: 40, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // Raw col (before depth/crown): 60*1 + 60*1.2 + 60*1.5 + 40*2.0 = 60+72+90+80 = 302
+    // Full column (L0–L3): 302 * 1.5 = 453
+    // Crown doubles the column: 453 * 2 = 906
+    expect(score.prestige_score).toBe(906);
+  });
+
+  it('crown_count is 1 when a crown tops a column', () => {
+    const cells = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+      { x: 5, y: 5, level: 3, type: 'crown',       health: 40, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.crown_count).toBe(1);
+  });
+
+  it('crown_count is 0 when no crown blocks exist', () => {
+    const cells = [
+      { x: 5, y: 5, level: 0, type: 'packed_sand', health: 60, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    expect(score.crown_count).toBe(0);
+  });
+
+  it('crown block itself contributes prestige based on its health and level multiplier', () => {
+    const cells = [
+      { x: 5, y: 5, level: 3, type: 'crown', health: 40, owner: 'player1' },
+    ];
+    const score = computeStructureScore(cells, 'player1');
+    // crown at L3: 40*2.0 = 80; column topped with crown → *2.0 = 160
+    expect(score.prestige_score).toBe(160);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateMove — crown placement
+// ---------------------------------------------------------------------------
+
+describe('validateMove — crown placement', () => {
+  it('allows PLACE crown at level 3 with a foundation below', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 2 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'crown', level: 3 });
+    expect(r.valid).toBe(true);
+  });
+
+  it('rejects PLACE crown at level 0', () => {
+    const state = freshState();
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'crown', level: 0 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/level 3/);
+  });
+
+  it('rejects PLACE crown at level 1', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 0 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'crown', level: 1 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/level 3/);
+  });
+
+  it('rejects PLACE crown at level 2', () => {
+    const state = freshState();
+    state.cells.push({ x: 5, y: 5, type: 'packed_sand', health: 60, owner: 'player1', level: 1 });
+    const r = validateMove(state, 'player1', { action: 'PLACE', x: 5, y: 5, type: 'crown', level: 2 });
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/level 3/);
   });
 });
 
