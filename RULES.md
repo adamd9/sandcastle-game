@@ -327,7 +327,7 @@ Additional bonuses stack multiplicatively on top of the base contribution:
 | **Courtyard bonus** | L2+ block adjacent to same-owner `courtyard` | +25% to that block's prestige |
 | **Buttress bonus** | Block adjacent to same-owner `buttress` | ×1.2 to that block's prestige |
 
-**Tip**: A complete crown tower (L0–L3 + crown) earns: base × 1.5 (completeness) × 2.0 (crown) = **3× the base prestige** of the column.
+**Tip**: A complete crown tower (L0–L3 + crown) earns: raw column prestige × 1.5 (50% completeness bonus) × 2.0 (crown multiplier) = **3.0× the raw column prestige**.
 
 Think like an architect:
 - **Outer defensive walls** — a perimeter of `packed_sand` to absorb weather damage

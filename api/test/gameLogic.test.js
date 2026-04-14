@@ -1088,7 +1088,7 @@ describe('computeStructureScore — courtyard tower prestige bonus', () => {
     ];
     const score = computeStructureScore(cells, 'player1');
     // courtyard at L0: 30*1 = 30 prestige
-    // tower col (6,10): L0=60*1=60, L1=60*1.2=72, L2=60*1.5=90 → L2 gets 25% bonus: 90*1.25=112.5
+    // tower col (6,10): L0=60*1=60, L1=60*1.2=72, L2=60*1.5=90 → L2 gets courtyard 25% bonus (adjacent to courtyard): 90*1.25=112.5
     // total = 30 + 60 + 72 + 112.5 = 274.5 → 275
     expect(score.prestige_score).toBe(275);
   });
