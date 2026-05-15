@@ -117,8 +117,10 @@ describe('POST /mcp', () => {
     expect(parsed.current_state.damage_preview).toHaveProperty('weather_assumption');
     expect(parsed.current_state.damage_preview).toHaveProperty('damage_per_top_block');
     expect(parsed.current_state.damage_preview).toHaveProperty('blocks_at_risk');
+    expect(parsed.current_state.damage_preview).toHaveProperty('blocks_needing_reinforcement');
     expect(Array.isArray(parsed.current_state.damage_preview.damage_per_top_block)).toBe(true);
     expect(Array.isArray(parsed.current_state.damage_preview.blocks_at_risk)).toBe(true);
+    expect(Array.isArray(parsed.current_state.damage_preview.blocks_needing_reinforcement)).toBe(true);
   });
 
   it('get_state flag_coverage lists protected blocks for each flag', async () => {
@@ -224,6 +226,47 @@ describe('POST /mcp', () => {
     // blocks_at_risk should contain only blocks where health <= expected_damage
     for (const b of preview.blocks_at_risk) {
       expect(b.health).toBeLessThanOrEqual(b.expected_damage);
+    }
+  });
+
+  it('get_state blocks_needing_reinforcement contains only blocks below 50% health sorted ascending', async () => {
+    // Place a dry_sand block (initial health=25, which is below 50% of MAX_HEALTH=60)
+    await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'submit_turn',
+          arguments: { moves: [{ action: 'PLACE', x: 5, y: 5, block_type: 'dry_sand' }] },
+        },
+      });
+
+    const res = await request(app)
+      .post('/mcp')
+      .set('X-Api-Key', 'test-key-p1')
+      .send({
+        jsonrpc: '2.0', id: 1,
+        method: 'tools/call',
+        params: { name: 'get_state', arguments: {} },
+      });
+    expect(res.status).toBe(200);
+    const parsed = JSON.parse(res.body.result?.content?.[0]?.text);
+    const preview = parsed.current_state.damage_preview;
+    expect(Array.isArray(preview.blocks_needing_reinforcement)).toBe(true);
+    // dry_sand starts at health=25, which is below 30 (50% of MAX_HEALTH=60)
+    const drySandBlock = preview.blocks_needing_reinforcement.find(b => b.x === 5 && b.y === 5);
+    expect(drySandBlock).toBeDefined();
+    // All blocks in the list must have health < 30 (50% of MAX_HEALTH)
+    for (const b of preview.blocks_needing_reinforcement) {
+      expect(b.health).toBeLessThan(30);
+    }
+    // List must be sorted ascending by health
+    for (let i = 1; i < preview.blocks_needing_reinforcement.length; i++) {
+      expect(preview.blocks_needing_reinforcement[i].health).toBeGreaterThanOrEqual(
+        preview.blocks_needing_reinforcement[i - 1].health,
+      );
     }
   });
 
