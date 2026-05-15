@@ -9,7 +9,8 @@ router.get('/', async (req, res) => {
   try {
     const state = await getState();
     const cellSize = Math.min(60, Math.max(10, parseInt(req.query.cellSize) || 30));
-    const buf = await renderBoard(state, { view: 'full', cellSize });
+    const show_flags = req.query.show_flags === 'true';
+    const buf = await renderBoard(state, { view: 'full', cellSize, show_flags });
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'no-cache');
     res.send(buf);
@@ -23,7 +24,8 @@ router.get('/player1', async (req, res) => {
   try {
     const state = await getState();
     const cellSize = Math.min(60, Math.max(10, parseInt(req.query.cellSize) || 30));
-    const buf = await renderBoard(state, { view: 'player1', cellSize });
+    const show_flags = req.query.show_flags === 'true';
+    const buf = await renderBoard(state, { view: 'player1', cellSize, show_flags });
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'no-cache');
     res.send(buf);
@@ -37,7 +39,8 @@ router.get('/player2', async (req, res) => {
   try {
     const state = await getState();
     const cellSize = Math.min(60, Math.max(10, parseInt(req.query.cellSize) || 30));
-    const buf = await renderBoard(state, { view: 'player2', cellSize });
+    const show_flags = req.query.show_flags === 'true';
+    const buf = await renderBoard(state, { view: 'player2', cellSize, show_flags });
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'no-cache');
     res.send(buf);
